@@ -210,5 +210,7 @@ __marimo__/
 # データベースファイル（個人データが含まれるため）
 data/videos.db
 data/backups/*.db
+# アプリケーション設定ファイル（ユーザー固有のランタイムデータ）
+data/app_settings.json
 # Streamlit設定
 .streamlit/

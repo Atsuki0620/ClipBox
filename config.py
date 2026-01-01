@@ -9,10 +9,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 
 # スキャン対象ディレクトリ
-# TODO: 実際の環境に合わせて修正してください
 SCAN_DIRECTORIES = [
-    Path("C:/Users/YourName/Videos"),
-    # Path("E:/Videos"),  # 外付けHDD（必要に応じてコメント解除）
+    Path(r"C:\Users\atsuk\OneDrive\ドキュメント\data\ClipBox_TEST"),
+    # 追加のディレクトリがある場合はここに追加
+    # Path("E:/Videos"),  # 外付けHDD
 ]
 
 # データベースパス
