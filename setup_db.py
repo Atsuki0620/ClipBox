@@ -4,7 +4,6 @@ ClipBox - データベース初期化スクリプト
 """
 
 from core.database import init_database, check_database_exists, DATABASE_PATH
-from pathlib import Path
 
 
 def main():
@@ -35,6 +34,7 @@ def main():
         print("作成されたテーブル:")
         print("  - videos (動画情報)")
         print("  - viewing_history (視聴履歴)")
+        print("  - play_history (再生履歴)")
         print()
         print("[OK] セットアップが正常に完了しました！")
         print()
