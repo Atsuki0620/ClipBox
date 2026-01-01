@@ -158,3 +158,54 @@ class FileScanner:
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified))
+
+
+def detect_recently_accessed_files(last_check_time: Optional[datetime], db_conn) -> List[dict]:
+    """
+    最近アクセスされたファイルを検知
+
+    Args:
+        last_check_time: 前回チェック日時（Noneの場合は全期間）
+        db_conn: データベース接続
+
+    Returns:
+        List[dict]: アクセスされたファイルの情報リスト
+    """
+    # データベースに登録されている動画を取得
+    cursor = db_conn.execute("""
+        SELECT id, essential_filename, current_full_path
+        FROM videos
+    """)
+    videos = cursor.fetchall()
+
+    accessed_files = []
+
+    for video in videos:
+        video_id = video[0]
+        essential_filename = video[1]
+        file_path = Path(video[2])
+
+        # ファイルが存在しない場合はスキップ
+        if not file_path.exists():
+            continue
+
+        try:
+            # ファイルの最終アクセス日時を取得
+            access_time = datetime.fromtimestamp(file_path.stat().st_atime)
+
+            # 前回チェック以降にアクセスされているかチェック
+            if last_check_time is None or access_time > last_check_time:
+                accessed_files.append({
+                    'video_id': video_id,
+                    'essential_filename': essential_filename,
+                    'file_path': str(file_path),
+                    'access_time': access_time
+                })
+        except Exception as e:
+            print(f"ファイルアクセス情報の取得エラー ({file_path}): {e}")
+            continue
+
+    # アクセス日時でソート（古い順）
+    accessed_files.sort(key=lambda x: x['access_time'])
+
+    return accessed_files

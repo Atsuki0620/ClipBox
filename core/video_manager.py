@@ -207,3 +207,33 @@ class VideoManager:
             last_scanned_at=row['last_scanned_at'],
             notes=row['notes']
         )
+
+    def record_file_access_as_viewing(self, accessed_files: List[dict]) -> int:
+        """
+        ファイルアクセスを視聴履歴として一括記録
+
+        Args:
+            accessed_files: アクセスされたファイルの情報リスト
+                [{
+                    'video_id': int,
+                    'essential_filename': str,
+                    'file_path': str,
+                    'access_time': datetime
+                }, ...]
+
+        Returns:
+            int: 記録した件数
+        """
+        if not accessed_files:
+            return 0
+
+        with get_db_connection() as conn:
+            for file_info in accessed_files:
+                conn.execute("""
+                    INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
+                    VALUES (?, ?, 'FILE_ACCESS_DETECTED')
+                """, (file_info['video_id'], file_info['access_time']))
+
+            conn.commit()
+
+        return len(accessed_files)

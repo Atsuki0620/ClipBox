@@ -10,7 +10,8 @@ from datetime import datetime
 
 from core.database import init_database, check_database_exists, get_db_connection
 from core.video_manager import VideoManager
-from core.scanner import FileScanner
+from core.scanner import FileScanner, detect_recently_accessed_files
+from core.settings import get_last_access_check_time, update_last_access_check_time
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 
 
@@ -23,6 +24,51 @@ st.set_page_config(
 )
 
 
+def detect_and_record_file_access():
+    """ファイルアクセスを検知して視聴履歴に記録"""
+    try:
+        # 前回のチェック日時を取得
+        last_check_time = get_last_access_check_time()
+
+        # 最近アクセスされたファイルを検知
+        with get_db_connection() as conn:
+            accessed_files = detect_recently_accessed_files(last_check_time, conn)
+
+        # 検知した件数を表示
+        if accessed_files:
+            # 視聴履歴に記録
+            video_manager = VideoManager()
+            recorded_count = video_manager.record_file_access_as_viewing(accessed_files)
+
+            # 詳細情報を作成
+            file_details = []
+            for file_info in accessed_files:
+                access_time_str = file_info['access_time'].strftime('%Y-%m-%d %H:%M:%S')
+                file_details.append(f"- {file_info['essential_filename']} (アクセス日時: {access_time_str})")
+
+            details_text = "\n".join(file_details)
+
+            # 成功メッセージを表示
+            st.success(
+                f"✅ {recorded_count} 件のファイルアクセスを検知し、視聴履歴に記録しました。\n\n"
+                f"【記録されたファイル】\n{details_text}"
+            )
+        else:
+            if last_check_time:
+                st.info(f"前回チェック ({last_check_time.strftime('%Y-%m-%d %H:%M:%S')}) 以降、新しいファイルアクセスは検知されませんでした。")
+            else:
+                st.info("新しいファイルアクセスは検知されませんでした。")
+
+        # チェック日時を更新
+        update_last_access_check_time()
+
+        return recorded_count if accessed_files else 0
+
+    except Exception as e:
+        st.error(f"ファイルアクセス検知エラー: {e}")
+        return 0
+
+
 def init_session_state():
     """セッション状態の初期化"""
     if 'initialized' not in st.session_state:
@@ -31,6 +77,14 @@ def init_session_state():
         st.session_state.video_manager = VideoManager()
     if 'selected_video' not in st.session_state:
         st.session_state.selected_video = None
+
+    # 起動時に自動でファイルアクセスを検知（初回のみ）
+    if 'auto_detection_done' not in st.session_state:
+        st.session_state.auto_detection_done = False
+
+    if not st.session_state.auto_detection_done:
+        detect_and_record_file_access()
+        st.session_state.auto_detection_done = True
 
 
 def check_and_init_database():
@@ -135,6 +189,13 @@ def render_sidebar():
     st.sidebar.header("ファイルスキャン")
     if st.sidebar.button("📁 ファイルをスキャン", use_container_width=True):
         scan_files()
+
+    # 視聴履歴検知
+    st.sidebar.markdown("---")
+    st.sidebar.header("視聴履歴検知")
+    if st.sidebar.button("📊 視聴履歴を検知", use_container_width=True):
+        detect_and_record_file_access()
+        st.rerun()
 
     return selected_level_values, selected_performers, selected_location_values
 
