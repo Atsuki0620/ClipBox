@@ -3,7 +3,9 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(tree:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(venv/Scripts/pip:*)",
+      "Bash(venv/Scripts/python:*)"
     ],
     "deny": [],
     "ask": []

@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ClipBox specific
+# データベースファイル（個人データが含まれるため）
+data/videos.db
+data/backups/*.db
+# Streamlit設定
+.streamlit/
