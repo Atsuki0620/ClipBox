@@ -52,6 +52,8 @@ class VideoManager:
                 query += f" AND storage_location IN ({placeholders})"
                 params.extend(storage_locations)
 
+            query += " ORDER BY current_favorite_level DESC, last_file_modified DESC"
+
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
 
@@ -161,7 +163,6 @@ class VideoManager:
                 LEFT JOIN viewing_history vh ON v.id = vh.video_id
                 GROUP BY v.id
                 ORDER BY view_count DESC
-                LIMIT 20
             """)
             top_viewed = [dict(row) for row in cursor.fetchall()]
 

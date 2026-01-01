@@ -5,8 +5,6 @@ SQLiteデータベースへのCRUD操作を提供
 
 import sqlite3
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Optional
 
 from config import DATABASE_PATH
 
@@ -68,6 +66,20 @@ def init_database():
             )
         """)
 
+        # play_historyテーブル作成（再生イベントを直接記録）
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS play_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL,
+                title TEXT NOT NULL,
+                internal_id TEXT,
+                player TEXT NOT NULL,
+                library_root TEXT NOT NULL,
+                trigger TEXT NOT NULL,
+                played_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # インデックス作成
         conn.execute("CREATE INDEX IF NOT EXISTS idx_essential_filename ON videos(essential_filename)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_favorite_level ON videos(current_favorite_level)")
@@ -75,6 +87,8 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_storage_location ON videos(storage_location)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at)")
 
         conn.commit()
 

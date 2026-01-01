@@ -5,6 +5,7 @@ Streamlitベースの動画管理インターフェース
 
 import streamlit as st
 import pandas as pd
+import hashlib
 from pathlib import Path
 from datetime import datetime
 
@@ -12,6 +13,9 @@ from core.database import init_database, check_database_exists, get_db_connectio
 from core.video_manager import VideoManager
 from core.scanner import FileScanner, detect_recently_accessed_files
 from core.settings import get_last_access_check_time, update_last_access_check_time
+from core import config_store
+from core import history_repository
+from core import snapshot
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 
 
@@ -69,8 +73,57 @@ def detect_and_record_file_access():
         return 0
 
 
+def _detect_library_root(file_path: Path) -> str:
+    """
+    SCAN_DIRECTORIES のどれに属するかを判定し、該当パス文字列を返す。
+    マッチしない場合は空文字列。
+    """
+    active_roots = st.session_state.user_config.get("library_roots", [])
+    for root in active_roots:
+        root_path = Path(root)
+        try:
+            Path(file_path).resolve().relative_to(root_path.resolve())
+            return str(root_path)
+        except ValueError:
+            continue
+    return ""
+
+
+def _handle_play(video, trigger: str):
+    """
+    再生と履歴記録をまとめて実行するヘルパー。
+    成功時は st.success、失敗時は st.error を出す。
+    """
+    player = st.session_state.user_config.get("default_player", "vlc")
+    result = st.session_state.video_manager.play_video(video.id)
+
+    if result.get("status") != "success":
+        st.error(result.get("message", "再生に失敗しました"))
+        return
+
+    file_path = Path(video.current_full_path)
+    internal_id = hashlib.sha256(str(file_path).encode("utf-8")).hexdigest()
+    library_root = _detect_library_root(file_path)
+
+    try:
+        history_repository.insert_play_history(
+            file_path=str(file_path),
+            title=video.essential_filename,
+            player=player,
+            library_root=library_root,
+            trigger=trigger,
+            internal_id=internal_id,
+        )
+        st.session_state.selected_video = video
+        st.success(f"再生を開始しました: {video.essential_filename}")
+    except Exception as e:
+        st.error(f"再生履歴の記録に失敗しました: {e}")
+
+
 def init_session_state():
     """セッション状態の初期化"""
+    if "user_config" not in st.session_state:
+        st.session_state.user_config = config_store.load_user_config()
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
     if 'video_manager' not in st.session_state:
@@ -89,10 +142,19 @@ def init_session_state():
 
 def check_and_init_database():
     """データベースの確認と初期化"""
+    # 既存DBでも不足テーブルを補うため毎回 init_database を実行（CREATE IF NOT EXISTS で安全）
+    init_database()
     if not check_database_exists():
         st.error(f"データベースが見つかりません: {DATABASE_PATH}")
         st.info("セットアップスクリプトを実行してください:")
         st.code("python setup_db.py", language="bash")
+        st.stop()
+
+    # 既存DBでも新規テーブルを追加するため毎回初期化を実行
+    try:
+        init_database()
+    except Exception as e:
+        st.error(f"データベース初期化に失敗しました: {e}")
         st.stop()
 
 
@@ -204,7 +266,8 @@ def scan_files():
     """ファイルスキャン実行"""
     with st.spinner("ファイルをスキャン中..."):
         try:
-            scanner = FileScanner(SCAN_DIRECTORIES)
+            library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
+            scanner = FileScanner(library_roots)
             with get_db_connection() as conn:
                 scanner.scan_and_update(conn)
             st.success("ファイルスキャンが完了しました！")
@@ -213,54 +276,68 @@ def scan_files():
             st.error(f"スキャンエラー: {e}")
 
 
+def scan_files_for_settings():
+    """
+    設定変更後に即時反映用のスキャン。
+    設定タブから呼び出すため、rerun は設定側で制御する。
+    """
+    library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
+    scanner = FileScanner(library_roots)
+    with get_db_connection() as conn:
+        scanner.scan_and_update(conn)
+
+
 def render_video_list(videos):
     """動画一覧の描画"""
     if not videos:
         st.info("条件に合う動画が見つかりませんでした。")
         return
 
-    # DataFrameに変換
-    df_data = []
+    if st.session_state.selected_video:
+        current = st.session_state.selected_video
+        st.success(f"直近に再生した動画: {current.essential_filename}")
+
+    st.caption("タイトルまたは「▶️ 再生」をクリックすると既定のプレイヤーで再生します。")
+
     for video in videos:
-        df_data.append({
-            "ID": video.id,
-            "ファイル名": video.display_name,
-            "お気に入り": FAVORITE_LEVEL_NAMES.get(video.current_favorite_level, f"レベル{video.current_favorite_level}"),
-            "登場人物": video.performer or "未設定",
-            "保存場所": "Cドライブ" if video.storage_location == "C_DRIVE" else "外付けHDD",
-            "ファイルサイズ": f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "不明",
-        })
-
-    df = pd.DataFrame(df_data)
-
-    # 動画一覧表示
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "ID": st.column_config.NumberColumn("ID", width="small"),
-            "ファイル名": st.column_config.TextColumn("ファイル名", width="large"),
-        }
-    )
-
-    # 動画選択と再生
-    st.markdown("---")
-    col1, col2 = st.columns([3, 1])
-
-    with col1:
-        selected_id = st.number_input(
-            "再生する動画のIDを入力",
-            min_value=1,
-            max_value=len(videos),
-            value=1,
-            step=1
+        storage_label = "Cドライブ" if video.storage_location == "C_DRIVE" else "外付けHDD"
+        favorite_label = FAVORITE_LEVEL_NAMES.get(
+            video.current_favorite_level,
+            f"レベル{video.current_favorite_level}"
         )
+        size_label = f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "不明"
+        updated_label = "未取得"
+        if video.last_file_modified:
+            ts = video.last_file_modified
+            # DBから文字列で返る場合に備えてパース
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts)
+                except Exception:
+                    ts = None
+            if hasattr(ts, "strftime"):
+                updated_label = ts.strftime('%Y-%m-%d %H:%M')
 
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)  # スペース調整
-        if st.button("▶️ 再生", use_container_width=True):
-            play_video(selected_id)
+        row = st.container()
+        col_title, col_meta, col_action = row.columns([5, 4, 1])
+
+        with col_title:
+            if st.button(video.essential_filename, key=f"title_{video.id}", use_container_width=True):
+                _handle_play(video, trigger="title_click")
+            st.caption(f"{storage_label} ｜ {size_label} ｜ 最終更新: {updated_label}")
+
+        with col_meta:
+            st.caption(f"お気に入り: {favorite_label}")
+            st.caption(f"登場人物: {video.performer or '未設定'}")
+            st.caption(Path(video.current_full_path).name)
+            if video.notes:
+                st.write(video.notes)
+
+        with col_action:
+            if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True):
+                _handle_play(video, trigger="row_button")
+
+        st.divider()
 
 
 def play_video(video_id):
@@ -292,7 +369,7 @@ def render_random_play(selected_levels, selected_performers):
             if video:
                 st.session_state.selected_video = video
                 st.info(f"選択された動画: {video.display_name}")
-                play_video(video.id)
+                _handle_play(video, trigger="random_play")
             else:
                 st.warning("条件に合う動画が見つかりませんでした。")
 
@@ -303,26 +380,177 @@ def render_statistics():
 
     stats = st.session_state.video_manager.get_viewing_stats()
 
-    col1, col2 = st.columns(2)
+    if not stats['top_viewed']:
+        st.info("視聴履歴がありません。")
+        return
 
-    with col1:
-        st.subheader("視聴回数ランキング TOP 10")
-        if stats['top_viewed']:
-            top_df = pd.DataFrame(stats['top_viewed'][:10])
-            top_df.columns = ['ID', 'ファイル名', '視聴回数']
-            st.dataframe(top_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("視聴履歴がありません。")
+    st.subheader("視聴回数ランキング（全件）")
 
-    with col2:
-        st.subheader("最近見ていないお気に入り")
-        st.caption("視聴回数5回以上、かつ30日以上未視聴")
-        if stats['forgotten_favorites']:
-            forgotten_df = pd.DataFrame(stats['forgotten_favorites'])
-            forgotten_df.columns = ['ID', 'ファイル名', '視聴回数', '最終視聴日']
-            st.dataframe(forgotten_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("該当する動画がありません。")
+    col_filter, col_sort = st.columns([2, 1])
+    with col_filter:
+        min_view = st.number_input(
+            "最小視聴回数で絞り込み",
+            min_value=0,
+            value=0,
+            step=1,
+            help="0 を指定すると全件表示されます。",
+        )
+        st.session_state.last_min_view_filter = min_view
+    with col_sort:
+        order = st.radio(
+            "並び順",
+            options=["視聴回数降順", "視聴回数昇順"],
+            index=0,
+            horizontal=True,
+        )
+        st.session_state.last_order_filter = order
+
+    filtered = [r for r in stats['top_viewed'] if r['view_count'] >= min_view]
+    reverse = order == "視聴回数降順"
+    filtered = sorted(filtered, key=lambda x: x['view_count'], reverse=reverse)
+
+    st.caption(f"{len(filtered)} 件表示（全 {len(stats['top_viewed'])} 件）")
+
+    if filtered:
+        top_df = pd.DataFrame(filtered)
+        top_df.columns = ['ID', 'ファイル名', '視聴回数']
+        st.dataframe(top_df, use_container_width=True, hide_index=True, height=480)
+    else:
+        st.info("条件に一致する動画がありません。")
+
+
+def render_forgotten_favorites():
+    """最近見ていないお気に入りだけを独立タブで表示"""
+    st.header("🕰 最近見ていないお気に入り")
+    st.caption("視聴回数5回以上、かつ30日以上未視聴")
+
+    stats = st.session_state.video_manager.get_viewing_stats()
+
+    if stats['forgotten_favorites']:
+        forgotten_df = pd.DataFrame(stats['forgotten_favorites'])
+        forgotten_df.columns = ['ID', 'ファイル名', '視聴回数', '最終視聴日']
+        st.dataframe(forgotten_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("該当する動画がありません。")
+
+
+def render_settings():
+    """設定タブの描画"""
+    st.header("⚙️ 設定")
+
+    current_config = st.session_state.user_config
+    library_text = "\n".join(current_config.get("library_roots", []))
+    default_player = current_config.get("default_player", "vlc")
+    db_path_value = current_config.get("db_path", str(DATABASE_PATH))
+
+    with st.form("settings_form"):
+        libs_input = st.text_area(
+            "ライブラリディレクトリ（1行1パス）",
+            library_text,
+            height=140,
+            help="スキャン対象のフォルダを1行ずつ指定します。",
+        )
+        player_input = st.radio(
+            "既定のプレイヤー",
+            options=["vlc", "gom"],
+            index=0 if default_player == "vlc" else 1,
+            horizontal=True,
+        )
+        db_path_input = st.text_input(
+            "データベースパス",
+            db_path_value,
+            help="SQLite データベースファイルへのパス",
+        )
+
+        submitted = st.form_submit_button("💾 保存", use_container_width=True)
+
+        if submitted:
+            new_roots = [line.strip() for line in libs_input.splitlines() if line.strip()]
+            new_config = {
+                "library_roots": new_roots or current_config.get("library_roots", []),
+                "default_player": player_input,
+                "db_path": db_path_input.strip() or db_path_value,
+            }
+            config_store.save_user_config(new_config)
+            st.session_state.user_config = new_config
+            with st.spinner("設定を反映中（スキャンを実行）..."):
+                try:
+                    scan_files_for_settings()
+                    st.success("設定を保存し、ライブラリを再スキャンしました。")
+                except Exception as e:
+                    st.error(f"設定保存は完了しましたがスキャンに失敗しました: {e}")
+            st.rerun()
+
+
+def render_snapshot():
+    """スナップショット取得タブ"""
+    st.header("📸 スナップショット")
+    st.caption("現在のデータベース・設定・統計を data/snapshots/YYYYMMDD_HHMM.db に保存します。")
+
+    # 現在のフィルタ状態を保持
+    current_filters = {
+        "favorite_levels": st.session_state.get("last_selected_levels"),
+        "performers": st.session_state.get("last_selected_performers"),
+        "storage_locations": st.session_state.get("last_selected_locations"),
+        "min_view_filter": st.session_state.get("last_min_view_filter"),
+        "order_filter": st.session_state.get("last_order_filter"),
+    }
+
+    if st.button("📥 今すぐ取得", type="primary", use_container_width=True):
+        with st.spinner("スナップショットを作成中..."):
+            try:
+                path = snapshot.create_snapshot(current_filters, st.session_state.user_config)
+                st.success(f"スナップショットを作成しました: {path}")
+            except Exception as e:
+                st.error(f"スナップショット作成に失敗しました: {e}")
+
+    st.markdown("---")
+    st.subheader("スナップショット比較（差分チェック）")
+
+    snaps = snapshot.list_snapshots()
+    if len(snaps) < 2:
+        st.info("比較には少なくとも2つのスナップショットが必要です。")
+        return
+
+    snap_options = [snap.name for snap in snaps]
+    col_a, col_b = st.columns(2)
+    with col_a:
+        sel_old = st.selectbox("旧スナップショット", snap_options, index=1 if len(snap_options) > 1 else 0)
+    with col_b:
+        sel_new = st.selectbox("新スナップショット", snap_options, index=0)
+
+    if st.button("🔍 比較する", use_container_width=True):
+        old_path = next(p for p in snaps if p.name == sel_old)
+        new_path = next(p for p in snaps if p.name == sel_new)
+        with st.spinner("比較中..."):
+            try:
+                diff = snapshot.compare_snapshots(old_path, new_path)
+                st.success("比較が完了しました。")
+
+                st.write(f"総動画数差分: {diff['total_videos_diff']} (旧 {diff['old']['total_videos']} → 新 {diff['new']['total_videos']})")
+                st.write(f"総視聴回数差分: {diff['total_views_diff']} (旧 {diff['old']['total_views']} → 新 {diff['new']['total_views']})")
+
+                st.markdown("#### 視聴回数が変化した動画（上位20件、絶対値ソート）")
+                changed = diff['changed'][:20]
+                if changed:
+                    st.dataframe(changed, use_container_width=True)
+                else:
+                    st.info("視聴回数に変化はありません。")
+
+                st.markdown("#### 新規に追加された動画")
+                if diff['new_only']:
+                    st.dataframe(diff['new_only'], use_container_width=True, height=200)
+                else:
+                    st.info("新規追加なし。")
+
+                st.markdown("#### 旧にあって新に無い動画")
+                if diff['missing']:
+                    st.dataframe(diff['missing'], use_container_width=True, height=200)
+                else:
+                    st.info("削除・欠落はありません。")
+
+            except Exception as e:
+                st.error(f"比較に失敗しました: {e}")
 
 
 def main():
@@ -337,7 +565,14 @@ def main():
     st.title("🎬 ClipBox - 動画管理システム")
 
     # タブ構成
-    tab1, tab2, tab3 = st.tabs(["📁 動画一覧", "🎲 ランダム再生", "📊 統計"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📁 動画一覧",
+        "🎲 ランダム再生",
+        "📊 統計",
+        "🕰 最近見ていないお気に入り",
+        "📸 スナップショット",
+        "⚙️ 設定",
+    ])
 
     with tab1:
         st.header("📁 動画一覧")
@@ -348,6 +583,9 @@ def main():
             performers=selected_performers,
             storage_locations=selected_locations
         )
+        st.session_state.last_selected_levels = selected_levels
+        st.session_state.last_selected_performers = selected_performers
+        st.session_state.last_selected_locations = selected_locations
 
         st.write(f"該当動画数: {len(videos)} 本")
         render_video_list(videos)
@@ -357,6 +595,15 @@ def main():
 
     with tab3:
         render_statistics()
+
+    with tab4:
+        render_forgotten_favorites()
+
+    with tab5:
+        render_snapshot()
+
+    with tab6:
+        render_settings()
 
     # フッター
     st.markdown("---")
