@@ -1,0 +1,27 @@
+# ClipBox - 動画管理システム
+# 必要なPythonパッケージ
+
+# UI フレームワーク
+streamlit>=1.30.0
+
+# データ分析・操作
+pandas>=2.0.0
+
+# グラフ描画（将来の拡張用）
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# テスト
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# ファイルシステム監視（将来の拡張用）
+# watchdog>=3.0.0
+
+# サムネイル抽出（将来の拡張用）
+# opencv-python>=4.8.0
+
+# Webフレームワーク（フェーズ2以降）
+# flask>=3.0.0
+# fastapi>=0.104.0
+# uvicorn>=0.24.0
