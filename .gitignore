@@ -216,3 +216,5 @@ data/snapshots/
 data/app_settings.json
 # Streamlit設定
 .streamlit/
+# 分析ノートブック（個人の動画情報が含まれるため）
+video_analysis.ipynb
