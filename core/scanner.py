@@ -90,6 +90,7 @@ class FileScanner:
             scan_directories: スキャン対象ディレクトリのリスト
         """
         self.scan_directories = scan_directories
+        self.found_files = set()  # スキャン中に見つかったファイルのessential_filenameを記録
 
     def scan_and_update(self, db_conn):
         """
@@ -98,9 +99,28 @@ class FileScanner:
         Args:
             db_conn: データベース接続
         """
+        # スキャン前に見つかったファイルをリセット
+        self.found_files = set()
+
+        # 各ディレクトリをスキャン
         for directory in self.scan_directories:
             if directory.exists():
                 self._scan_directory(directory, db_conn)
+
+        # スキャンで見つからなかったファイルを is_available=0 に更新
+        cursor = db_conn.execute("SELECT id, essential_filename FROM videos")
+        all_videos = cursor.fetchall()
+
+        for video in all_videos:
+            video_id = video[0]
+            essential_filename = video[1]
+
+            if essential_filename not in self.found_files:
+                # ファイルが見つからなかったので is_available=0 に設定
+                db_conn.execute(
+                    "UPDATE videos SET is_available = 0 WHERE id = ?",
+                    (video_id,)
+                )
 
     def _scan_directory(self, directory: Path, db_conn):
         """
@@ -125,11 +145,17 @@ class FileScanner:
         # お気に入りレベルと本質的ファイル名を抽出
         level, essential = extract_essential_filename(file_path.name)
 
+        # スキャンで見つかったファイルとして記録
+        self.found_files.add(essential)
+
         # ファイル情報を取得
-        file_size = file_path.stat().st_size
+        file_stat = file_path.stat()
+        file_size = file_stat.st_size
         storage_location = determine_storage_location(file_path)
         performer = extract_performer(file_path)
-        last_modified = datetime.fromtimestamp(file_path.stat().st_mtime)
+        last_modified = datetime.fromtimestamp(file_stat.st_mtime)
+        # Windowsでは st_ctime がファイル作成時刻を示す
+        file_created = datetime.fromtimestamp(file_stat.st_ctime)
 
         # データベースに既存レコードがあるか確認
         cursor = db_conn.execute(
@@ -139,25 +165,28 @@ class FileScanner:
         existing = cursor.fetchone()
 
         if existing:
-            # 更新
+            # 更新（ファイルが見つかったので is_available=1 に設定）
             db_conn.execute("""
                 UPDATE videos
                 SET current_full_path = ?,
                     current_favorite_level = ?,
                     storage_location = ?,
                     last_file_modified = ?,
+                    file_created_at = ?,
+                    is_available = 1,
                     last_scanned_at = CURRENT_TIMESTAMP
                 WHERE essential_filename = ?
-            """, (str(file_path), level, storage_location, last_modified, essential))
+            """, (str(file_path), level, storage_location, last_modified, file_created, essential))
         else:
-            # 新規追加
+            # 新規追加（デフォルトで is_available=1, is_deleted=0）
             db_conn.execute("""
                 INSERT INTO videos (
                     essential_filename, current_full_path, current_favorite_level,
-                    file_size, performer, storage_location, last_file_modified, last_scanned_at
+                    file_size, performer, storage_location, last_file_modified,
+                    file_created_at, is_available, is_deleted, last_scanned_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, CURRENT_TIMESTAMP)
+            """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified, file_created))
 
 
 def detect_recently_accessed_files(last_check_time: Optional[datetime], db_conn) -> List[dict]:
