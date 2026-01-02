@@ -15,6 +15,7 @@ def insert_play_history(
     player: str,
     library_root: str,
     trigger: str,
+    video_id: Optional[int] = None,
     internal_id: Optional[str] = None,
 ) -> None:
     """
@@ -32,8 +33,8 @@ def insert_play_history(
         conn.execute(
             """
             INSERT INTO play_history
-                (file_path, title, internal_id, player, library_root, trigger, played_at)
-            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (video_id, file_path, title, internal_id, player, library_root, trigger, played_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
-            (file_path, title, internal_id, player, library_root, trigger),
+            (video_id, file_path, title, internal_id, player, library_root, trigger),
         )
