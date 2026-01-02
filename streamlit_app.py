@@ -18,6 +18,7 @@ from core.settings import get_last_access_check_time, update_last_access_check_t
 from core import config_store
 from core import history_repository
 from core import snapshot
+from core import counter_service
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 
 
@@ -114,12 +115,27 @@ def _handle_play(video, trigger: str):
             player=player,
             library_root=library_root,
             trigger=trigger,
+            video_id=video.id,
             internal_id=internal_id,
         )
         st.session_state.selected_video = video
         st.success(f"再生を開始しました: {video.essential_filename}")
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
+
+
+def _handle_judgment(video, new_level: int):
+    """
+    お気に入りレベルを変更するヘルパー。
+    成功時は st.success、失敗時は st.error を出す。
+    """
+    result = st.session_state.video_manager.set_favorite_level(video.id, new_level)
+
+    if result.get("status") == "success":
+        st.success(result.get("message", "レベルを更新しました"))
+        st.rerun()
+    else:
+        st.error(result.get("message", "レベル更新に失敗しました"))
 
 
 def init_session_state():
@@ -452,6 +468,41 @@ def render_random_play(selected_levels, selected_performers):
 def render_statistics():
     """統計情報の描画"""
     st.header("📊 視聴統計")
+
+    # カウンターA/B/C表示
+    st.subheader("🔢 視聴カウンター")
+    st.caption("視聴回数をカウントするA/B/Cの3つのカウンターです。それぞれ独立してリセットできます。")
+
+    counters = counter_service.get_counters_with_counts()
+
+    col_a, col_b, col_c = st.columns(3)
+
+    for col, counter_data in zip([col_a, col_b, col_c], counters):
+        with col:
+            counter_id = counter_data['counter_id']
+            count = counter_data['count']
+            start_time = counter_data['start_time']
+
+            with st.container(border=True):
+                st.markdown(f"### カウンター {counter_id}")
+                st.metric(label="視聴回数", value=f"{count} 回")
+
+                if start_time:
+                    if isinstance(start_time, str):
+                        try:
+                            start_time = datetime.fromisoformat(start_time)
+                        except Exception:
+                            start_time = None
+                    if start_time and hasattr(start_time, 'strftime'):
+                        st.caption(f"開始: {start_time.strftime('%Y-%m-%d %H:%M')}")
+                else:
+                    st.caption("未開始")
+
+                if st.button(f"🔄 リセット", key=f"reset_counter_{counter_id}", use_container_width=True):
+                    counter_service.reset_counter(counter_id)
+                    st.rerun()
+
+    st.markdown("---")
 
     stats = st.session_state.video_manager.get_viewing_stats()
 
