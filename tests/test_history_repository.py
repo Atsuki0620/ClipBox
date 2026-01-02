@@ -30,17 +30,29 @@ def test_insert_play_history(monkeypatch):
         trigger = "row_button"
         internal_id = "abc123"
 
+        # videos テーブルに対応レコードを作成（FK満たすため）
+        with get_db_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO videos (essential_filename, current_full_path, current_favorite_level)
+                VALUES (?, ?, 0)
+                """,
+                (title, file_path),
+            )
+            video_id = conn.execute("SELECT id FROM videos").fetchone()["id"]
+
         insert_play_history(
             file_path=file_path,
             title=title,
             player=player,
             library_root=library_root,
             trigger=trigger,
+            video_id=video_id,
             internal_id=internal_id,
         )
 
         with get_db_connection() as conn:
-            rows = conn.execute("SELECT file_path, title, internal_id, player, library_root, trigger FROM play_history").fetchall()
+            rows = conn.execute("SELECT file_path, title, internal_id, player, library_root, trigger, video_id FROM play_history").fetchall()
 
         assert len(rows) == 1
         row = rows[0]
@@ -50,3 +62,4 @@ def test_insert_play_history(monkeypatch):
         assert row["player"] == player
         assert row["library_root"] == library_root
         assert row["trigger"] == trigger
+        assert row["video_id"] == 1

@@ -8,6 +8,8 @@ import pandas as pd
 import hashlib
 from pathlib import Path
 from datetime import datetime
+import unicodedata
+import textwrap
 
 from core.database import init_database, check_database_exists, get_db_connection
 from core.video_manager import VideoManager
@@ -16,6 +18,7 @@ from core.settings import get_last_access_check_time, update_last_access_check_t
 from core import config_store
 from core import history_repository
 from core import snapshot
+from core import counter_service
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 
 
@@ -112,12 +115,27 @@ def _handle_play(video, trigger: str):
             player=player,
             library_root=library_root,
             trigger=trigger,
+            video_id=video.id,
             internal_id=internal_id,
         )
         st.session_state.selected_video = video
         st.success(f"再生を開始しました: {video.essential_filename}")
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
+
+
+def _handle_judgment(video, new_level: int):
+    """
+    お気に入りレベルを変更するヘルパー。
+    成功時は st.success、失敗時は st.error を出す。
+    """
+    result = st.session_state.video_manager.set_favorite_level(video.id, new_level)
+
+    if result.get("status") == "success":
+        st.success(result.get("message", "レベルを更新しました"))
+        st.rerun()
+    else:
+        st.error(result.get("message", "レベル更新に失敗しました"))
 
 
 def init_session_state():
@@ -132,13 +150,31 @@ def init_session_state():
         st.session_state.selected_video = None
 
     # 起動時に自動でファイルアクセスを検知（初回のみ）
-    if 'auto_detection_done' not in st.session_state:
-        st.session_state.auto_detection_done = False
+    # 要望により起動時の自動検知は無効化（誤検知防止）
+    st.session_state.auto_detection_done = True
 
-    if not st.session_state.auto_detection_done:
-        detect_and_record_file_access()
-        st.session_state.auto_detection_done = True
 
+def _normalize_text(text: str) -> str:
+    """全角/半角・大小・カナ差を吸収した簡易正規化"""
+    if text is None:
+        return ""
+    norm = unicodedata.normalize("NFKC", text).lower()
+    result_chars = []
+    for ch in norm:
+        code = ord(ch)
+        if 0x30a1 <= code <= 0x30f6:
+            result_chars.append(chr(code - 0x60))  # カタカナ→ひらがな
+        else:
+            result_chars.append(ch)
+    return "".join(result_chars)
+
+def _level_to_star(level: int) -> str:
+    # 旧称を流用しているが内容は数値バッジ用に置き換え
+    level = max(0, min(4, level))
+    return f"Lv{level}"
+
+def _badge(label: str, color: str) -> str:
+    return f'<span class="cb-badge" style="background:{color}">{label}</span>'
 
 def check_and_init_database():
     """データベースの確認と初期化"""
@@ -256,8 +292,12 @@ def render_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.header("視聴履歴検知")
     if st.sidebar.button("📊 視聴履歴を検知", use_container_width=True):
-        detect_and_record_file_access()
-        st.rerun()
+        # 誤クリック防止の簡易確認
+        if st.sidebar.checkbox("実行してよい（確認）", key="confirm_detect", value=False):
+            detect_and_record_file_access()
+            st.rerun()
+        else:
+            st.sidebar.warning("実行にはチェックが必要です。")
 
     return selected_level_values, selected_performers, selected_location_values
 
@@ -287,11 +327,19 @@ def scan_files_for_settings():
         scanner.scan_and_update(conn)
 
 
-def render_video_list(videos):
-    """動画一覧の描画"""
+def render_video_list(videos, sort_option: str | None = None, col_count: int = 2):
+    """動画一覧の描画（カラム数可変、情報をコンパクトに表示）"""
     if not videos:
         st.info("条件に合う動画が見つかりませんでした。")
         return
+
+    # 視聴回数と最終視聴
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT video_id, COUNT(*) AS cnt, MAX(viewed_at) AS last_viewed FROM viewing_history GROUP BY video_id"
+        ).fetchall()
+        view_counts = {r["video_id"]: r["cnt"] for r in rows}
+        last_viewed_map = {r["video_id"]: r["last_viewed"] for r in rows}
 
     if st.session_state.selected_video:
         current = st.session_state.selected_video
@@ -299,46 +347,89 @@ def render_video_list(videos):
 
     st.caption("タイトルまたは「▶️ 再生」をクリックすると既定のプレイヤーで再生します。")
 
-    for video in videos:
-        storage_label = "Cドライブ" if video.storage_location == "C_DRIVE" else "外付けHDD"
-        favorite_label = FAVORITE_LEVEL_NAMES.get(
-            video.current_favorite_level,
-            f"レベル{video.current_favorite_level}"
-        )
-        size_label = f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "不明"
-        updated_label = "未取得"
-        if video.last_file_modified:
-            ts = video.last_file_modified
-            # DBから文字列で返る場合に備えてパース
-            if isinstance(ts, str):
-                try:
-                    ts = datetime.fromisoformat(ts)
-                except Exception:
-                    ts = None
-            if hasattr(ts, "strftime"):
-                updated_label = ts.strftime('%Y-%m-%d %H:%M')
+    def _sort_key(video):
+        vc = view_counts.get(video.id, 0)
+        lv = last_viewed_map.get(video.id)
+        if isinstance(lv, str):
+            try:
+                lv = datetime.fromisoformat(lv)
+            except Exception:
+                lv = None
+        name = _normalize_text(video.essential_filename)
+        if sort_option == "お気に入り:高い順":
+            return (-video.current_favorite_level, video.id)
+        if sort_option == "お気に入り:低い順":
+            return (video.current_favorite_level, video.id)
+        if sort_option == "視聴回数:多い順":
+            return (-vc, video.id)
+        if sort_option == "視聴回数:少ない順":
+            return (vc, video.id)
+        if sort_option == "最終視聴:新しい順":
+            return ((-lv.timestamp()) if lv else float("inf"), video.id)
+        if sort_option == "最終視聴:古い順":
+            return ((lv.timestamp()) if lv else float("inf"), video.id)
+        if sort_option == "タイトル:昇順":
+            return name
+        if sort_option == "タイトル:降順":
+            return name[::-1]
+        return video.id
 
-        row = st.container()
-        col_title, col_meta, col_action = row.columns([5, 4, 1])
+    if sort_option:
+        videos = sorted(videos, key=_sort_key)
 
-        with col_title:
-            if st.button(video.essential_filename, key=f"title_{video.id}", use_container_width=True):
-                _handle_play(video, trigger="title_click")
-            st.caption(f"{storage_label} ｜ {size_label} ｜ 最終更新: {updated_label}")
+    # レベル→数字＋色のマップ
+    level_labels = {4: "4", 3: "3", 2: "2", 1: "1", 0: "0"}
+    level_colors = {4: "#1d4ed8", 3: "#2563eb", 2: "#3b82f6", 1: "#93c5fd", 0: "#d1d5db"}
+    col_count = int(max(1, min(6, col_count)))
 
-        with col_meta:
-            st.caption(f"お気に入り: {favorite_label}")
-            st.caption(f"登場人物: {video.performer or '未設定'}")
-            st.caption(Path(video.current_full_path).name)
-            if video.notes:
-                st.write(video.notes)
+    for i in range(0, len(videos), col_count):
+        cols = st.columns(col_count)
+        for col, video in zip(cols, videos[i:i + col_count]):
+            storage_label = "Cドライブ" if video.storage_location == "C_DRIVE" else "外付けHDD"
+            size_label = f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "不明"
+            updated_label = "未取得"
+            if video.last_file_modified:
+                ts = video.last_file_modified
+                if isinstance(ts, str):
+                    try:
+                        ts = datetime.fromisoformat(ts)
+                    except Exception:
+                        ts = None
+                if hasattr(ts, "strftime"):
+                    updated_label = ts.strftime('%Y-%m-%d %H:%M')
 
-        with col_action:
-            if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True):
-                _handle_play(video, trigger="row_button")
+            view_count = view_counts.get(video.id, 0)
 
-        st.divider()
+            with col:
+                row = st.container(border=True)
+                top_left, top_right = row.columns([7, 3])
+                with top_left:
+                    st.markdown(f"**{video.essential_filename}**")
+                    badges = " ".join([
+                        _badge(_level_to_star(video.current_favorite_level), level_colors.get(video.current_favorite_level, "#d1d5db")),
+                        _badge(f"視聴 {view_count} 回", "#f97316"),
+                        _badge(storage_label, "#2563eb"),
+                        _badge(size_label, "#475569"),
+                        _badge(f"更新 {updated_label}", "#0ea5e9"),
+                    ])
+                    st.markdown(badges, unsafe_allow_html=True)
 
+                with top_right:
+                    level_key = f"judge_level_{video.id}"
+                    default_level = video.current_favorite_level if video.current_favorite_level in level_labels else 0
+                    selected = st.radio(
+                        "判定",
+                        options=[4, 3, 2, 1, 0],
+                        format_func=lambda v: level_labels[v],
+                        horizontal=True,
+                        key=level_key,
+                        index=[4, 3, 2, 1, 0].index(default_level),
+                        label_visibility="collapsed",
+                    )
+                    if st.button("判定", key=f"judge_{video.id}", use_container_width=True):
+                        _handle_judgment(video, selected)
+                    if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True):
+                        _handle_play(video, trigger="row_button")
 
 def play_video(video_id):
     """動画を再生"""
@@ -377,6 +468,41 @@ def render_random_play(selected_levels, selected_performers):
 def render_statistics():
     """統計情報の描画"""
     st.header("📊 視聴統計")
+
+    # カウンターA/B/C表示
+    st.subheader("🔢 視聴カウンター")
+    st.caption("視聴回数をカウントするA/B/Cの3つのカウンターです。それぞれ独立してリセットできます。")
+
+    counters = counter_service.get_counters_with_counts()
+
+    col_a, col_b, col_c = st.columns(3)
+
+    for col, counter_data in zip([col_a, col_b, col_c], counters):
+        with col:
+            counter_id = counter_data['counter_id']
+            count = counter_data['count']
+            start_time = counter_data['start_time']
+
+            with st.container(border=True):
+                st.markdown(f"### カウンター {counter_id}")
+                st.metric(label="視聴回数", value=f"{count} 回")
+
+                if start_time:
+                    if isinstance(start_time, str):
+                        try:
+                            start_time = datetime.fromisoformat(start_time)
+                        except Exception:
+                            start_time = None
+                    if start_time and hasattr(start_time, 'strftime'):
+                        st.caption(f"開始: {start_time.strftime('%Y-%m-%d %H:%M')}")
+                else:
+                    st.caption("未開始")
+
+                if st.button(f"🔄 リセット", key=f"reset_counter_{counter_id}", use_container_width=True):
+                    counter_service.reset_counter(counter_id)
+                    st.rerun()
+
+    st.markdown("---")
 
     stats = st.session_state.video_manager.get_viewing_stats()
 
@@ -577,6 +703,31 @@ def main():
     with tab1:
         st.header("📁 動画一覧")
 
+        col_top1, col_top2 = st.columns([2, 2])
+        with col_top1:
+            col_count = st.radio(
+                "表示カラム数",
+                [1, 2, 3, 4, 5, 6],
+                horizontal=True,
+                index=1,
+                help="一覧の密度を調整します"
+            )
+        with col_top2:
+            sort_option = st.selectbox(
+                "並び順（一覧）",
+                [
+                    "お気に入り:高い順",
+                    "お気に入り:低い順",
+                    "視聴回数:多い順",
+                    "視聴回数:少ない順",
+                    "最終視聴:新しい順",
+                    "最終視聴:古い順",
+                    "タイトル:昇順",
+                    "タイトル:降順",
+                ],
+                index=0,
+            )
+
         # 動画を取得
         videos = st.session_state.video_manager.get_videos(
             favorite_levels=selected_levels,
@@ -588,7 +739,7 @@ def main():
         st.session_state.last_selected_locations = selected_locations
 
         st.write(f"該当動画数: {len(videos)} 本")
-        render_video_list(videos)
+        render_video_list(videos, sort_option=sort_option, col_count=col_count)
 
     with tab2:
         render_random_play(selected_levels, selected_performers)
