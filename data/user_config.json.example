@@ -1,0 +1,10 @@
+{
+  "library_roots": [
+    "C:\\Users\\YourUsername\\Videos\\MyVideos",
+    "D:\\ExternalDrive\\VideoLibrary"
+  ],
+  "default_player": "gom",
+  "db_path": "C:\\Users\\YourUsername\\Documents\\GitHub\\ClipBox\\data\\videos.db",
+  "show_unavailable": false,
+  "show_deleted": false
+}
