@@ -22,6 +22,9 @@ class Video:
     created_at: Optional[datetime]
     last_scanned_at: Optional[datetime]
     notes: Optional[str] = None
+    file_created_at: Optional[datetime] = None
+    is_available: bool = True
+    is_deleted: bool = False
 
     @property
     def display_name(self) -> str:
