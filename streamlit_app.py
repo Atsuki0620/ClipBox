@@ -174,7 +174,7 @@ def _level_to_star(level: int) -> str:
     return f"Lv{level}"
 
 def _badge(label: str, color: str) -> str:
-    return f'<span class="cb-badge" style="background:{color}">{label}</span>'
+    return f'<span class="cb-badge" style="background:{color}; padding:4px 4px; margin:0 4px 4px 0; border-radius:6px; font-size:0.85em; box-shadow:0 1px 3px rgba(0,0,0,0.2); display:inline-block; color:white; font-weight:500;">{label}</span>'
 
 def check_and_init_database():
     """データベースの確認と初期化"""
@@ -356,6 +356,23 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
             except Exception:
                 lv = None
         name = _normalize_text(video.essential_filename)
+
+        # ファイル作成日時を取得
+        fc = video.file_created_at
+        if isinstance(fc, str):
+            try:
+                fc = datetime.fromisoformat(fc)
+            except Exception:
+                fc = None
+
+        # ファイル更新日時を取得
+        fm = video.last_file_modified
+        if isinstance(fm, str):
+            try:
+                fm = datetime.fromisoformat(fm)
+            except Exception:
+                fm = None
+
         if sort_option == "お気に入り:高い順":
             return (-video.current_favorite_level, video.id)
         if sort_option == "お気に入り:低い順":
@@ -368,6 +385,14 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
             return ((-lv.timestamp()) if lv else float("inf"), video.id)
         if sort_option == "最終視聴:古い順":
             return ((lv.timestamp()) if lv else float("inf"), video.id)
+        if sort_option == "ファイル作成:新しい順":
+            return ((-fc.timestamp()) if fc else float("inf"), video.id)
+        if sort_option == "ファイル作成:古い順":
+            return ((fc.timestamp()) if fc else float("inf"), video.id)
+        if sort_option == "ファイル更新:新しい順":
+            return ((-fm.timestamp()) if fm else float("inf"), video.id)
+        if sort_option == "ファイル更新:古い順":
+            return ((fm.timestamp()) if fm else float("inf"), video.id)
         if sort_option == "タイトル:昇順":
             return name
         if sort_option == "タイトル:降順":
@@ -404,19 +429,35 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
                 row = st.container(border=True)
                 top_left, top_right = row.columns([7, 3])
                 with top_left:
-                    st.markdown(f"**{video.essential_filename}**")
-                    badges = " ".join([
+                    # タイトル
+                    if video.is_available:
+                        title_style = ""
+                    else:
+                        title_style = ' style="opacity: 0.5; color: #9ca3af;"'
+
+                    st.markdown(f'<span{title_style}><strong>{video.essential_filename}</strong></span>', unsafe_allow_html=True)
+
+                    # すべてのバッジを1行に（自動改行あり）
+                    all_badges = [
+                        _badge("✅ 利用可能", "#10b981") if video.is_available else _badge("❌ 利用不可", "#ef4444"),
                         _badge(_level_to_star(video.current_favorite_level), level_colors.get(video.current_favorite_level, "#d1d5db")),
                         _badge(f"視聴 {view_count} 回", "#f97316"),
                         _badge(storage_label, "#2563eb"),
                         _badge(size_label, "#475569"),
                         _badge(f"更新 {updated_label}", "#0ea5e9"),
-                    ])
-                    st.markdown(badges, unsafe_allow_html=True)
+                    ]
+
+                    st.markdown(" ".join(all_badges), unsafe_allow_html=True)
+
+                    # ファイル名を小さな文字で表示
+                    file_name = Path(video.current_full_path).name
+                    st.markdown(f'<div style="color: #6b7280; font-size: 0.7em; line-height: 1.1 !important; margin-top: 2px;">{file_name}</div>', unsafe_allow_html=True)
 
                 with top_right:
                     level_key = f"judge_level_{video.id}"
                     default_level = video.current_favorite_level if video.current_favorite_level in level_labels else 0
+                    is_disabled = not video.is_available
+
                     selected = st.radio(
                         "判定",
                         options=[4, 3, 2, 1, 0],
@@ -425,10 +466,11 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
                         key=level_key,
                         index=[4, 3, 2, 1, 0].index(default_level),
                         label_visibility="collapsed",
+                        disabled=is_disabled,
                     )
-                    if st.button("判定", key=f"judge_{video.id}", use_container_width=True):
+                    if st.button("判定", key=f"judge_{video.id}", use_container_width=True, disabled=is_disabled):
                         _handle_judgment(video, selected)
-                    if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True):
+                    if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True, disabled=is_disabled):
                         _handle_play(video, trigger="row_button")
 
 def play_video(video_id):
@@ -568,6 +610,8 @@ def render_settings():
     library_text = "\n".join(current_config.get("library_roots", []))
     default_player = current_config.get("default_player", "vlc")
     db_path_value = current_config.get("db_path", str(DATABASE_PATH))
+    show_unavailable = current_config.get("show_unavailable", False)
+    show_deleted = current_config.get("show_deleted", False)
 
     with st.form("settings_form"):
         libs_input = st.text_area(
@@ -588,6 +632,21 @@ def render_settings():
             help="SQLite データベースファイルへのパス",
         )
 
+        st.markdown("---")
+        st.subheader("表示オプション")
+
+        show_unavailable_input = st.checkbox(
+            "利用不可のファイルも表示",
+            value=show_unavailable,
+            help="ファイルが見つからない動画も一覧に表示します（外付けHDD未接続時など）",
+        )
+
+        show_deleted_input = st.checkbox(
+            "削除済みファイルも表示",
+            value=show_deleted,
+            help="論理削除された動画も一覧に表示します",
+        )
+
         submitted = st.form_submit_button("💾 保存", use_container_width=True)
 
         if submitted:
@@ -596,6 +655,8 @@ def render_settings():
                 "library_roots": new_roots or current_config.get("library_roots", []),
                 "default_player": player_input,
                 "db_path": db_path_input.strip() or db_path_value,
+                "show_unavailable": show_unavailable_input,
+                "show_deleted": show_deleted_input,
             }
             config_store.save_user_config(new_config)
             st.session_state.user_config = new_config
@@ -709,7 +770,7 @@ def main():
                 "表示カラム数",
                 [1, 2, 3, 4, 5, 6],
                 horizontal=True,
-                index=1,
+                index=3,
                 help="一覧の密度を調整します"
             )
         with col_top2:
@@ -722,6 +783,10 @@ def main():
                     "視聴回数:少ない順",
                     "最終視聴:新しい順",
                     "最終視聴:古い順",
+                    "ファイル作成:新しい順",
+                    "ファイル作成:古い順",
+                    "ファイル更新:新しい順",
+                    "ファイル更新:古い順",
                     "タイトル:昇順",
                     "タイトル:降順",
                 ],
@@ -729,10 +794,15 @@ def main():
             )
 
         # 動画を取得
+        show_unavailable = st.session_state.user_config.get("show_unavailable", False)
+        show_deleted = st.session_state.user_config.get("show_deleted", False)
+
         videos = st.session_state.video_manager.get_videos(
             favorite_levels=selected_levels,
             performers=selected_performers,
-            storage_locations=selected_locations
+            storage_locations=selected_locations,
+            show_unavailable=show_unavailable,
+            show_deleted=show_deleted
         )
         st.session_state.last_selected_levels = selected_levels
         st.session_state.last_selected_performers = selected_performers
