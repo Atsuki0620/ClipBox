@@ -91,11 +91,30 @@ def init_database():
             # 既存データには NULL のまま入る。新規挿入から video_id を設定する。
             conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_video_id ON play_history(video_id)")
 
+        # 既存 videos テーブルに新規カラムを追加（マイグレーション）
+        videos_cols = [row[1] for row in conn.execute("PRAGMA table_info(videos)").fetchall()]
+
+        if "file_created_at" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN file_created_at DATETIME;")
+
+        if "is_available" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN is_available BOOLEAN DEFAULT 1;")
+            # 既存レコードにデフォルト値を設定
+            conn.execute("UPDATE videos SET is_available = 1 WHERE is_available IS NULL;")
+
+        if "is_deleted" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN is_deleted BOOLEAN DEFAULT 0;")
+            # 既存レコードにデフォルト値を設定
+            conn.execute("UPDATE videos SET is_deleted = 0 WHERE is_deleted IS NULL;")
+
         # インデックス作成
         conn.execute("CREATE INDEX IF NOT EXISTS idx_essential_filename ON videos(essential_filename)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_favorite_level ON videos(current_favorite_level)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_performer ON videos(performer)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_storage_location ON videos(storage_location)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_file_created_at ON videos(file_created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_is_available ON videos(is_available)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_is_deleted ON videos(is_deleted)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")

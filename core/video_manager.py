@@ -21,7 +21,9 @@ class VideoManager:
         self,
         favorite_levels: Optional[List[int]] = None,
         performers: Optional[List[str]] = None,
-        storage_locations: Optional[List[str]] = None
+        storage_locations: Optional[List[str]] = None,
+        show_unavailable: bool = False,
+        show_deleted: bool = False
     ) -> List[Video]:
         """
         フィルタ条件に合致する動画を取得
@@ -30,6 +32,8 @@ class VideoManager:
             favorite_levels: お気に入りレベルのリスト
             performers: 登場人物のリスト
             storage_locations: 保存場所のリスト
+            show_unavailable: 利用不可のファイルも表示するか
+            show_deleted: 削除済みファイルも表示するか
 
         Returns:
             List[Video]: 条件に合致する動画のリスト
@@ -37,6 +41,13 @@ class VideoManager:
         with get_db_connection() as conn:
             query = "SELECT * FROM videos WHERE 1=1"
             params = []
+
+            # デフォルトでは利用可能かつ削除されていないファイルのみ表示
+            if not show_unavailable:
+                query += " AND is_available = 1"
+
+            if not show_deleted:
+                query += " AND is_deleted = 0"
 
             if favorite_levels:
                 placeholders = ','.join('?' * len(favorite_levels))
@@ -149,6 +160,11 @@ class VideoManager:
             file_path = Path(row['current_full_path'])
 
             if not file_path.exists():
+                # ファイルが見つからない場合、is_available=0 に更新
+                conn.execute(
+                    "UPDATE videos SET is_available = 0 WHERE id = ?",
+                    (video_id,)
+                )
                 return {
                     'status': 'error',
                     'message': 'ファイルが見つかりません。ファイルが移動または削除された可能性があります。'
@@ -253,7 +269,10 @@ class VideoManager:
             last_file_modified=row['last_file_modified'],
             created_at=row['created_at'],
             last_scanned_at=row['last_scanned_at'],
-            notes=row['notes']
+            notes=row['notes'],
+            file_created_at=row['file_created_at'] if 'file_created_at' in row.keys() else None,
+            is_available=bool(row['is_available']) if 'is_available' in row.keys() else True,
+            is_deleted=bool(row['is_deleted']) if 'is_deleted' in row.keys() else False
         )
 
     def record_file_access_as_viewing(self, accessed_files: List[dict]) -> int:
@@ -303,6 +322,11 @@ class VideoManager:
             essential = row["essential_filename"]
             current_path = Path(row["current_full_path"])
             if not current_path.exists():
+                # ファイルが見つからない場合、is_available=0 に更新
+                conn.execute(
+                    "UPDATE videos SET is_available = 0 WHERE id = ?",
+                    (video_id,)
+                )
                 return {'status': 'error', 'message': 'ファイルが見つかりません。移動・削除された可能性があります'}
 
             prefix = "#" * new_level if new_level > 0 else ""
@@ -331,3 +355,25 @@ class VideoManager:
             )
 
             return {'status': 'success', 'message': f'レベル{new_level}に更新しました'}
+
+    def mark_as_deleted(self, video_id: int) -> Dict[str, str]:
+        """
+        動画を論理削除する（is_deleted=1に設定）
+
+        Args:
+            video_id: 削除する動画のID
+
+        Returns:
+            Dict: 実行結果 {'status': 'success'|'error', 'message': '...'}
+        """
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+            if not row:
+                return {'status': 'error', 'message': '動画が見つかりません'}
+
+            conn.execute(
+                "UPDATE videos SET is_deleted = 1 WHERE id = ?",
+                (video_id,)
+            )
+
+            return {'status': 'success', 'message': '削除済みに設定しました'}
