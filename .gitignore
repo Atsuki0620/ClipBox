@@ -214,5 +214,9 @@ data/backups/*.db
 data/snapshots/
 # アプリケーション設定ファイル（ユーザー固有のランタイムデータ）
 data/app_settings.json
+# ユーザー設定ファイル（個人のパス情報が含まれるため）
+data/user_config.json
 # Streamlit設定
 .streamlit/
+# 分析ノートブック（個人の動画情報が含まれるため）
+video_analysis.ipynb
