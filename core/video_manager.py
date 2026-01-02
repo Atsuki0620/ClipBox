@@ -11,6 +11,7 @@ from pathlib import Path
 
 from core.models import Video
 from core.database import get_db_connection
+from core import counter_service
 
 
 class VideoManager:
@@ -58,6 +59,47 @@ class VideoManager:
             rows = cursor.fetchall()
 
             return [self._row_to_video(row) for row in rows]
+
+    def get_videos_with_stats(
+        self,
+        favorite_levels: Optional[List[int]] = None,
+        performers: Optional[List[str]] = None,
+        storage_locations: Optional[List[str]] = None,
+    ) -> List[dict]:
+        """
+        視聴回数・最終視聴日時を含めて取得（一覧詳細タブ向け）
+        """
+        with get_db_connection() as conn:
+            query = """
+                SELECT v.*,
+                       COUNT(vh.id) AS view_count,
+                       MAX(vh.viewed_at) AS last_viewed
+                  FROM videos v
+                  LEFT JOIN viewing_history vh ON v.id = vh.video_id
+                 WHERE 1=1
+            """
+            params = []
+
+            if favorite_levels:
+                placeholders = ",".join("?" * len(favorite_levels))
+                query += f" AND v.current_favorite_level IN ({placeholders})"
+                params.extend(favorite_levels)
+
+            if performers:
+                placeholders = ",".join("?" * len(performers))
+                query += f" AND v.performer IN ({placeholders})"
+                params.extend(performers)
+
+            if storage_locations:
+                placeholders = ",".join("?" * len(storage_locations))
+                query += f" AND v.storage_location IN ({placeholders})"
+                params.extend(storage_locations)
+
+            query += " GROUP BY v.id"
+
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
 
     def get_random_video(
         self,
@@ -121,14 +163,17 @@ class VideoManager:
                     'message': f'再生に失敗しました: {str(e)}'
                 }
 
+            viewed_at = datetime.now()
             # 視聴履歴を記録
             conn.execute(
                 """
                 INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
                 VALUES (?, ?, 'APP_PLAYBACK')
                 """,
-                (video_id, datetime.now())
+                (video_id, viewed_at)
             )
+            # カウンタを初期化（未使用なら同時開始）
+            counter_service.auto_start_counters(viewed_at)
 
             return {'status': 'success', 'message': '再生を開始しました'}
 
@@ -140,13 +185,15 @@ class VideoManager:
             video_id: 記録する動画のID
         """
         with get_db_connection() as conn:
+            now = datetime.now()
             conn.execute(
                 """
                 INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
                 VALUES (?, ?, 'MANUAL_ENTRY')
                 """,
-                (video_id, datetime.now())
+                (video_id, now)
             )
+            counter_service.auto_start_counters(now)
 
     def get_viewing_stats(self) -> Dict:
         """
@@ -234,7 +281,53 @@ class VideoManager:
                     INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
                     VALUES (?, ?, 'FILE_ACCESS_DETECTED')
                 """, (file_info['video_id'], file_info['access_time']))
+                counter_service.auto_start_counters(file_info['access_time'])
 
             conn.commit()
 
         return len(accessed_files)
+
+    def set_favorite_level(self, video_id: int, new_level: int) -> Dict[str, str]:
+        """
+        お気に入りレベルを設定し、ファイル名をプレフィックス付きにリネームしてDBを更新する。
+        Returns dict(status, message)
+        """
+        if new_level < 0 or new_level > 4:
+            return {'status': 'error', 'message': 'レベルは0〜4で指定してください'}
+
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+            if not row:
+                return {'status': 'error', 'message': '動画が見つかりません'}
+
+            essential = row["essential_filename"]
+            current_path = Path(row["current_full_path"])
+            if not current_path.exists():
+                return {'status': 'error', 'message': 'ファイルが見つかりません。移動・削除された可能性があります'}
+
+            prefix = "#" * new_level if new_level > 0 else ""
+            new_name = f"{prefix}_{essential}"
+            new_path = current_path.with_name(new_name)
+
+            try:
+                if new_path != current_path:
+                    current_path.rename(new_path)
+            except FileNotFoundError:
+                return {'status': 'error', 'message': 'ファイルが見つかりません'}
+            except PermissionError:
+                return {'status': 'error', 'message': 'ファイルが使用中、またはアクセス権がありません'}
+            except Exception as e:
+                return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
+
+            conn.execute(
+                """
+                UPDATE videos
+                   SET current_full_path = ?,
+                       current_favorite_level = ?,
+                       last_scanned_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                """,
+                (str(new_path), new_level, video_id),
+            )
+
+            return {'status': 'success', 'message': f'レベル{new_level}に更新しました'}
