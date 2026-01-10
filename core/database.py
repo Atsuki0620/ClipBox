@@ -7,6 +7,7 @@ import sqlite3
 from contextlib import contextmanager
 
 from config import DATABASE_PATH
+from typing import Optional
 
 
 @contextmanager
@@ -148,3 +149,29 @@ def check_database_exists() -> bool:
         bool: 存在すればTrue
     """
     return DATABASE_PATH.exists()
+
+
+# --------------------------------------------------------------------------- #
+# Play history (moved from history_repository)
+# --------------------------------------------------------------------------- #
+def insert_play_history(
+    *,
+    file_path: str,
+    title: str,
+    player: str,
+    library_root: str,
+    trigger: str,
+    video_id: Optional[int] = None,
+    internal_id: Optional[str] = None,
+) -> None:
+    """
+    play_history に 1 件の再生レコードを挿入する。
+    """
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO play_history (file_path, title, player, library_root, trigger, video_id, internal_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (file_path, title, player, library_root, trigger, video_id, internal_id),
+        )

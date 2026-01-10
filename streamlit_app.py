@@ -11,14 +11,7 @@ from datetime import datetime
 import unicodedata
 import textwrap
 
-from core.database import init_database, check_database_exists, get_db_connection
-from core.video_manager import VideoManager
-from core.scanner import FileScanner, detect_recently_accessed_files
-from core.settings import get_last_access_check_time, update_last_access_check_time
-from core import config_store
-from core import history_repository
-from core import snapshot
-from core import counter_service
+from core import app_service
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 
 
@@ -35,17 +28,17 @@ def detect_and_record_file_access():
     """ファイルアクセスを検知して視聴履歴に記録"""
     try:
         # 前回のチェック日時を取得
-        last_check_time = get_last_access_check_time()
+        last_check_time = app_service.get_last_access_check_time()
 
         # 最近アクセスされたファイルを検知
-        with get_db_connection() as conn:
-            accessed_files = detect_recently_accessed_files(last_check_time, conn)
+        with app_service.get_db_connection() as conn:
+            accessed_files = app_service.detect_recently_accessed_files(last_check_time, conn)
 
         # 検知した件数を表示
         if accessed_files:
             # 視聴履歴に記録
-            video_manager = VideoManager()
-            recorded_count = video_manager.record_file_access_as_viewing(accessed_files)
+            video_manager = app_service.create_video_manager()
+            recorded_count = app_service.record_file_access_as_viewing(video_manager, accessed_files)
 
             # 詳細情報を作成
             file_details = []
@@ -67,7 +60,7 @@ def detect_and_record_file_access():
                 st.info("新しいファイルアクセスは検知されませんでした。")
 
         # チェック日時を更新
-        update_last_access_check_time()
+        app_service.update_last_access_check_time()
 
         return recorded_count if accessed_files else 0
 
@@ -109,7 +102,7 @@ def _handle_play(video, trigger: str):
     library_root = _detect_library_root(file_path)
 
     try:
-        history_repository.insert_play_history(
+        app_service.insert_play_history(
             file_path=str(file_path),
             title=video.essential_filename,
             player=player,
@@ -119,7 +112,8 @@ def _handle_play(video, trigger: str):
             internal_id=internal_id,
         )
         st.session_state.selected_video = video
-        st.success(f"再生を開始しました: {video.essential_filename}")
+        # カード内の細いカラムに通知を出すと縦長になるため、全幅のトーストで表示する
+        st.toast("再生を開始しました")
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
 
@@ -171,11 +165,11 @@ def _handle_judgment(video, new_level):
 def init_session_state():
     """セッション状態の初期化"""
     if "user_config" not in st.session_state:
-        st.session_state.user_config = config_store.load_user_config()
+        st.session_state.user_config = app_service.load_user_config()
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
     if 'video_manager' not in st.session_state:
-        st.session_state.video_manager = VideoManager()
+        st.session_state.video_manager = app_service.create_video_manager()
     if 'selected_video' not in st.session_state:
         st.session_state.selected_video = None
 
@@ -239,16 +233,16 @@ def _badge(label: str, color: str) -> str:
 def check_and_init_database():
     """データベースの確認と初期化"""
     # 既存DBでも不足テーブルを補うため毎回 init_database を実行（CREATE IF NOT EXISTS で安全）
-    init_database()
-    if not check_database_exists():
+    app_service.init_database()
+    if not app_service.check_database_exists():
         st.error(f"データベースが見つかりません: {DATABASE_PATH}")
         st.info("セットアップスクリプトを実行してください:")
-        st.code("python setup_db.py", language="bash")
+        st.code("python archive/setup_db.py", language="bash")
         st.stop()
 
     # 既存DBでも新規テーブルを追加するため毎回初期化を実行
     try:
-        init_database()
+        app_service.init_database()
     except Exception as e:
         st.error(f"データベース初期化に失敗しました: {e}")
         st.stop()
@@ -256,7 +250,7 @@ def check_and_init_database():
 
 def get_filter_options():
     """フィルタオプションを取得"""
-    with get_db_connection() as conn:
+    with app_service.get_db_connection() as conn:
         # お気に入りレベルの取得
         cursor = conn.execute(
             "SELECT DISTINCT current_favorite_level FROM videos ORDER BY current_favorite_level DESC"
@@ -281,10 +275,20 @@ def get_filter_options():
 def render_sidebar():
     """サイドバーの描画"""
     st.sidebar.title("🎬 ClipBox")
-    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        """
+        <style>
+        .stMultiSelectClearAll {display:none !important;}
+        button[title="Clear all"] {display:none !important;}
+        button[aria-label="Clear all"] {display:none !important;}
+        div[data-testid="stMultiSelectClearAll"] {display:none !important;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # データベース情報
-    with get_db_connection() as conn:
+    # metrics
+    with app_service.get_db_connection() as conn:
         cursor = conn.execute("SELECT COUNT(*) FROM videos")
         total_videos = cursor.fetchone()[0]
         cursor = conn.execute("SELECT COUNT(*) FROM viewing_history")
@@ -292,83 +296,119 @@ def render_sidebar():
 
     st.sidebar.metric("総動画数", f"{total_videos} 本")
     st.sidebar.metric("総視聴回数", f"{total_views} 回")
-    st.sidebar.markdown("---")
 
-    # フィルタセクション
-    st.sidebar.header("フィルタ")
+    # filter state init
+    if 'filter_levels' not in st.session_state:
+        st.session_state.filter_levels = [4, 3, 2, 1, 0]
+    if 'filter_actors' not in st.session_state:
+        st.session_state.filter_actors = []
+    if 'filter_storage' not in st.session_state:
+        st.session_state.filter_storage = ['C_DRIVE']
+    if 'filter_availability' not in st.session_state:
+        st.session_state.filter_availability = ['AVAILABLE']
 
     favorite_levels, performers, storage_locations = get_filter_options()
 
-    # お気に入りレベルフィルタ
-    if favorite_levels:
-        level_options = {FAVORITE_LEVEL_NAMES.get(level, f"レベル{level}"): level
-                        for level in favorite_levels}
-        selected_levels = st.sidebar.multiselect(
-            "お気に入りレベル",
-            options=list(level_options.keys()),
-            default=list(level_options.keys())
-        )
-        selected_level_values = [level_options[name] for name in selected_levels]
+    st.sidebar.subheader('フィルタ')
+
+    # レベル（マルチセレクト）
+    level_options = [4, 3, 2, 1, 0]
+    level_label_map = {lv: FAVORITE_LEVEL_NAMES.get(lv, f'レベル{lv}') for lv in level_options}
+    selected_level_labels = st.sidebar.multiselect(
+        'レベル',
+        options=[level_label_map[lv] for lv in level_options],
+        default=[level_label_map[lv] for lv in level_options if lv in st.session_state.filter_levels],
+    )
+    st.session_state.filter_levels = [lv for lv, label in level_label_map.items() if label in selected_level_labels]
+
+    # 登場人物（マルチセレクト）
+    selected_performers = st.sidebar.multiselect(
+        '登場人物',
+        options=performers,
+        default=st.session_state.filter_actors,
+        placeholder='名前で検索...',
+    )
+    st.session_state.filter_actors = selected_performers
+    st.sidebar.caption(
+        f"選択中: {', '.join(selected_performers)} ({len(selected_performers)}名)"
+        if selected_performers else '選択中: なし'
+    )
+
+    # 保存場所（マルチセレクト）
+    storage_options = ['すべて表示', 'Cドライブのみ', '外付けHDDのみ']
+    storage_map = {
+        'すべて表示': 'ALL',
+        'Cドライブのみ': 'C_DRIVE',
+        '外付けHDDのみ': 'EXTERNAL_HDD',
+    }
+    default_storage_labels = [label for label, code in storage_map.items() if code in st.session_state.filter_storage]
+    selected_storage_labels = st.sidebar.multiselect(
+        '保存場所',
+        options=storage_options,
+        default=default_storage_labels or ['Cドライブのみ'],
+    )
+    selected_storage_codes = [storage_map[label] for label in selected_storage_labels]
+    if not selected_storage_codes:
+        selected_storage_codes = ['C_DRIVE']
+    st.session_state.filter_storage = selected_storage_codes
+    selected_storage_values = None if 'ALL' in selected_storage_codes else selected_storage_codes
+
+    # 利用可否（マルチセレクト）
+    availability_options = ['利用可能のみ', '利用不可のみ']
+    availability_map = {
+        '利用可能のみ': 'AVAILABLE',
+        '利用不可のみ': 'UNAVAILABLE',
+    }
+    default_avail_labels = [label for label, code in availability_map.items() if code in st.session_state.filter_availability]
+    selected_avail_labels = st.sidebar.multiselect(
+        '利用可否',
+        options=availability_options,
+        default=default_avail_labels or ['利用可能のみ'],
+    )
+    selected_avail_codes = [availability_map[label] for label in selected_avail_labels]
+    if not selected_avail_codes:
+        selected_avail_codes = ['AVAILABLE']
+    st.session_state.filter_availability = selected_avail_codes
+    if set(selected_avail_codes) == {'AVAILABLE'}:
+        availability_filter = 'available'
+    elif set(selected_avail_codes) == {'UNAVAILABLE'}:
+        availability_filter = 'unavailable'
     else:
-        selected_level_values = None
+        availability_filter = None
 
-    # 登場人物フィルタ
-    if performers:
-        selected_performers = st.sidebar.multiselect(
-            "登場人物",
-            options=performers,
-            default=performers
-        )
-    else:
-        selected_performers = None
+    # フィルタとボタンの区切り線
+    st.sidebar.markdown('---')
 
-    # 保存場所フィルタ
-    if storage_locations:
-        location_names = {
-            'C_DRIVE': 'Cドライブ',
-            'EXTERNAL_HDD': '外付けHDD'
-        }
-        location_options = [location_names.get(loc, loc) for loc in storage_locations]
-        selected_locations = st.sidebar.multiselect(
-            "保存場所",
-            options=location_options,
-            default=location_options
-        )
-        # 逆変換
-        reverse_location_names = {v: k for k, v in location_names.items()}
-        selected_location_values = [reverse_location_names.get(name, name)
-                                   for name in selected_locations]
-    else:
-        selected_location_values = None
-
-    st.sidebar.markdown("---")
-
-    # ファイルスキャン
-    st.sidebar.header("ファイルスキャン")
-    if st.sidebar.button("📁 ファイルをスキャン", use_container_width=True):
+    # アクションボタン（隣接配置）
+    if st.sidebar.button('📁 ファイルをスキャン', use_container_width=True):
         scan_files()
-
-    # 視聴履歴検知
-    st.sidebar.markdown("---")
-    st.sidebar.header("視聴履歴検知")
-    if st.sidebar.button("📊 視聴履歴を検知", use_container_width=True):
-        # 誤クリック防止の簡易確認
-        if st.sidebar.checkbox("実行してよい（確認）", key="confirm_detect", value=False):
+    if st.sidebar.button('📊 視聴履歴を検知', use_container_width=True):
+        with st.spinner('視聴履歴を検知しています...'):
             detect_and_record_file_access()
+            st.success('視聴履歴を更新しました')
             st.rerun()
-        else:
-            st.sidebar.warning("実行にはチェックが必要です。")
+    if st.sidebar.button('🔄 画面を更新', use_container_width=True, help='現在のフィルタ条件で一覧を再描画'):
+        with st.spinner('現在のフィルタで再描画中...'):
+            st.session_state.sidebar_refresh_notice = True
+            st.rerun()
+    if st.session_state.get('sidebar_refresh_notice'):
+        st.sidebar.success('最新のフィルタで再描画しました')
+        st.session_state.sidebar_refresh_notice = False
 
-    return selected_level_values, selected_performers, selected_location_values
-
+    return (
+        st.session_state.filter_levels,
+        st.session_state.filter_actors,
+        selected_storage_values,
+        availability_filter,
+    )
 
 def scan_files():
     """ファイルスキャン実行"""
     with st.spinner("ファイルをスキャン中..."):
         try:
             library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
-            scanner = FileScanner(library_roots)
-            with get_db_connection() as conn:
+            scanner = app_service.create_file_scanner(library_roots)
+            with app_service.get_db_connection() as conn:
                 scanner.scan_and_update(conn)
             st.success("ファイルスキャンが完了しました！")
             st.rerun()
@@ -382,8 +422,8 @@ def scan_files_for_settings():
     設定タブから呼び出すため、rerun は設定側で制御する。
     """
     library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
-    scanner = FileScanner(library_roots)
-    with get_db_connection() as conn:
+    scanner = app_service.create_file_scanner(library_roots)
+    with app_service.get_db_connection() as conn:
         scanner.scan_and_update(conn)
 
 
@@ -406,7 +446,7 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
         }
 
     # 視聴回数と最終視聴
-    with get_db_connection() as conn:
+    with app_service.get_db_connection() as conn:
         rows = conn.execute(
             "SELECT video_id, COUNT(*) AS cnt, MAX(viewed_at) AS last_viewed FROM viewing_history GROUP BY video_id"
         ).fetchall()
@@ -729,7 +769,7 @@ def render_statistics():
     st.subheader("🔢 視聴カウンター")
     st.caption("視聴回数をカウントするA/B/Cの3つのカウンターです。それぞれ独立してリセットできます。")
 
-    counters = counter_service.get_counters_with_counts()
+    counters = app_service.get_counters_with_counts()
 
     col_a, col_b, col_c = st.columns(3)
 
@@ -755,7 +795,7 @@ def render_statistics():
                     st.caption("未開始")
 
                 if st.button(f"🔄 リセット", key=f"reset_counter_{counter_id}", use_container_width=True):
-                    counter_service.reset_counter(counter_id)
+                    app_service.reset_counter(counter_id)
                     st.rerun()
 
     st.markdown("---")
@@ -872,7 +912,7 @@ def render_settings():
                 "show_unavailable": show_unavailable_input,
                 "show_deleted": show_deleted_input,
             }
-            config_store.save_user_config(new_config)
+            app_service.save_user_config(new_config)
             st.session_state.user_config = new_config
             with st.spinner("設定を反映中（スキャンを実行）..."):
                 try:
@@ -900,7 +940,7 @@ def render_snapshot():
     if st.button("📥 今すぐ取得", type="primary", use_container_width=True):
         with st.spinner("スナップショットを作成中..."):
             try:
-                path = snapshot.create_snapshot(current_filters, st.session_state.user_config)
+                path = app_service.create_snapshot(current_filters, st.session_state.user_config)
                 st.success(f"スナップショットを作成しました: {path}")
             except Exception as e:
                 st.error(f"スナップショット作成に失敗しました: {e}")
@@ -908,7 +948,7 @@ def render_snapshot():
     st.markdown("---")
     st.subheader("スナップショット比較（差分チェック）")
 
-    snaps = snapshot.list_snapshots()
+    snaps = app_service.list_snapshots()
     if len(snaps) < 2:
         st.info("比較には少なくとも2つのスナップショットが必要です。")
         return
@@ -925,7 +965,7 @@ def render_snapshot():
         new_path = next(p for p in snaps if p.name == sel_new)
         with st.spinner("比較中..."):
             try:
-                diff = snapshot.compare_snapshots(old_path, new_path)
+                diff = app_service.compare_snapshots(old_path, new_path)
                 st.success("比較が完了しました。")
 
                 st.write(f"総動画数差分: {diff['total_videos_diff']} (旧 {diff['old']['total_videos']} → 新 {diff['new']['total_videos']})")
@@ -960,7 +1000,7 @@ def main():
     check_and_init_database()
 
     # サイドバー
-    selected_levels, selected_performers, selected_locations = render_sidebar()
+    selected_levels, selected_performers, selected_locations, availability_filter = render_sidebar()
 
     # メインエリア
     st.title("🎬 ClipBox - 動画管理システム")
@@ -1075,13 +1115,14 @@ def main():
             )
 
         # 動画を取得
-        show_unavailable = st.session_state.user_config.get("show_unavailable", False)
+        show_unavailable = availability_filter != "available"
         show_deleted = st.session_state.user_config.get("show_deleted", False)
 
         videos = st.session_state.video_manager.get_videos(
             favorite_levels=selected_levels,
             performers=selected_performers,
             storage_locations=selected_locations,
+            availability=availability_filter if availability_filter != "all" else None,
             show_unavailable=show_unavailable,
             show_deleted=show_deleted
         )
