@@ -22,45 +22,48 @@ class VideoManager:
         favorite_levels: Optional[List[int]] = None,
         performers: Optional[List[str]] = None,
         storage_locations: Optional[List[str]] = None,
+        availability: Optional[str] = None,
         show_unavailable: bool = False,
         show_deleted: bool = False
     ) -> List[Video]:
         """
-        フィルタ条件に合致する動画を取得
-
+        ????????????????
         Args:
-            favorite_levels: お気に入りレベルのリスト
-            performers: 登場人物のリスト
-            storage_locations: 保存場所のリスト
-            show_unavailable: 利用不可のファイルも表示するか
-            show_deleted: 削除済みファイルも表示するか
-
-        Returns:
-            List[Video]: 条件に合致する動画のリスト
+            favorite_levels: ????????????
+            performers: ????????
+            storage_locations: ????????
+            availability: 'available' | 'unavailable' | 'all' | None?None ??????
+            show_unavailable: ????????availability ? None ????????
+            show_deleted: ?????????
         """
         with get_db_connection() as conn:
             query = "SELECT * FROM videos WHERE 1=1"
-            params = []
+            params: list = []
 
-            # デフォルトでは利用可能かつ削除されていないファイルのみ表示
-            if not show_unavailable:
+            # ??????????????
+            if availability == "available":
                 query += " AND is_available = 1"
+            elif availability == "unavailable":
+                query += " AND is_available = 0"
+            else:
+                if not show_unavailable:
+                    query += " AND is_available = 1"
 
             if not show_deleted:
                 query += " AND is_deleted = 0"
 
             if favorite_levels:
-                placeholders = ','.join('?' * len(favorite_levels))
+                placeholders = ",".join("?" * len(favorite_levels))
                 query += f" AND current_favorite_level IN ({placeholders})"
                 params.extend(favorite_levels)
 
             if performers:
-                placeholders = ','.join('?' * len(performers))
+                placeholders = ",".join("?" * len(performers))
                 query += f" AND performer IN ({placeholders})"
                 params.extend(performers)
 
             if storage_locations:
-                placeholders = ','.join('?' * len(storage_locations))
+                placeholders = ",".join("?" * len(storage_locations))
                 query += f" AND storage_location IN ({placeholders})"
                 params.extend(storage_locations)
 
@@ -72,45 +75,45 @@ class VideoManager:
             return [self._row_to_video(row) for row in rows]
 
     def get_videos_with_stats(
-        self,
-        favorite_levels: Optional[List[int]] = None,
-        performers: Optional[List[str]] = None,
-        storage_locations: Optional[List[str]] = None,
-    ) -> List[dict]:
-        """
-        視聴回数・最終視聴日時を含めて取得（一覧詳細タブ向け）
-        """
-        with get_db_connection() as conn:
-            query = """
-                SELECT v.*,
-                       COUNT(vh.id) AS view_count,
-                       MAX(vh.viewed_at) AS last_viewed
-                  FROM videos v
-                  LEFT JOIN viewing_history vh ON v.id = vh.video_id
-                 WHERE 1=1
+            self,
+            favorite_levels: Optional[List[int]] = None,
+            performers: Optional[List[str]] = None,
+            storage_locations: Optional[List[str]] = None,
+        ) -> List[dict]:
             """
-            params = []
+            視聴回数・最終視聴日時を含めて取得（一覧詳細タブ向け）
+            """
+            with get_db_connection() as conn:
+                query = """
+                    SELECT v.*,
+                           COUNT(vh.id) AS view_count,
+                           MAX(vh.viewed_at) AS last_viewed
+                      FROM videos v
+                      LEFT JOIN viewing_history vh ON v.id = vh.video_id
+                     WHERE 1=1
+                """
+                params = []
 
-            if favorite_levels:
-                placeholders = ",".join("?" * len(favorite_levels))
-                query += f" AND v.current_favorite_level IN ({placeholders})"
-                params.extend(favorite_levels)
+                if favorite_levels:
+                    placeholders = ",".join("?" * len(favorite_levels))
+                    query += f" AND v.current_favorite_level IN ({placeholders})"
+                    params.extend(favorite_levels)
 
-            if performers:
-                placeholders = ",".join("?" * len(performers))
-                query += f" AND v.performer IN ({placeholders})"
-                params.extend(performers)
+                if performers:
+                    placeholders = ",".join("?" * len(performers))
+                    query += f" AND v.performer IN ({placeholders})"
+                    params.extend(performers)
 
-            if storage_locations:
-                placeholders = ",".join("?" * len(storage_locations))
-                query += f" AND v.storage_location IN ({placeholders})"
-                params.extend(storage_locations)
+                if storage_locations:
+                    placeholders = ",".join("?" * len(storage_locations))
+                    query += f" AND v.storage_location IN ({placeholders})"
+                    params.extend(storage_locations)
 
-            query += " GROUP BY v.id"
+                query += " GROUP BY v.id"
 
-            cursor = conn.execute(query, params)
-            rows = cursor.fetchall()
-            return [dict(row) for row in rows]
+                cursor = conn.execute(query, params)
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
 
     def get_random_video(
         self,
