@@ -124,18 +124,48 @@ def _handle_play(video, trigger: str):
         st.error(f"再生履歴の記録に失敗しました: {e}")
 
 
-def _handle_judgment(video, new_level: int):
+def _handle_judgment(video, new_level):
     """
-    お気に入りレベルを変更するヘルパー。
-    成功時は st.success、失敗時は st.error を出す。
-    """
-    result = st.session_state.video_manager.set_favorite_level(video.id, new_level)
+    お気に入りレベルを変更
 
-    if result.get("status") == "success":
-        st.success(result.get("message", "レベルを更新しました"))
-        st.rerun()
+    new_level:
+        None: 未判定（プレフィックスなし）
+        0: レベル0（_プレフィックス）
+        1-4: レベル1-4（#*_プレフィックス）
+    """
+    if new_level is None:
+        # 未判定に変更 → プレフィックスを完全削除
+        new_filename = video.essential_filename
+        db_level = 0
+    elif new_level == 0:
+        # レベル0に変更 → _プレフィックス
+        new_filename = f"_{video.essential_filename}"
+        db_level = 0
     else:
-        st.error(result.get("message", "レベル更新に失敗しました"))
+        # レベル1-4 → #*_プレフィックス
+        prefix = "#" * new_level
+        new_filename = f"{prefix}_{video.essential_filename}"
+        db_level = new_level
+
+    current_path = Path(video.current_full_path)
+    new_path = current_path.with_name(new_filename)
+
+    try:
+        if new_path != current_path:
+            current_path.rename(new_path)
+
+        # データベース更新
+        result = st.session_state.video_manager.set_favorite_level(video.id, db_level)
+
+        if result.get("status") == "success":
+            level_name = "未判定" if new_level is None else f"レベル{new_level}"
+            st.success(f"判定完了: {level_name}")
+            st.rerun()
+        else:
+            st.error(result.get("message"))
+
+    except Exception as e:
+        st.error(f"判定処理に失敗しました: {e}")
 
 
 def init_session_state():
@@ -148,6 +178,24 @@ def init_session_state():
         st.session_state.video_manager = VideoManager()
     if 'selected_video' not in st.session_state:
         st.session_state.selected_video = None
+
+    # 表示設定のデフォルト値
+    if 'display_settings' not in st.session_state:
+        st.session_state.display_settings = {
+            'level': True,
+            'available': True,
+            'view_count': False,
+            'storage': False,
+            'file_size': False,
+            'updated': False,
+            'filename': False
+        }
+
+    if 'title_max_length' not in st.session_state:
+        st.session_state.title_max_length = 40
+
+    if 'search_keyword' not in st.session_state:
+        st.session_state.search_keyword = ""
 
     # 起動時に自動でファイルアクセスを検知（初回のみ）
     # 要望により起動時の自動検知は無効化（誤検知防止）
@@ -168,13 +216,25 @@ def _normalize_text(text: str) -> str:
             result_chars.append(ch)
     return "".join(result_chars)
 
+def is_judged(video) -> bool:
+    """
+    判定済みかどうかを判別
+
+    ロジック:
+    - current_full_pathのファイル名とessential_filenameを比較
+    - 一致 → プレフィックスなし → 未判定
+    - 不一致 → プレフィックスあり → 判定済み
+    """
+    filename = Path(video.current_full_path).name
+    return filename != video.essential_filename
+
 def _level_to_star(level: int) -> str:
     # 旧称を流用しているが内容は数値バッジ用に置き換え
     level = max(0, min(4, level))
     return f"Lv{level}"
 
 def _badge(label: str, color: str) -> str:
-    return f'<span class="cb-badge" style="background:{color}; padding:4px 4px; margin:0 4px 4px 0; border-radius:6px; font-size:0.85em; box-shadow:0 1px 3px rgba(0,0,0,0.2); display:inline-block; color:white; font-weight:500;">{label}</span>'
+    return f'<span class="cb-badge" style="background:{color}; padding:4px 4px; margin:0 2px 2px 0; border-radius:6px; font-size:0.85em; box-shadow:0 1px 3px rgba(0,0,0,0.2); display:inline-block; color:white; font-weight:500;">{label}</span>'
 
 def check_and_init_database():
     """データベースの確認と初期化"""
@@ -327,11 +387,23 @@ def scan_files_for_settings():
         scanner.scan_and_update(conn)
 
 
-def render_video_list(videos, sort_option: str | None = None, col_count: int = 2):
+def render_video_list(videos, sort_option: str | None = None, col_count: int = 2, show_items: dict = None, title_max_length: int = 40):
     """動画一覧の描画（カラム数可変、情報をコンパクトに表示）"""
     if not videos:
         st.info("条件に合う動画が見つかりませんでした。")
         return
+
+    # デフォルトの表示設定
+    if show_items is None:
+        show_items = {
+            'level': True,
+            'available': True,
+            'view_count': False,
+            'storage': False,
+            'file_size': False,
+            'updated': False,
+            'filename': False
+        }
 
     # 視聴回数と最終視聴
     with get_db_connection() as conn:
@@ -407,8 +479,20 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
     level_colors = {4: "#1d4ed8", 3: "#2563eb", 2: "#3b82f6", 1: "#93c5fd", 0: "#d1d5db"}
     col_count = int(max(1, min(6, col_count)))
 
+    # カード段間の余白を最小化
+    st.markdown("""
+    <style>
+    div[data-testid="column"] {
+        padding: 1px !important;
+    }
+    section[data-testid="stVerticalBlock"] > div {
+        gap: 2px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     for i in range(0, len(videos), col_count):
-        cols = st.columns(col_count)
+        cols = st.columns(col_count, gap="small")
         for col, video in zip(cols, videos[i:i + col_count]):
             storage_label = "Cドライブ" if video.storage_location == "C_DRIVE" else "外付けHDD"
             size_label = f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "不明"
@@ -426,52 +510,182 @@ def render_video_list(videos, sort_option: str | None = None, col_count: int = 2
             view_count = view_counts.get(video.id, 0)
 
             with col:
+                # カスタムCSSで余白を最小化し、ボタンをコンパクト化
+                st.markdown("""
+                <style>
+                /* === カード段間の余白最小化 === */
+                section[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+                    gap: 0px !important;
+                }
+                section[data-testid="stVerticalBlock"] > div[style*="flex-direction: column"] > div {
+                    margin-bottom: 0px !important;
+                    padding-bottom: 0 !important;
+                }
+
+                /* === カード内の余白最小化 === */
+                .stVerticalBlock > div[data-testid="stVerticalBlock"] {
+                    padding: 2px 4px !important;
+                    gap: 0px !important;
+                }
+                div[data-testid="stVerticalBlock"] > div:first-child {
+                    padding-top: 0 !important;
+                    margin-top: 0 !important;
+                }
+                div[data-testid="stVerticalBlock"] > div:last-child {
+                    padding-bottom: 0 !important;
+                    margin-bottom: 0 !important;
+                }
+
+                /* === カラム（横並び要素）の余白調整 === */
+                .stHorizontalBlock {
+                    gap: 21px !important;
+                    margin: 0 !important;
+                    padding: 1px 0 !important;
+                }
+                div[data-testid="column"] {
+                    padding: 1px !important;
+                }
+                div[data-testid="column"] > div {
+                    padding: 0 !important;
+                }
+
+                /* === 要素コンテナの余白削減 === */
+                .element-container {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                div[data-testid="element-container"] {
+                    margin-bottom: 1px !important;
+                    padding-bottom: 0 !important;
+                }
+
+                /* === ボタンのコンパクト化 === */
+                div[data-testid="column"] button {
+                    padding: 0.25rem 0.5rem !important;
+                    font-size: 0.875rem !important;
+                    line-height: 1.2 !important;
+                    min-height: 1.5rem !important;
+                    height: auto !important;
+                }
+                div[data-testid="column"] .stButton {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                div[data-testid="column"] .stButton > button {
+                    margin: 0 !important;
+                }
+
+                /* === セレクトボックスのコンパクト化 === */
+                div[data-testid="column"] .stSelectbox {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                div[data-testid="column"] .stSelectbox > div > div {
+                    padding: 0.25rem 0.5rem !important;
+                    font-size: 0.875rem !important;
+                    min-height: 1.5rem !important;
+                }
+
+                /* === 行間隔の統一 === */
+                div[data-testid="stMarkdownContainer"] {
+                    margin-top: 1px !important;
+                    margin-bottom: 1px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
                 row = st.container(border=True)
-                top_left, top_right = row.columns([7, 3])
-                with top_left:
-                    # タイトル
-                    if video.is_available:
-                        title_style = ""
-                    else:
-                        title_style = ' style="opacity: 0.5; color: #9ca3af;"'
 
-                    st.markdown(f'<span{title_style}><strong>{video.essential_filename}</strong></span>', unsafe_allow_html=True)
+                # タイトルと状態の準備
+                title_text = video.essential_filename
+                if len(title_text) > title_max_length:
+                    display_title = title_text[:title_max_length] + "..."
+                else:
+                    display_title = title_text
 
-                    # すべてのバッジを1行に（自動改行あり）
-                    all_badges = [
-                        _badge("✅ 利用可能", "#10b981") if video.is_available else _badge("❌ 利用不可", "#ef4444"),
-                        _badge(_level_to_star(video.current_favorite_level), level_colors.get(video.current_favorite_level, "#d1d5db")),
-                        _badge(f"視聴 {view_count} 回", "#f97316"),
-                        _badge(storage_label, "#2563eb"),
-                        _badge(size_label, "#475569"),
-                        _badge(f"更新 {updated_label}", "#0ea5e9"),
-                    ]
+                if video.is_available:
+                    title_style = ""
+                else:
+                    title_style = ' style="opacity: 0.5; color: #9ca3af;"'
 
-                    st.markdown(" ".join(all_badges), unsafe_allow_html=True)
+                level_key = f"judge_level_{video.id}"
+                is_disabled = not video.is_available
 
-                    # ファイル名を小さな文字で表示
-                    file_name = Path(video.current_full_path).name
-                    st.markdown(f'<div style="color: #6b7280; font-size: 0.7em; line-height: 1.1 !important; margin-top: 2px;">{file_name}</div>', unsafe_allow_html=True)
+                # 判定済み/未判定の判別
+                judged = is_judged(video)
 
-                with top_right:
-                    level_key = f"judge_level_{video.id}"
-                    default_level = video.current_favorite_level if video.current_favorite_level in level_labels else 0
-                    is_disabled = not video.is_available
+                # セレクトボックスの選択肢とデフォルト値
+                judgment_options = [4, 3, 2, 1, 0, None]
+                level_labels_with_none = {4: "4", 3: "3", 2: "2", 1: "1", 0: "0", None: "ー"}
 
-                    selected = st.radio(
-                        "判定",
-                        options=[4, 3, 2, 1, 0],
-                        format_func=lambda v: level_labels[v],
-                        horizontal=True,
-                        key=level_key,
-                        index=[4, 3, 2, 1, 0].index(default_level),
-                        label_visibility="collapsed",
-                        disabled=is_disabled,
-                    )
-                    if st.button("判定", key=f"judge_{video.id}", use_container_width=True, disabled=is_disabled):
-                        _handle_judgment(video, selected)
-                    if st.button("▶️ 再生", key=f"play_{video.id}", use_container_width=True, disabled=is_disabled):
+                if judged:
+                    default_level = video.current_favorite_level
+                else:
+                    default_level = None
+
+                # 1行目: タイトルのみ
+                row.markdown(f'<div style="margin:0;padding:1px 2px;line-height:1.1;"><span{title_style} title="{title_text}"><strong>{display_title}</strong></span></div>', unsafe_allow_html=True)
+
+                # 2行目: 再生ボタン + 判定ボタン + セレクトボックス + バッジ
+                btn_col, judge_col, select_col, badge_col = row.columns([1, 1, 3, 7])
+
+                with btn_col:
+                    if st.button("▶️", key=f"play_{video.id}", disabled=is_disabled, help="再生"):
                         _handle_play(video, trigger="row_button")
+
+                with select_col:
+                    selected = st.selectbox(
+                        "レベル",
+                        options=judgment_options,
+                        format_func=lambda v: level_labels_with_none[v],
+                        key=level_key,
+                        index=judgment_options.index(default_level),
+                        label_visibility="collapsed",
+                        disabled=is_disabled
+                    )
+
+                with judge_col:
+                    if st.button("✓", key=f"judge_{video.id}", disabled=is_disabled, help="判定を確定"):
+                        _handle_judgment(video, selected)
+
+                with badge_col:
+                    # バッジ類
+                    all_badges = []
+
+                    if show_items.get('available', True):
+                        if video.is_available:
+                            all_badges.append(_badge("○", "#10b981"))
+                        else:
+                            all_badges.append(_badge("×", "#ef4444"))
+
+                    # 未判定バッジ
+                    if not judged:
+                        all_badges.append(_badge("未判定", "#f9a8d4"))
+
+                    if show_items.get('level', True) and judged:
+                        all_badges.append(_badge(_level_to_star(video.current_favorite_level), level_colors.get(video.current_favorite_level, "#d1d5db")))
+
+                    if show_items.get('view_count', False):
+                        all_badges.append(_badge(f"視聴{view_count}", "#f97316"))
+
+                    if show_items.get('storage', False):
+                        storage_short = "C" if video.storage_location == "C_DRIVE" else "HDD"
+                        all_badges.append(_badge(storage_short, "#2563eb"))
+
+                    if show_items.get('file_size', False):
+                        size_short = f"{video.file_size / (1024*1024):.0f}MB" if video.file_size else "?"
+                        all_badges.append(_badge(size_short, "#475569"))
+
+                    if show_items.get('updated', False):
+                        all_badges.append(_badge(updated_label, "#0ea5e9"))
+
+                    if all_badges:
+                        st.markdown(" ".join(all_badges), unsafe_allow_html=True)
+
+                # ファイル名を小さな文字で表示（オプション）
+                if show_items.get('filename', False):
+                    file_name = Path(video.current_full_path).name
+                    row.markdown(f'<div style="color: #6b7280; font-size: 0.65em; line-height: 1.0; margin: 1px 2px 0; padding:0;">{file_name}</div>', unsafe_allow_html=True)
 
 def play_video(video_id):
     """動画を再生"""
@@ -764,8 +978,75 @@ def main():
     with tab1:
         st.header("📁 動画一覧")
 
-        col_top1, col_top2 = st.columns([2, 2])
+        # 表示設定セクション
+        with st.expander("⚙️ 表示設定", expanded=False):
+            st.subheader("表示項目")
+            item_col1, item_col2, item_col3 = st.columns(3)
+
+            with item_col1:
+                st.session_state.display_settings['level'] = st.checkbox(
+                    "レベルバッジ",
+                    value=st.session_state.display_settings.get('level', True),
+                    key="chk_level"
+                )
+                st.session_state.display_settings['available'] = st.checkbox(
+                    "利用可否バッジ",
+                    value=st.session_state.display_settings.get('available', True),
+                    key="chk_available"
+                )
+                st.session_state.display_settings['view_count'] = st.checkbox(
+                    "視聴回数バッジ",
+                    value=st.session_state.display_settings.get('view_count', False),
+                    key="chk_view_count"
+                )
+
+            with item_col2:
+                st.session_state.display_settings['storage'] = st.checkbox(
+                    "保存場所バッジ",
+                    value=st.session_state.display_settings.get('storage', False),
+                    key="chk_storage"
+                )
+                st.session_state.display_settings['file_size'] = st.checkbox(
+                    "ファイルサイズバッジ",
+                    value=st.session_state.display_settings.get('file_size', False),
+                    key="chk_file_size"
+                )
+
+            with item_col3:
+                st.session_state.display_settings['updated'] = st.checkbox(
+                    "更新日時バッジ",
+                    value=st.session_state.display_settings.get('updated', False),
+                    key="chk_updated"
+                )
+                st.session_state.display_settings['filename'] = st.checkbox(
+                    "ファイル名表示",
+                    value=st.session_state.display_settings.get('filename', False),
+                    key="chk_filename"
+                )
+
+            st.subheader("タイトル表示設定")
+            st.session_state.title_max_length = st.number_input(
+                "タイトル最大文字数",
+                min_value=10,
+                max_value=200,
+                value=st.session_state.title_max_length,
+                step=5,
+                help="タイトルの表示文字数を制限します。省略された場合は「...」で表示されます。",
+                key="title_max_length_input"
+            )
+
+        # タイトル検索とレイアウト設定
+        col_top1, col_top2, col_top3 = st.columns([2, 2, 2])
         with col_top1:
+            st.session_state.search_keyword = st.text_input(
+                "🔍 タイトル検索",
+                value=st.session_state.search_keyword,
+                placeholder="タイトルで検索...",
+                key="search_input",
+                help="タイトルで部分一致検索（全角半角・大文字小文字・カナ差を自動吸収）"
+            )
+
+        with col_top2:
             col_count = st.radio(
                 "表示カラム数",
                 [1, 2, 3, 4, 5, 6],
@@ -773,7 +1054,7 @@ def main():
                 index=3,
                 help="一覧の密度を調整します"
             )
-        with col_top2:
+        with col_top3:
             sort_option = st.selectbox(
                 "並び順（一覧）",
                 [
@@ -808,8 +1089,26 @@ def main():
         st.session_state.last_selected_performers = selected_performers
         st.session_state.last_selected_locations = selected_locations
 
-        st.write(f"該当動画数: {len(videos)} 本")
-        render_video_list(videos, sort_option=sort_option, col_count=col_count)
+        # タイトル検索でフィルタリング
+        original_count = len(videos)
+        if st.session_state.search_keyword.strip():
+            search_normalized = _normalize_text(st.session_state.search_keyword)
+            videos = [v for v in videos if search_normalized in _normalize_text(v.essential_filename)]
+
+        # 検索結果表示
+        if st.session_state.search_keyword.strip():
+            st.write(f"検索結果: {len(videos)} 件（全 {original_count} 件）")
+        else:
+            st.write(f"該当動画数: {len(videos)} 本")
+
+        # 動画一覧を描画
+        render_video_list(
+            videos,
+            sort_option=sort_option,
+            col_count=col_count,
+            show_items=st.session_state.display_settings,
+            title_max_length=st.session_state.title_max_length
+        )
 
     with tab2:
         render_random_play(selected_levels, selected_performers)
