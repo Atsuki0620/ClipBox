@@ -309,6 +309,63 @@ class VideoManager:
 
         return len(accessed_files)
 
+    def set_favorite_level_with_rename(self, video_id: int, new_level: Optional[int]) -> Dict[str, str]:
+        """
+        お気に入りレベルを変更し、ファイル名をリネームしてDBを更新する。
+
+        Args:
+            video_id: 対象動画のID
+            new_level: None=未判定, 0=レベル0, 1-4=レベル1-4
+
+        Returns:
+            Dict: {'status': 'success'|'error', 'message': '...'}
+        """
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+            if not row:
+                return {'status': 'error', 'message': '動画が見つかりません'}
+
+            video = self._row_to_video(row)
+
+            if new_level is None:
+                new_filename = video.essential_filename
+                db_level = 0
+            elif new_level == 0:
+                new_filename = f"_{video.essential_filename}"
+                db_level = 0
+            else:
+                prefix = "#" * new_level
+                new_filename = f"{prefix}_{video.essential_filename}"
+                db_level = new_level
+
+            current_path = Path(video.current_full_path)
+            new_path = current_path.with_name(new_filename)
+
+            try:
+                if new_path != current_path:
+                    current_path.rename(new_path)
+
+                conn.execute(
+                    """
+                    UPDATE videos
+                       SET current_full_path = ?,
+                           current_favorite_level = ?,
+                           last_scanned_at = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                    """,
+                    (str(new_path), db_level, video_id),
+                )
+
+                level_name = "未判定" if new_level is None else f"レベル{new_level}"
+                return {'status': 'success', 'message': f'判定完了: {level_name}'}
+
+            except FileNotFoundError:
+                return {'status': 'error', 'message': 'ファイルが見つかりません'}
+            except PermissionError:
+                return {'status': 'error', 'message': 'ファイルが使用中、またはアクセス権がありません'}
+            except Exception as e:
+                return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
+
     def set_favorite_level(self, video_id: int, new_level: int) -> Dict[str, str]:
         """
         お気に入りレベルを設定し、ファイル名をプレフィックス付きにリネームしてDBを更新する。
