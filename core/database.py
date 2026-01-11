@@ -175,3 +175,58 @@ def insert_play_history(
             """,
             (file_path, title, player, library_root, trigger, video_id, internal_id),
         )
+
+
+# --------------------------------------------------------------------------- #
+# Query helpers for UI
+# --------------------------------------------------------------------------- #
+def get_distinct_favorite_levels(conn) -> list[int]:
+    """お気に入りレベルの一覧を取得"""
+    cursor = conn.execute(
+        "SELECT DISTINCT current_favorite_level FROM videos ORDER BY current_favorite_level DESC"
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
+def get_distinct_performers(conn) -> list[str]:
+    """登場人物の一覧を取得"""
+    cursor = conn.execute(
+        "SELECT DISTINCT performer FROM videos WHERE performer IS NOT NULL ORDER BY performer"
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
+def get_distinct_storage_locations(conn) -> list[str]:
+    """保存場所の一覧を取得"""
+    cursor = conn.execute(
+        "SELECT DISTINCT storage_location FROM videos ORDER BY storage_location"
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
+def get_view_counts_map(conn) -> dict[int, int]:
+    """動画IDごとの視聴回数マップを取得"""
+    rows = conn.execute(
+        "SELECT video_id, COUNT(*) AS cnt FROM viewing_history GROUP BY video_id"
+    ).fetchall()
+    return {row["video_id"]: row["cnt"] for row in rows}
+
+
+def get_last_viewed_map(conn) -> dict[int, str]:
+    """動画IDごとの最終視聴日時マップを取得"""
+    rows = conn.execute(
+        "SELECT video_id, MAX(viewed_at) AS last_viewed FROM viewing_history GROUP BY video_id"
+    ).fetchall()
+    return {row["video_id"]: row["last_viewed"] for row in rows}
+
+
+def get_total_videos_count(conn) -> int:
+    """総動画数を取得"""
+    cursor = conn.execute("SELECT COUNT(*) FROM videos")
+    return cursor.fetchone()[0]
+
+
+def get_total_views_count(conn) -> int:
+    """総視聴回数を取得"""
+    cursor = conn.execute("SELECT COUNT(*) FROM viewing_history")
+    return cursor.fetchone()[0]
