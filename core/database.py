@@ -85,6 +85,23 @@ def init_database():
             )
         """)
 
+        # judgment_historyテーブル作成（判定履歴と応答速度の記録）
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS judgment_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_id INTEGER NOT NULL,
+                old_level INTEGER,
+                new_level INTEGER NOT NULL,
+                judged_at DATETIME NOT NULL,
+                rename_completed_at DATETIME,
+                rename_duration_ms INTEGER,
+                storage_location TEXT,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+            )
+            """
+        )
+
         # 既存 play_history に video_id 列が無い場合はマイグレーション（簡易版）
         existing_cols = [row[1] for row in conn.execute("PRAGMA table_info(play_history)").fetchall()]
         if "video_id" not in existing_cols:
@@ -121,6 +138,8 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_video_id ON play_history(video_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_judged_at ON judgment_history(judged_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_judgment_video_id ON judgment_history(video_id)")
 
         # counters テーブル（カウンタ A/B/C）
         conn.execute(

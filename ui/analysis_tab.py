@@ -4,19 +4,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import pandas as pd
 import streamlit as st
-import seaborn as sns
-import japanize_matplotlib  # noqa: F401
+import plotly.express as px
 
 from core import app_service
+from core.database import get_db_connection
 
-# seaborn 共通スタイル
 PALETTE = ["#2563eb", "#10b981", "#f97316", "#6366f1", "#e11d48", "#0891b2"]
-sns.set_theme(style="whitegrid", palette=PALETTE, font="sans-serif", font_scale=1.05)
-mpl.rcParams["font.family"] = "IPAexGothic"
 
 
 def _annotate_bars(ax):
@@ -105,8 +100,6 @@ def _render_kpis(df_filtered: pd.DataFrame) -> None:
 def _render_level_chart(df_filtered: pd.DataFrame) -> None:
     """レベル別動画数/総容量をラジオで切替える積上げ棒グラフ。"""
 
-    storage_palette = {"C_DRIVE": PALETTE[0], "EXTERNAL_HDD": PALETTE[1]}
-
     st.subheader("📊 レベル別集計")
     metric = st.radio(
         "表示項目",
@@ -118,56 +111,27 @@ def _render_level_chart(df_filtered: pd.DataFrame) -> None:
     grouped = df_filtered.groupby(["current_favorite_level", "storage_location"])
     if metric == "動画本数":
         data = grouped.size().reset_index(name="value")
-        ylabel = "動画数"
-        formatter = lambda v: f"{int(v)}"
+        y_label = "動画数"
     else:
         data = grouped["file_size"].sum().reset_index(name="value")
         data["value"] = data["value"] / (1024**3)
-        ylabel = "総容量 (GB)"
-        formatter = lambda v: f"{v:.1f}"
+        y_label = "総容量(GB)"
 
-    pivot = (
-        data.pivot(index="current_favorite_level", columns="storage_location", values="value")
-        .fillna(0)
+    fig = px.bar(
+        data,
+        x="current_favorite_level",
+        y="value",
+        color="storage_location",
+        barmode="stack",
+        color_discrete_sequence=PALETTE,
+        labels={
+            "current_favorite_level": "お気に入りレベル",
+            "value": y_label,
+            "storage_location": "保存先",
+        },
     )
-
-    # 列順を固定（存在しない列は自動除外）
-    ordered_cols = [c for c in ["C_DRIVE", "EXTERNAL_HDD"] if c in pivot.columns]
-    pivot = pivot[ordered_cols]
-    pivot = pivot.sort_index()
-
-    colors = [storage_palette.get(col, "#9ca3af") for col in pivot.columns]
-
-    fig, ax = plt.subplots(figsize=(11, 5.8))
-    pivot.plot(
-        kind="bar",
-        stacked=True,
-        ax=ax,
-        color=colors,
-        width=0.72,
-        edgecolor="#e5e7eb",
-    )
-
-    ax.set_xlabel("お気に入りレベル")
-    ax.set_ylabel(ylabel)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
-    ax.legend(title="保存先", loc="upper right")
-    sns.despine(ax=ax, right=True, top=True)
-
-    totals = pivot.sum(axis=1)
-    offset = totals.max() * 0.03 if totals.max() else 0.2
-    for idx, total in enumerate(totals):
-        ax.text(
-            idx,
-            total + offset,
-            formatter(total),
-            ha="center",
-            va="bottom",
-            fontsize=12,
-            color="#374151",
-        )
-
-    st.pyplot(fig, clear_figure=True)
+    fig.update_layout(xaxis=dict(dtick=1))
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_storage_charts(df_filtered: pd.DataFrame) -> None:
@@ -236,16 +200,16 @@ def _render_trend_chart(
         views_df["bucket"] = views_df["viewed_at"].dt.to_period("M").apply(lambda p: p.start_time.date())
 
     trend = views_df.groupby("bucket").size().reset_index(name="視聴回数")
-    fig, ax = plt.subplots(figsize=(5.5, 2.8))
-    sns.lineplot(data=trend, x="bucket", y="視聴回数", marker="o", ax=ax, color=PALETTE[4])
-    ax.set_xlabel("期間")
-    ax.set_ylabel("視聴回数")
-    for label in ax.get_xticklabels():
-        label.set_rotation(25)
-        label.set_horizontalalignment("right")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    st.pyplot(fig, clear_figure=True)
+    fig = px.line(
+        trend,
+        x="bucket",
+        y="視聴回数",
+        markers=True,
+        color_discrete_sequence=[PALETTE[4]],
+        labels={"bucket": "期間", "視聴回数": "視聴回数"},
+    )
+    fig.update_layout(xaxis_tickangle=-25)
+    st.plotly_chart(fig, use_container_width=True)
 
 
 # 視聴済み率の円グラフは削除（保存先別テーブルに統合）
@@ -258,11 +222,14 @@ def _render_size_distribution(df_filtered: pd.DataFrame) -> None:
         return
     df_filtered = df_filtered.copy()
     df_filtered["file_size_gb"] = df_filtered["file_size"].fillna(0) / (1024**3)
-    fig, ax = plt.subplots(figsize=(5.5, 2.6))
-    sns.histplot(df_filtered["file_size_gb"], bins=20, ax=ax, color=PALETTE[0])
-    ax.set_xlabel("ファイルサイズ (GB)")
-    ax.set_ylabel("本数")
-    st.pyplot(fig, clear_figure=True)
+    fig = px.histogram(
+        df_filtered,
+        x="file_size_gb",
+        nbins=20,
+        color_discrete_sequence=[PALETTE[0]],
+        labels={"file_size_gb": "ファイルサイズ (GB)", "count": "本数"},
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_view_count_distribution(df_filtered: pd.DataFrame) -> None:
@@ -279,11 +246,15 @@ def _render_view_count_distribution(df_filtered: pd.DataFrame) -> None:
     min_vc = int(dist.min())
     max_vc = int(dist.max())
 
-    fig, ax = plt.subplots(figsize=(5.5, 2.6))
-    sns.histplot(dist, bins=range(min_vc, max_vc + 2), ax=ax, color=PALETTE[5], discrete=True)
-    ax.set_xlabel("視聴回数")
-    ax.set_ylabel("本数")
-    st.pyplot(fig, clear_figure=True)
+    fig = px.histogram(
+        dist,
+        x=dist,
+        nbins=max_vc - min_vc + 1,
+        color_discrete_sequence=[PALETTE[5]],
+        labels={"value": "視聴回数", "count": "本数"},
+    )
+    fig.update_xaxes(dtick=1)
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_ranking(df_filtered: pd.DataFrame) -> None:
@@ -342,6 +313,61 @@ def _render_graphs(
         _render_view_count_distribution(df_filtered)
 
 
+def _render_response_time_histogram() -> None:
+    """判定後の応答速度ヒストグラム"""
+    st.subheader("⚡ 判定応答速度")
+
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT rename_duration_ms, storage_location
+              FROM judgment_history
+             WHERE rename_duration_ms IS NOT NULL
+            """
+        ).fetchall()
+
+    if not rows:
+        st.info("応答速度データがまだありません")
+        return
+
+    df = pd.DataFrame(rows, columns=["duration_ms", "storage"])
+    df["duration_ms"] = pd.to_numeric(df["duration_ms"], errors="coerce")
+    df = df.dropna(subset=["duration_ms"])
+
+    if df.empty:
+        st.info("応答速度データがまだありません")
+        return
+
+    fig = px.histogram(
+        df,
+        x="duration_ms",
+        color="storage",
+        nbins=20,
+        title="判定後の応答速度分布",
+        labels={"duration_ms": "応答速度 (ms)", "storage": "保存場所"},
+        hover_data={"duration_ms": True},
+    )
+    fig.update_layout(
+        xaxis_title="応答速度 (ms)",
+        yaxis_title="件数",
+        bargap=0.1,
+        legend_title="保存場所",
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.write("**統計情報**")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("平均", f"{df['duration_ms'].mean():.1f}ms")
+    with col2:
+        st.metric("中央値", f"{df['duration_ms'].median():.1f}ms")
+    with col3:
+        st.metric("最大", f"{df['duration_ms'].max():.0f}ms")
+    with col4:
+        st.metric("最小", f"{df['duration_ms'].min():.0f}ms")
+
+
 def render_analysis_tab() -> None:
     """分析タブのエントリーポイント"""
     # 軽いテーマCSS
@@ -379,5 +405,9 @@ def render_analysis_tab() -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card animate-in animate-in-delay-1">', unsafe_allow_html=True)
+    _render_response_time_histogram()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card animate-in animate-in-delay-2">', unsafe_allow_html=True)
     _render_ranking(df_filtered)
     st.markdown('</div>', unsafe_allow_html=True)

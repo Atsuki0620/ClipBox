@@ -8,9 +8,11 @@ import hashlib
 from pathlib import Path
 
 from core import app_service
+from core.migration import Migration
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
 from ui.library_tab import render_library_tab, render_random_tab
+from ui.unrated_random_tab import render_unrated_random_tab
 from ui.extra_tabs import render_stats_tab, render_snapshot_tab, render_settings_tab
 
 
@@ -112,6 +114,7 @@ def _handle_judgment(video, new_level):
     result = app_service.set_favorite_level_with_rename(video.id, new_level)
 
     if result.get("status") == "success":
+        st.session_state.selected_video = video
         st.success(result.get("message"))
         st.rerun()
     else:
@@ -169,6 +172,17 @@ def check_and_init_database():
         st.error(f"データベース初期化に失敗しました: {e}")
         st.stop()
 
+    # マイグレーション実行（レベル-1導入）
+    try:
+        migration = Migration(DATABASE_PATH)
+        with app_service.get_db_connection() as conn:
+            result = migration.migrate_level_0_to_minus_1(conn)
+            if result.get("status") == "completed" and result.get("updated_count", 0) > 0:
+                st.info(f"✅ {result['message']}")
+    except Exception as e:
+        st.error(f"マイグレーション実行に失敗しました: {e}")
+        st.stop()
+
 
 def render_sidebar():
     """サイドバーの描画"""
@@ -193,7 +207,7 @@ def render_sidebar():
 
     # filter state init
     if 'filter_levels' not in st.session_state:
-        st.session_state.filter_levels = [4, 3, 2, 1, 0]
+        st.session_state.filter_levels = [4, 3, 2, 1, 0, -1]
     if 'filter_actors' not in st.session_state:
         st.session_state.filter_actors = []
     if 'filter_storage' not in st.session_state:
@@ -206,7 +220,7 @@ def render_sidebar():
     st.sidebar.subheader('フィルタ')
 
     # レベル（マルチセレクト）
-    level_options = [4, 3, 2, 1, 0]
+    level_options = [4, 3, 2, 1, 0, -1]
     level_label_map = {lv: FAVORITE_LEVEL_NAMES.get(lv, f'レベル{lv}') for lv in level_options}
     selected_level_labels = st.sidebar.multiselect(
         'レベル',
@@ -329,12 +343,14 @@ def main():
     # サイドバー（共通）
     render_sidebar()
 
-    tab_library, tab_analysis, tab_random, tab_stats, tab_snapshot, tab_settings = st.tabs(
-        ["動画一覧", "分析", "ランダム再生", "統計", "スナップショット", "設定"]
+    tab_library, tab_unrated, tab_analysis, tab_random, tab_stats, tab_snapshot, tab_settings = st.tabs(
+        ["動画一覧", "未判定ランダム", "分析", "ランダム再生", "統計", "スナップショット", "設定"]
     )
     play_handler = lambda video, trigger="row_button": _handle_play(video, trigger)
     with tab_library:
         render_library_tab(play_handler, _handle_judgment)
+    with tab_unrated:
+        render_unrated_random_tab(play_handler, _handle_judgment)
     with tab_analysis:
         render_analysis_tab()
     with tab_random:
