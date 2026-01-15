@@ -12,6 +12,7 @@ from pathlib import Path
 from core.models import Video
 from core.database import get_db_connection
 from core import counter_service
+from config import FAVORITE_LEVEL_NAMES
 
 
 class VideoManager:
@@ -320,25 +321,32 @@ class VideoManager:
         Returns:
             Dict: {'status': 'success'|'error', 'message': '...'}
         """
+        judged_at = datetime.now()
+        target_level = -1 if new_level is None else new_level
+
         with get_db_connection() as conn:
             row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
             if not row:
                 return {'status': 'error', 'message': '動画が見つかりません'}
 
             video = self._row_to_video(row)
+            current_path = Path(video.current_full_path)
 
-            if new_level is None:
-                new_filename = video.essential_filename
-                db_level = 0
-            elif new_level == 0:
+            if not current_path.exists():
+                conn.execute("UPDATE videos SET is_available = 0 WHERE id = ?", (video_id,))
+                return {'status': 'error', 'message': 'ファイルが見つかりません。移動または削除された可能性があります'}
+
+            if target_level == -1:
+                new_filename = video.essential_filename  # 未判定はプレフィックスなし
+                db_level = -1
+            elif target_level == 0:
                 new_filename = f"_{video.essential_filename}"
                 db_level = 0
             else:
-                prefix = "#" * new_level
+                prefix = "#" * target_level
                 new_filename = f"{prefix}_{video.essential_filename}"
-                db_level = new_level
+                db_level = target_level
 
-            current_path = Path(video.current_full_path)
             new_path = current_path.with_name(new_filename)
 
             try:
@@ -356,7 +364,29 @@ class VideoManager:
                     (str(new_path), db_level, video_id),
                 )
 
-                level_name = "未判定" if new_level is None else f"レベル{new_level}"
+                rename_completed_at = datetime.now()
+                rename_duration_ms = int((rename_completed_at - judged_at).total_seconds() * 1000)
+
+                conn.execute(
+                    """
+                    INSERT INTO judgment_history (
+                        video_id, old_level, new_level, judged_at,
+                        rename_completed_at, rename_duration_ms, storage_location
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        video_id,
+                        video.current_favorite_level,
+                        db_level,
+                        judged_at,
+                        rename_completed_at,
+                        rename_duration_ms,
+                        video.storage_location,
+                    ),
+                )
+
+                level_name = FAVORITE_LEVEL_NAMES.get(db_level, f"レベル{db_level}")
                 return {'status': 'success', 'message': f'判定完了: {level_name}'}
 
             except FileNotFoundError:

@@ -31,7 +31,9 @@ class Video:
     @property
     def display_name(self) -> str:
         """表示用のファイル名（プレフィックス付き）"""
-        if self.current_favorite_level > 0:
+        if self.current_favorite_level == -1:
+            prefix = ""
+        elif self.current_favorite_level > 0:
             prefix = "#" * self.current_favorite_level + "_"
         else:
             prefix = "_"
@@ -86,6 +88,8 @@ def create_badge(label: str, color: str) -> str:
 
 def level_to_display(level: int) -> str:
     """お気に入りレベルを表示用テキストに変換"""
+    if level == -1:
+        return "未判定"
     level = max(0, min(4, level))
     return f"Lv{level}"
 
