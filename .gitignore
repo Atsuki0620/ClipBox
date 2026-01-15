@@ -220,3 +220,5 @@ data/user_config.json
 .streamlit/
 # 分析ノートブック（個人の動画情報が含まれるため）
 video_analysis.ipynb
+# Playwright MCP（テスト用スクリーンショットなど）
+.playwright-mcp/
