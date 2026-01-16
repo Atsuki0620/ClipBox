@@ -27,15 +27,6 @@ def _inject_base_styles() -> None:
 /* カードマーカー（非表示） */
 .cb-card-marker { display: none; }
 
-/* 選択中のカード強調表示 */
-div[data-testid="stVerticalBlock"]:has(.cb-selected) {
-    background: linear-gradient(180deg, #fff7ed 0%, #ffe8cc 100%) !important;
-    border: 3px solid #f59e0b !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
-    padding: 4px !important;
-}
-
 /* コンパクトなボタンスタイル */
 div[data-testid="stHorizontalBlock"] div[data-testid="column"] button {
     padding: 2px 4px !important;
@@ -59,6 +50,49 @@ section[data-testid="stVerticalBlock"] > div {
     gap: 2px !important;
 }
         </style>
+        <script>
+// 選択中カード強調表示のスタイル適用
+(function() {
+    function applySelectedStyle() {
+        // 以前の強調表示をリセット
+        document.querySelectorAll('.cb-card-highlighted').forEach(el => {
+            el.style.background = '';
+            el.style.border = '';
+            el.style.borderRadius = '';
+            el.style.boxShadow = '';
+            el.style.padding = '';
+            el.classList.remove('cb-card-highlighted');
+        });
+
+        // 選択されたカードに強調表示を適用
+        const selected = document.querySelector('.cb-selected');
+        if (selected) {
+            let parent = selected.parentElement;
+            while (parent) {
+                if (parent.classList.contains('stVerticalBlock')) {
+                    parent.style.background = 'linear-gradient(180deg, #fff7ed 0%, #ffe8cc 100%)';
+                    parent.style.border = '3px solid #f59e0b';
+                    parent.style.borderRadius = '8px';
+                    parent.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.35)';
+                    parent.style.padding = '4px';
+                    parent.classList.add('cb-card-highlighted');
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+        }
+    }
+
+    // 初期適用
+    setTimeout(applySelectedStyle, 100);
+
+    // MutationObserverで変更を監視
+    const observer = new MutationObserver(function(mutations) {
+        applySelectedStyle();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
+        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -176,10 +210,20 @@ def render_video_card(
     # 選択マーカー（CSSセレクタ用）
     card.markdown(f'<div class="{" ".join(marker_classes)}"></div>', unsafe_allow_html=True)
 
+    # 選択中カードの視覚的インジケーター
+    if is_selected:
+        card.markdown(
+            '<div style="background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); '
+            'height: 4px; border-radius: 4px; margin: -4px 0 6px 0;"></div>',
+            unsafe_allow_html=True,
+        )
+
     # タイトル
     title_style = "" if video.is_available else ' style="opacity: 0.5; color: #9ca3af;"'
+    # 選択中カードの背景色
+    title_bg = "background: linear-gradient(180deg, #fff7ed 0%, #ffe8cc 100%); border-radius: 4px; padding: 2px 4px;" if is_selected else ""
     card.markdown(
-        f'<div style="margin:0;padding:1px 2px;line-height:1.1;">'
+        f'<div style="margin:0;padding:1px 2px;line-height:1.1;{title_bg}">'
         f'<span{title_style} style="font-size:15px;" title="{escape(title_text)}">{escape(display_title)}</span>'
         f'</div>',
         unsafe_allow_html=True,

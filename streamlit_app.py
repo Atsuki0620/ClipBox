@@ -99,6 +99,7 @@ def _handle_play(video, trigger: str):
         st.session_state.selected_video = video
         # カード内の細いカラムに通知を出すと縦長になるため、全幅のトーストで表示する
         st.toast("再生を開始しました")
+        st.rerun()
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
 
