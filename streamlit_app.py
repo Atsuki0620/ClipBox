@@ -74,6 +74,7 @@ def _handle_play(video, trigger: str):
     """
     再生と履歴記録をまとめて実行するヘルパー。
     成功時は st.success、失敗時は st.error を出す。
+    F4: 再生開始時にis_judging=Trueに設定
     """
     player = st.session_state.user_config.get("default_player", "vlc")
     result = st.session_state.video_manager.play_video(video.id)
@@ -81,6 +82,9 @@ def _handle_play(video, trigger: str):
     if result.get("status") != "success":
         st.error(result.get("message", "再生に失敗しました"))
         return
+
+    # F4: 判定中フラグをON
+    st.session_state.video_manager.set_judging_state(video.id, True)
 
     file_path = Path(video.current_full_path)
     internal_id = hashlib.sha256(str(file_path).encode("utf-8")).hexdigest()
@@ -99,7 +103,7 @@ def _handle_play(video, trigger: str):
         st.session_state.selected_video = video
         # カード内の細いカラムに通知を出すと縦長になるため、全幅のトーストで表示する
         st.toast("再生を開始しました")
-        st.rerun()
+        st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
 
@@ -107,6 +111,7 @@ def _handle_play(video, trigger: str):
 def _handle_judgment(video, new_level):
     """
     お気に入りレベル変更ハンドラー
+    F4: 判定完了時にis_judging=Falseに設定
 
     Args:
         video: 対象動画
@@ -115,20 +120,23 @@ def _handle_judgment(video, new_level):
     result = app_service.set_favorite_level_with_rename(video.id, new_level)
 
     if result.get("status") == "success":
+        # F4: 判定中フラグをOFF
+        st.session_state.video_manager.set_judging_state(video.id, False)
         st.session_state.selected_video = video
-        st.success(result.get("message"))
-        st.rerun()
+        st.toast(result.get("message"))
+        st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     else:
         st.error(result.get("message", "判定処理に失敗しました"))
 
 
 def init_session_state():
-    """???????????"""
+    """セッション状態を初期化"""
     if "user_config" not in st.session_state:
         st.session_state.user_config = app_service.load_user_config()
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
-    if 'video_manager' not in st.session_state:
+    # VideoManagerが古い場合は再作成（新メソッド追加時の互換性対応）
+    if 'video_manager' not in st.session_state or not hasattr(st.session_state.video_manager, 'set_judging_state'):
         st.session_state.video_manager = app_service.create_video_manager()
     if 'selected_video' not in st.session_state:
         st.session_state.selected_video = None

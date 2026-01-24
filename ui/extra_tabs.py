@@ -9,6 +9,7 @@ from datetime import datetime
 from core import app_service
 
 
+@st.fragment
 def render_stats_tab():
     """統計タブ（カウンター/ランキング/忘れられ動画）"""
     st.subheader("⏱ カウンター A/B/C")
@@ -56,6 +57,7 @@ def render_stats_tab():
         st.info("該当なし。")
 
 
+@st.fragment
 def render_snapshot_tab():
     """スナップショットタブ"""
     st.subheader("📸 スナップショット")
@@ -88,6 +90,7 @@ def render_snapshot_tab():
         st.caption("比較には2件以上のスナップショットが必要です。")
 
 
+@st.fragment
 def render_settings_tab(scan_files_for_settings):
     """設定タブ"""
     st.subheader("⚙ 設定")
