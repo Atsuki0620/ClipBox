@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ClipBox - メインアプリケーション（UI層）
 Streamlitベースの動画管理インターフェース
@@ -6,15 +7,13 @@ Streamlitベースの動画管理インターフェース
 import streamlit as st
 import hashlib
 from pathlib import Path
-
 from core import app_service
 from core.migration import Migration
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
-from ui.library_tab import render_library_tab, render_random_tab
+from ui.library_tab import render_library_tab
 from ui.unrated_random_tab import render_unrated_random_tab
-from ui.extra_tabs import render_stats_tab, render_snapshot_tab, render_settings_tab
-
+from ui.extra_tabs import render_settings_tab
 
 # ページ設定
 st.set_page_config(
@@ -24,30 +23,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
 def detect_and_record_file_access():
     """ファイルアクセスを検知して視聴履歴に記録"""
     try:
         # 前回のチェック日時を取得
         last_check_time = app_service.get_last_access_check_time()
-
         # 最近アクセスされたファイルを検知
         accessed_files = app_service.detect_recently_accessed_files_with_connection(last_check_time)
-
         # 検知した件数を表示
         if accessed_files:
             # 視聴履歴に記録
             video_manager = app_service.create_video_manager()
             recorded_count = app_service.record_file_access_as_viewing(video_manager, accessed_files)
-
             # 詳細情報を作成
             file_details = []
             for file_info in accessed_files:
                 access_time_str = file_info['access_time'].strftime('%Y-%m-%d %H:%M:%S')
                 file_details.append(f"- {file_info['essential_filename']} (アクセス日時: {access_time_str})")
-
             details_text = "\n".join(file_details)
-
             # 成功メッセージを表示
             st.success(
                 f"✅ {recorded_count} 件のファイルアクセスを検知し、視聴履歴に記録しました。\n\n"
@@ -61,14 +54,10 @@ def detect_and_record_file_access():
 
         # チェック日時を更新
         app_service.update_last_access_check_time()
-
         return recorded_count if accessed_files else 0
-
     except Exception as e:
         st.error(f"ファイルアクセス検知エラー: {e}")
         return 0
-
-
 
 def _handle_play(video, trigger: str):
     """
@@ -78,18 +67,15 @@ def _handle_play(video, trigger: str):
     """
     player = st.session_state.user_config.get("default_player", "vlc")
     result = st.session_state.video_manager.play_video(video.id)
-
     if result.get("status") != "success":
         st.error(result.get("message", "再生に失敗しました"))
         return
 
     # F4: 判定中フラグをON
     st.session_state.video_manager.set_judging_state(video.id, True)
-
     file_path = Path(video.current_full_path)
     internal_id = hashlib.sha256(str(file_path).encode("utf-8")).hexdigest()
     library_root = app_service.detect_library_root(file_path, st.session_state.user_config.get("library_roots", []))
-
     try:
         app_service.insert_play_history(
             file_path=str(file_path),
@@ -107,18 +93,15 @@ def _handle_play(video, trigger: str):
     except Exception as e:
         st.error(f"再生履歴の記録に失敗しました: {e}")
 
-
 def _handle_judgment(video, new_level):
     """
     お気に入りレベル変更ハンドラー
     F4: 判定完了時にis_judging=Falseに設定
-
     Args:
         video: 対象動画
         new_level: None=未判定, 0=レベル0, 1-4=レベル1-4
     """
     result = app_service.set_favorite_level_with_rename(video.id, new_level)
-
     if result.get("status") == "success":
         # F4: 判定中フラグをOFF
         st.session_state.video_manager.set_judging_state(video.id, False)
@@ -127,7 +110,6 @@ def _handle_judgment(video, new_level):
         st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     else:
         st.error(result.get("message", "判定処理に失敗しました"))
-
 
 def init_session_state():
     """セッション状態を初期化"""
@@ -153,16 +135,22 @@ def init_session_state():
             'filename': False
         }
 
+    # フィルタ初期値（タブ内で利用するため共通管理）
+    if 'filter_levels' not in st.session_state:
+        st.session_state.filter_levels = [4, 3, 2, 1, 0, -1]
+    if 'filter_actors' not in st.session_state:
+        st.session_state.filter_actors = []
+    if 'filter_storage' not in st.session_state:
+        st.session_state.filter_storage = ['C_DRIVE']
+    if 'filter_availability' not in st.session_state:
+        st.session_state.filter_availability = ['AVAILABLE']
     if 'title_max_length' not in st.session_state:
         st.session_state.title_max_length = 40
-
     if 'search_keyword' not in st.session_state:
         st.session_state.search_keyword = ""
-
     # 起動時に自動でファイルアクセスを検知（初回のみ）
     # 要望により起動時の自動検知は無効化（誤検知防止）
     st.session_state.auto_detection_done = True
-
 
 def check_and_init_database():
     """データベースの確認と初期化"""
@@ -192,7 +180,6 @@ def check_and_init_database():
         st.error(f"マイグレーション実行に失敗しました: {e}")
         st.stop()
 
-
 def render_sidebar():
     """サイドバーの描画"""
     st.sidebar.title("🎬 ClipBox")
@@ -208,95 +195,7 @@ def render_sidebar():
         unsafe_allow_html=True,
     )
 
-    # metrics
-    total_videos, total_views = app_service.get_metrics()
-
-    st.sidebar.metric("総動画数", f"{total_videos} 本")
-    st.sidebar.metric("総視聴回数", f"{total_views} 回")
-
-    # filter state init
-    if 'filter_levels' not in st.session_state:
-        st.session_state.filter_levels = [4, 3, 2, 1, 0, -1]
-    if 'filter_actors' not in st.session_state:
-        st.session_state.filter_actors = []
-    if 'filter_storage' not in st.session_state:
-        st.session_state.filter_storage = ['C_DRIVE']
-    if 'filter_availability' not in st.session_state:
-        st.session_state.filter_availability = ['AVAILABLE']
-
-    favorite_levels, performers, storage_locations = app_service.get_filter_options()
-
-    st.sidebar.subheader('フィルタ')
-
-    # レベル（マルチセレクト）
-    level_options = [4, 3, 2, 1, 0, -1]
-    level_label_map = {lv: FAVORITE_LEVEL_NAMES.get(lv, f'レベル{lv}') for lv in level_options}
-    selected_level_labels = st.sidebar.multiselect(
-        'レベル',
-        options=[level_label_map[lv] for lv in level_options],
-        default=[level_label_map[lv] for lv in level_options if lv in st.session_state.filter_levels],
-    )
-    st.session_state.filter_levels = [lv for lv, label in level_label_map.items() if label in selected_level_labels]
-
-    # 登場人物（マルチセレクト）
-    selected_performers = st.sidebar.multiselect(
-        '登場人物',
-        options=performers,
-        default=st.session_state.filter_actors,
-        placeholder='名前で検索...',
-    )
-    st.session_state.filter_actors = selected_performers
-    st.sidebar.caption(
-        f"選択中: {', '.join(selected_performers)} ({len(selected_performers)}名)"
-        if selected_performers else '選択中: なし'
-    )
-
-    # 保存場所（マルチセレクト）
-    storage_options = ['すべて表示', 'Cドライブのみ', '外付けHDDのみ']
-    storage_map = {
-        'すべて表示': 'ALL',
-        'Cドライブのみ': 'C_DRIVE',
-        '外付けHDDのみ': 'EXTERNAL_HDD',
-    }
-    default_storage_labels = [label for label, code in storage_map.items() if code in st.session_state.filter_storage]
-    selected_storage_labels = st.sidebar.multiselect(
-        '保存場所',
-        options=storage_options,
-        default=default_storage_labels or ['Cドライブのみ'],
-    )
-    selected_storage_codes = [storage_map[label] for label in selected_storage_labels]
-    if not selected_storage_codes:
-        selected_storage_codes = ['C_DRIVE']
-    st.session_state.filter_storage = selected_storage_codes
-    selected_storage_values = None if 'ALL' in selected_storage_codes else selected_storage_codes
-
-    # 利用可否（マルチセレクト）
-    availability_options = ['利用可能のみ', '利用不可のみ']
-    availability_map = {
-        '利用可能のみ': 'AVAILABLE',
-        '利用不可のみ': 'UNAVAILABLE',
-    }
-    default_avail_labels = [label for label, code in availability_map.items() if code in st.session_state.filter_availability]
-    selected_avail_labels = st.sidebar.multiselect(
-        '利用可否',
-        options=availability_options,
-        default=default_avail_labels or ['利用可能のみ'],
-    )
-    selected_avail_codes = [availability_map[label] for label in selected_avail_labels]
-    if not selected_avail_codes:
-        selected_avail_codes = ['AVAILABLE']
-    st.session_state.filter_availability = selected_avail_codes
-    if set(selected_avail_codes) == {'AVAILABLE'}:
-        availability_filter = 'available'
-    elif set(selected_avail_codes) == {'UNAVAILABLE'}:
-        availability_filter = 'unavailable'
-    else:
-        availability_filter = None
-
-    # フィルタとボタンの区切り線
-    st.sidebar.markdown('---')
-
-    # アクションボタン（隣接配置）
+    st.sidebar.subheader('ユーティリティ')
     if st.sidebar.button('📁 ファイルをスキャン', use_container_width=True):
         scan_files()
     if st.sidebar.button('📊 視聴履歴を検知', use_container_width=True):
@@ -304,20 +203,6 @@ def render_sidebar():
             detect_and_record_file_access()
             st.success('視聴履歴を更新しました')
             st.rerun()
-    if st.sidebar.button('🔄 画面を更新', use_container_width=True, help='現在のフィルタ条件で一覧を再描画'):
-        with st.spinner('現在のフィルタで再描画中...'):
-            st.session_state.sidebar_refresh_notice = True
-            st.rerun()
-    if st.session_state.get('sidebar_refresh_notice'):
-        st.sidebar.success('最新のフィルタで再描画しました')
-        st.session_state.sidebar_refresh_notice = False
-
-    return (
-        st.session_state.filter_levels,
-        st.session_state.filter_actors,
-        selected_storage_values,
-        availability_filter,
-    )
 
 def scan_files():
     """ファイルスキャン実行"""
@@ -331,7 +216,6 @@ def scan_files():
         except Exception as e:
             st.error(f"スキャンエラー: {e}")
 
-
 def scan_files_for_settings():
     """
     設定変更後に即時反映用のスキャン。
@@ -341,37 +225,29 @@ def scan_files_for_settings():
     scanner = app_service.create_file_scanner(library_roots)
     app_service.scan_and_update_with_connection(scanner)
 
-
 def main():
     """エントリーポイント"""
     init_session_state()
     check_and_init_database()
-
     st.title("🎬 ClipBox")
 
     # サイドバー（共通）
     render_sidebar()
 
-    tab_library, tab_unrated, tab_analysis, tab_random, tab_stats, tab_snapshot, tab_settings = st.tabs(
-        ["動画一覧", "未判定ランダム", "分析", "ランダム再生", "統計", "スナップショット", "設定"]
+    tab_library, tab_unrated, tab_analysis, tab_settings = st.tabs(
+        ["動画一覧", "未判定ランダム", "分析", "設定"]
     )
+
     play_handler = lambda video, trigger="row_button": _handle_play(video, trigger)
+
     with tab_library:
         render_library_tab(play_handler, _handle_judgment)
     with tab_unrated:
         render_unrated_random_tab(play_handler, _handle_judgment)
     with tab_analysis:
         render_analysis_tab()
-    with tab_random:
-        render_random_tab(play_handler)
-    with tab_stats:
-        render_stats_tab()
-    with tab_snapshot:
-        render_snapshot_tab()
     with tab_settings:
         render_settings_tab(scan_files_for_settings)
-
-
 if __name__ == "__main__":
     main()
 

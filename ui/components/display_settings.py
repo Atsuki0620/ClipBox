@@ -20,7 +20,7 @@ class DisplaySettings:
     show_modified_badge: bool = False
     show_filename_badge: bool = True  # F1: デフォルトONに変更
     show_created_badge: bool = True  # F2: 作成日時追加（デフォルトON）
-    max_title_length: int = 40
+    max_title_length: int = 60
     num_columns: int = 3
 
 
@@ -39,7 +39,7 @@ def _init_defaults(key_prefix: str) -> None:
         f"{key_prefix}_modified": False,
         f"{key_prefix}_filename": True,  # F1: デフォルトON
         f"{key_prefix}_created": True,  # F2: デフォルトON
-        f"{key_prefix}_max_title": 40,
+        f"{key_prefix}_max_title": 60,
     }
     for key, default_val in defaults.items():
         if key not in st.session_state:
@@ -56,23 +56,24 @@ def render_display_settings(key_prefix: str = "disp") -> DisplaySettings:
     _init_defaults(key_prefix)
 
     with st.expander("🎨 表示設定", expanded=False):
-        col1, col2 = st.columns(2)
+        st.write("**バッジ表示 / レイアウト**")
+        col1, col2, col3, col4 = st.columns(4, gap="small")
 
         with col1:
-            st.write("**バッジ表示**")
-            # F1: デフォルト表示項目を調整（視聴回数、ファイル名をON）
             show_level = st.checkbox("レベル", key=f"{key_prefix}_level")
             show_avail = st.checkbox("利用可否", key=f"{key_prefix}_avail")
             show_views = st.checkbox("視聴回数", key=f"{key_prefix}_views")
-            show_storage = st.checkbox("保存場所", key=f"{key_prefix}_storage")
-            show_filesize = st.checkbox("ファイルサイズ", key=f"{key_prefix}_filesize")
-            show_modified = st.checkbox("更新日時", key=f"{key_prefix}_modified")
-            show_filename = st.checkbox("ファイル名", key=f"{key_prefix}_filename")
-            # F2: 作成日時を追加
-            show_created = st.checkbox("作成日時", key=f"{key_prefix}_created")
 
         with col2:
-            st.write("**レイアウト**")
+            show_storage = st.checkbox("保存場所", key=f"{key_prefix}_storage")
+            show_filesize = st.checkbox("ファイルサイズ", key=f"{key_prefix}_filesize")
+
+        with col3:
+            show_modified = st.checkbox("更新日時", key=f"{key_prefix}_modified")
+            show_filename = st.checkbox("ファイル名", key=f"{key_prefix}_filename")
+            show_created = st.checkbox("作成日時", key=f"{key_prefix}_created")
+
+        with col4:
             max_title = st.slider(
                 "タイトル最大文字数",
                 min_value=20,
@@ -80,7 +81,6 @@ def render_display_settings(key_prefix: str = "disp") -> DisplaySettings:
                 step=5,
                 key=f"{key_prefix}_max_title",
             )
-            # U2: カラム数スライダーを削除（外部のラジオボタンと重複のため）
 
     return DisplaySettings(
         show_level_badge=show_level,

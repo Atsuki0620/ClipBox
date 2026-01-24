@@ -66,10 +66,11 @@ def render_unrated_random_tab(on_play, on_judge):
         )
 
     with ctrl_col2:
-        num_videos = st.select_slider(
+        num_videos = st.radio(
             "表示件数",
-            options=[10, 20, 30, 50],
-            value=20,
+            options=[5, 10, 15, 20],
+            index=1,  # デフォルト10
+            horizontal=True,
             key="unrated_num_videos",
         )
 
