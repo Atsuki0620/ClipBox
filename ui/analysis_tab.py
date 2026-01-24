@@ -264,14 +264,20 @@ def _render_ranking(df_filtered: pd.DataFrame) -> None:
         st.info("ランキングを表示できるデータがありません。")
         return
 
+    # U3: スライダーからラジオボタンに変更
     max_n = int(df_filtered.shape[0])
-    default_top = min(50, max_n)
-    top_n = st.slider(
+    top_options = [10, 20, 50, 100]
+    # データ数より大きい選択肢は除外
+    valid_options = [n for n in top_options if n <= max_n]
+    if not valid_options:
+        valid_options = [max_n]  # データ数が少ない場合は最大数を表示
+
+    top_n = st.radio(
         "表示件数 (Top N)",
-        min_value=1,
-        max_value=max_n,
-        value=default_top,
-        step=1,
+        options=valid_options,
+        index=min(1, len(valid_options) - 1),  # 可能なら2番目（20）をデフォルト
+        horizontal=True,
+        key="ranking_top_n",
     )
 
     ranking_df = app_service.get_view_count_ranking(df_filtered, top_n=top_n)
@@ -368,6 +374,7 @@ def _render_response_time_histogram() -> None:
         st.metric("最小", f"{df['duration_ms'].min():.0f}ms")
 
 
+@st.fragment
 def render_analysis_tab() -> None:
     """分析タブのエントリーポイント"""
     # 軽いテーマCSS

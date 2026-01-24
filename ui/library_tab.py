@@ -5,11 +5,10 @@ from typing import List
 import streamlit as st
 
 from core import app_service
-from core.database import get_db_connection
 from core.models import normalize_text, create_sort_key
 from config import FAVORITE_LEVEL_NAMES
 from ui.components.display_settings import render_display_settings, DisplaySettings
-from ui.components.kpi_display import render_kpi_cards, get_kpi_stats
+from ui.components.kpi_display import render_kpi_cards
 from ui.components.video_card import render_video_card
 
 
@@ -44,12 +43,13 @@ def _filter_by_keyword(videos, keyword: str):
     return [v for v in videos if key_norm in normalize_text(v.essential_filename)]
 
 
+@st.fragment
 def render_library_tab(on_play, on_judge):
     """動画一覧タブを描画"""
     st.header("📚 動画一覧")
 
-    with get_db_connection() as conn:
-        kpi_stats = get_kpi_stats(conn)
+    # P1: キャッシュ版のKPI統計を使用
+    kpi_stats = app_service.get_kpi_stats_cached()
     render_kpi_cards(
         unrated_count=kpi_stats["unrated_count"],
         judged_count=kpi_stats["judged_count"],
@@ -168,6 +168,7 @@ def render_library_tab(on_play, on_judge):
                 )
 
 
+@st.fragment
 def render_random_tab(on_play):
     """ランダム再生タブ"""
     st.subheader("🎲 ランダム再生")

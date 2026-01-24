@@ -12,7 +12,7 @@ from typing import List
 from core.database import get_db_connection
 from core.models import Video
 from core import app_service
-from ui.components.kpi_display import render_kpi_cards, get_kpi_stats
+from ui.components.kpi_display import render_kpi_cards
 from ui.components.display_settings import render_display_settings, DisplaySettings
 from ui.components.video_card import render_video_card
 
@@ -33,15 +33,17 @@ def _row_to_video(row: Row) -> Video:
         file_created_at=row["file_created_at"] if "file_created_at" in row.keys() else None,
         is_available=bool(row["is_available"]) if "is_available" in row.keys() else True,
         is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
+        is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
     )
 
 
+@st.fragment
 def render_unrated_random_tab(on_play, on_judge):
     """未判定ランダムタブの描画"""
     st.header("🎲 未判定ランダム")
 
-    with get_db_connection() as conn:
-        kpi_stats = get_kpi_stats(conn)
+    # P1: キャッシュ版のKPI統計を使用
+    kpi_stats = app_service.get_kpi_stats_cached()
     render_kpi_cards(
         unrated_count=kpi_stats["unrated_count"],
         judged_count=kpi_stats["judged_count"],
@@ -74,7 +76,7 @@ def render_unrated_random_tab(on_play, on_judge):
     with ctrl_col3:
         if st.button("🔄 シャッフル", use_container_width=True, key="unrated_shuffle_btn"):
             st.session_state.unrated_shuffle_token = st.session_state.get("unrated_shuffle_token", 0) + 1
-            st.rerun()
+            st.rerun(scope="fragment")
 
     settings: DisplaySettings = render_display_settings(key_prefix="unrated_disp")
     settings.num_columns = col_count
