@@ -276,8 +276,30 @@ class VideoManager:
             notes=row['notes'],
             file_created_at=row['file_created_at'] if 'file_created_at' in row.keys() else None,
             is_available=bool(row['is_available']) if 'is_available' in row.keys() else True,
-            is_deleted=bool(row['is_deleted']) if 'is_deleted' in row.keys() else False
+            is_deleted=bool(row['is_deleted']) if 'is_deleted' in row.keys() else False,
+            is_judging=bool(row['is_judging']) if 'is_judging' in row.keys() else False,
         )
+
+    def set_judging_state(self, video_id: int, is_judging: bool) -> dict:
+        """
+        F4: 判定中フラグを設定
+
+        Args:
+            video_id: 動画ID
+            is_judging: True=判定中、False=判定完了
+
+        Returns:
+            dict: {"status": "success" or "error", "message": str}
+        """
+        try:
+            with get_db_connection() as conn:
+                conn.execute(
+                    "UPDATE videos SET is_judging = ? WHERE id = ?",
+                    (1 if is_judging else 0, video_id)
+                )
+            return {"status": "success", "message": "判定中フラグを更新しました"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     def record_file_access_as_viewing(self, accessed_files: List[dict]) -> int:
         """

@@ -17,7 +17,7 @@ from ui.components.display_settings import DisplaySettings
 
 
 def _inject_base_styles() -> None:
-    """カード用のCSSスタイルを注入"""
+    """カード用のCSSスタイルを注入（CSS only - JavaScriptは使用しない）"""
     if st.session_state.get("_cb_video_card_css_injected"):
         return
 
@@ -29,15 +29,18 @@ def _inject_base_styles() -> None:
 
 /* コンパクトなボタンスタイル */
 div[data-testid="stHorizontalBlock"] div[data-testid="column"] button {
-    padding: 2px 4px !important;
-    min-height: 22px !important;
-    font-size: 13px !important;
-    border-radius: 3px !important;
+    padding: 2px 6px !important;
+    min-height: 24px !important;
+    font-size: 14px !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    max-width: 300px !important;
 }
 
 /* セレクトボックスのサイズ調整 */
 div[data-testid="stHorizontalBlock"] div[data-testid="column"] .stSelectbox > div > div {
-    min-width: 50px !important;
+    min-width: 45px !important;
 }
 
 /* カラムのパディング削減 */
@@ -50,49 +53,6 @@ section[data-testid="stVerticalBlock"] > div {
     gap: 2px !important;
 }
         </style>
-        <script>
-// 選択中カード強調表示のスタイル適用
-(function() {
-    function applySelectedStyle() {
-        // 以前の強調表示をリセット
-        document.querySelectorAll('.cb-card-highlighted').forEach(el => {
-            el.style.background = '';
-            el.style.border = '';
-            el.style.borderRadius = '';
-            el.style.boxShadow = '';
-            el.style.padding = '';
-            el.classList.remove('cb-card-highlighted');
-        });
-
-        // 選択されたカードに強調表示を適用
-        const selected = document.querySelector('.cb-selected');
-        if (selected) {
-            let parent = selected.parentElement;
-            while (parent) {
-                if (parent.classList.contains('stVerticalBlock')) {
-                    parent.style.background = 'linear-gradient(180deg, #fff7ed 0%, #ffe8cc 100%)';
-                    parent.style.border = '3px solid #f59e0b';
-                    parent.style.borderRadius = '8px';
-                    parent.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.35)';
-                    parent.style.padding = '4px';
-                    parent.classList.add('cb-card-highlighted');
-                    break;
-                }
-                parent = parent.parentElement;
-            }
-        }
-    }
-
-    // 初期適用
-    setTimeout(applySelectedStyle, 100);
-
-    // MutationObserverで変更を監視
-    const observer = new MutationObserver(function(mutations) {
-        applySelectedStyle();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-})();
-        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -124,6 +84,14 @@ def _build_badge_list(
     is_judged = video.current_favorite_level >= 0
     if not is_judged:
         badges.append(_create_badge("未判定", "#f9a8d4"))
+
+    # F3: 判定済みバッジ（current_favorite_level >= 0 の場合）
+    if is_judged:
+        badges.append(_create_badge("判定済み", "#22c55e"))
+
+    # F4: 判定中バッジ（is_judging = True の場合）
+    if getattr(video, "is_judging", False):
+        badges.append(_create_badge("判定中", "#f59e0b"))
 
     # レベルバッジ（判定済みの場合）
     if settings.show_level_badge and is_judged:
@@ -169,6 +137,20 @@ def _build_badge_list(
             if hasattr(ts, "strftime"):
                 modified_label = ts.strftime("%Y-%m-%d %H:%M")
         badges.append(_create_badge(modified_label, "#0ea5e9"))
+
+    # F2: 作成日時バッジ
+    if getattr(settings, "show_created_badge", False):
+        created_label = "???"
+        ts = video.file_created_at
+        if ts:
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts)
+                except Exception:
+                    pass
+            if hasattr(ts, "strftime"):
+                created_label = ts.strftime("%Y-%m-%d")
+        badges.append(_create_badge(f"作成:{created_label}", "#8b5cf6"))
 
     return badges
 
@@ -233,9 +215,10 @@ def render_video_card(
     key_base = f"{key_prefix}_" if key_prefix else ""
 
     if show_judgment_ui:
-        btn_col, judge_col, select_col, badge_col = card.columns([2, 2, 4, 8])
+        # U1修正: カラム幅比率を調整してボタンはみ出しを防止
+        btn_col, judge_col, select_col, badge_col = card.columns([2, 2, 3, 1])
     else:
-        btn_col, badge_col = card.columns([1, 3])
+        btn_col, badge_col = card.columns([1, 4])
         judge_col = None
         select_col = None
 
