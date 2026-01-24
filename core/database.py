@@ -125,6 +125,11 @@ def init_database():
             # 既存レコードにデフォルト値を設定
             conn.execute("UPDATE videos SET is_deleted = 0 WHERE is_deleted IS NULL;")
 
+        # F4: 判定中フラグ（再起動後も状態維持）
+        if "is_judging" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN is_judging BOOLEAN DEFAULT 0;")
+            conn.execute("UPDATE videos SET is_judging = 0 WHERE is_judging IS NULL;")
+
         # インデックス作成
         conn.execute("CREATE INDEX IF NOT EXISTS idx_essential_filename ON videos(essential_filename)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_favorite_level ON videos(current_favorite_level)")

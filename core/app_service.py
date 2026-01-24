@@ -10,6 +10,8 @@ from typing import Iterable, List, Optional, Dict
 from pathlib import Path
 from datetime import datetime
 
+import streamlit as st
+
 from core import database, snapshot, counter_service
 from core import config_utils
 from core.file_ops import create_file_scanner, detect_recently_accessed_files
@@ -52,8 +54,11 @@ def detect_library_root(file_path: Path, active_roots: list) -> str:
     return ""
 
 
+@st.cache_data(ttl=30)
 def get_filter_options() -> tuple[list[int], list[str], list[str]]:
-    """フィルタオプションを取得（お気に入り、登場人物、保存場所）"""
+    """フィルタオプションを取得（お気に入り、登場人物、保存場所）
+    P1: 30秒間キャッシュしてDBクエリを削減
+    """
     with get_db_connection() as conn:
         favorite_levels = database.get_distinct_favorite_levels(conn)
         performers = database.get_distinct_performers(conn)
@@ -61,16 +66,22 @@ def get_filter_options() -> tuple[list[int], list[str], list[str]]:
     return favorite_levels, performers, storage_locations
 
 
+@st.cache_data(ttl=10)
 def get_view_counts_and_last_viewed() -> tuple[dict, dict]:
-    """視聴回数と最終視聴日時のマップを返す"""
+    """視聴回数と最終視聴日時のマップを返す
+    P1: 10秒間キャッシュしてDBクエリを削減
+    """
     with get_db_connection() as conn:
         view_counts = database.get_view_counts_map(conn)
         last_viewed = database.get_last_viewed_map(conn)
     return view_counts, last_viewed
 
 
+@st.cache_data(ttl=30)
 def get_metrics() -> tuple[int, int]:
-    """総動画数と総視聴回数を返す"""
+    """総動画数と総視聴回数を返す
+    P1: 30秒間キャッシュしてDBクエリを削減
+    """
     with get_db_connection() as conn:
         total_videos = database.get_total_videos_count(conn)
         total_views = database.get_total_views_count(conn)
@@ -130,6 +141,15 @@ compare_snapshots = snapshot.compare_snapshots
 # カウンター ----------------------------------------------------------------
 get_counters_with_counts = counter_service.get_counters_with_counts
 reset_counter = counter_service.reset_counter
+
+# KPI統計（キャッシュ版）-------------------------------------------------
+@st.cache_data(ttl=10)
+def get_kpi_stats_cached() -> dict:
+    """KPI統計を取得（P1: 10秒間キャッシュ）"""
+    from ui.components.kpi_display import get_kpi_stats
+    with get_db_connection() as conn:
+        return get_kpi_stats(conn)
+
 
 # 分析タブ ---------------------------------------------------------------
 load_analysis_data = analysis_service.load_analysis_data
