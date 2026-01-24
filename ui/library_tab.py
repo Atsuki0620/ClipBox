@@ -43,6 +43,86 @@ def _filter_by_keyword(videos, keyword: str):
     return [v for v in videos if key_norm in normalize_text(v.essential_filename)]
 
 
+def _render_filter_controls():
+    """動画一覧用フィルタをエクスパンダー内に表示"""
+    _, performers, _ = app_service.get_filter_options()
+
+    level_options = [4, 3, 2, 1, 0, -1]
+    level_label_map = {lv: FAVORITE_LEVEL_NAMES.get(lv, f"レベル{lv}") for lv in level_options}
+
+    storage_options = ["すべて表示", "Cドライブのみ", "外付けHDDのみ"]
+    storage_map = {
+        "すべて表示": "ALL",
+        "Cドライブのみ": "C_DRIVE",
+        "外付けHDDのみ": "EXTERNAL_HDD",
+    }
+
+    availability_options = ["利用可能のみ", "利用不可のみ"]
+    availability_map = {
+        "利用可能のみ": "AVAILABLE",
+        "利用不可のみ": "UNAVAILABLE",
+    }
+
+    with st.expander("🔍 フィルタ", expanded=False):
+        col1, col2 = st.columns(2, gap="medium")
+
+        with col1:
+            selected_level_labels = st.multiselect(
+                "レベル",
+                options=[level_label_map[lv] for lv in level_options],
+                default=[level_label_map[lv] for lv in level_options if lv in st.session_state.filter_levels],
+            )
+            st.session_state.filter_levels = [lv for lv, label in level_label_map.items() if label in selected_level_labels]
+
+            selected_performers = st.multiselect(
+                "登場人物",
+                options=performers,
+                default=st.session_state.filter_actors,
+                placeholder="名前で検索...",
+            )
+            st.session_state.filter_actors = selected_performers
+            st.caption(
+                f"選択中: {', '.join(selected_performers)} ({len(selected_performers)}名)"
+                if selected_performers else "選択中: なし"
+            )
+
+        with col2:
+            default_storage_labels = [label for label, code in storage_map.items() if code in st.session_state.filter_storage]
+            selected_storage_labels = st.multiselect(
+                "保存場所",
+                options=storage_options,
+                default=default_storage_labels or ["Cドライブのみ"],
+            )
+            selected_storage_codes = [storage_map[label] for label in selected_storage_labels]
+            if not selected_storage_codes:
+                selected_storage_codes = ["C_DRIVE"]
+            st.session_state.filter_storage = selected_storage_codes
+
+            default_avail_labels = [label for label, code in availability_map.items() if code in st.session_state.filter_availability]
+            selected_avail_labels = st.multiselect(
+                "利用可否",
+                options=availability_options,
+                default=default_avail_labels or ["利用可能のみ"],
+            )
+            selected_avail_codes = [availability_map[label] for label in selected_avail_labels]
+            if not selected_avail_codes:
+                selected_avail_codes = ["AVAILABLE"]
+            st.session_state.filter_availability = selected_avail_codes
+
+        refresh_clicked = st.button(
+            "🔄 画面を更新",
+            use_container_width=True,
+            help="現在のフィルタ条件で一覧を再描画",
+            key="library_refresh_btn",
+        )
+        if refresh_clicked:
+            st.session_state.library_refresh_notice = True
+            st.rerun(scope="fragment")
+
+    if st.session_state.pop("library_refresh_notice", False):
+        st.success("最新のフィルタで再描画しました")
+
+
 @st.fragment
 def render_library_tab(on_play, on_judge):
     """動画一覧タブを描画"""
@@ -94,6 +174,10 @@ def render_library_tab(on_play, on_judge):
 
     settings: DisplaySettings = render_display_settings(key_prefix="library_disp")
     settings.num_columns = col_count
+
+    # 表示設定エクスパンダの直下にフィルタエクスパンダを配置
+    _render_filter_controls()
+    st.markdown("---")
 
     vm = st.session_state.video_manager
     availability = _build_availability_filter()
@@ -166,31 +250,3 @@ def render_library_tab(on_play, on_judge):
                     on_judge_callback=make_judge_handler(current_video),
                     key_prefix="library",
                 )
-
-
-@st.fragment
-def render_random_tab(on_play):
-    """ランダム再生タブ"""
-    st.subheader("🎲 ランダム再生")
-    vm = st.session_state.video_manager
-
-    favorite_levels = st.multiselect(
-        "対象レベル",
-        options=[4, 3, 2, 1, 0, -1],
-        default=[4, 3, 2, 1, 0],
-        format_func=lambda lv: FAVORITE_LEVEL_NAMES.get(lv, f"レベル{lv}"),
-    )
-    performers = st.multiselect(
-        "登場人物",
-        options=app_service.get_filter_options()[1],
-        default=[],
-        placeholder="名前で検索...",
-    )
-
-    if st.button("🎲 ランダム再生", use_container_width=True):
-        video = vm.get_random_video(favorite_levels=favorite_levels, performers=performers)
-        if video is None:
-            st.warning("該当する動画がありません。フィルタを緩めてください。")
-        else:
-            st.success(f"選択: {video.essential_filename}")
-            on_play(video, trigger="random_tab")
