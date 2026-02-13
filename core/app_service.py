@@ -157,4 +157,6 @@ apply_scope_filter = analysis_service.apply_scope_filter
 convert_period_filter = analysis_service.convert_period_filter
 calculate_period_view_count = analysis_service.calculate_period_view_count
 get_viewing_history = analysis_service.get_viewing_history
+get_judgment_history = analysis_service.get_judgment_history
 get_view_count_ranking = analysis_service.get_view_count_ranking
+get_view_days_ranking = analysis_service.get_view_days_ranking
