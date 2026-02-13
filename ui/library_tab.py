@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from typing import List
+import math
 
 import streamlit as st
 
@@ -13,19 +14,17 @@ from ui.components.video_card import render_video_card
 
 
 SORT_OPTIONS: List[str] = [
+    "ファイル作成:新しい順",
+    "ファイル作成:古い順",
     "お気に入り:高い順",
     "お気に入り:低い順",
     "視聴回数:多い順",
     "視聴回数:少ない順",
-    "最終視聴:新しい順",
-    "最終視聴:古い順",
-    "ファイル作成:新しい順",
-    "ファイル作成:古い順",
-    "ファイル更新:新しい順",
-    "ファイル更新:古い順",
     "タイトル:昇順",
     "タイトル:降順",
 ]
+
+PAGE_SIZE_OPTIONS = [50, 100, 200]
 
 
 def _build_availability_filter() -> str | None:
@@ -44,7 +43,7 @@ def _filter_by_keyword(videos, keyword: str):
 
 
 def _render_filter_controls():
-    """動画一覧用フィルタをエクスパンダー内に表示"""
+    """ライブラリ用フィルタをエクスパンダー内に表示"""
     _, performers, _ = app_service.get_filter_options()
 
     level_options = [4, 3, 2, 1, 0, -1]
@@ -109,6 +108,13 @@ def _render_filter_controls():
                 selected_avail_codes = ["AVAILABLE"]
             st.session_state.filter_availability = selected_avail_codes
 
+            judging_only = st.checkbox(
+                "判定中のみ表示",
+                value=st.session_state.filter_judging_only,
+                key="library_filter_judging",
+            )
+            st.session_state.filter_judging_only = judging_only
+
         refresh_clicked = st.button(
             "🔄 画面を更新",
             use_container_width=True,
@@ -123,10 +129,59 @@ def _render_filter_controls():
         st.success("最新のフィルタで再描画しました")
 
 
+def _reset_library_page():
+    """ページ番号を先頭に戻す"""
+    st.session_state.library_page = 1
+
+
+def _render_pagination(total_pages: int, position: str):
+    """ページネーションUI（上部/下部）"""
+    page = st.session_state.library_page
+    page = max(1, min(total_pages, page))
+    st.session_state.library_page = page
+
+    col_prev, col_info, col_next = st.columns([1, 3, 1], gap="small")
+
+    with col_prev:
+        if st.button("◀ 前へ", use_container_width=True, disabled=page <= 1, key=f"library_prev_{position}"):
+            st.session_state.library_page = max(1, page - 1)
+
+    with col_info:
+        # ページ選択セレクトボックス
+        page_numbers = list(range(1, total_pages + 1))
+        selected_page = st.selectbox(
+            "ページ選択",
+            options=page_numbers,
+            index=page - 1,
+            key=f"library_page_select_{position}",
+            label_visibility="collapsed",
+        )
+        if selected_page != st.session_state.library_page:
+            st.session_state.library_page = selected_page
+        st.markdown(
+            f"<div style='text-align:center; margin-top:0.25rem;'>"
+            f"<strong>{st.session_state.library_page}/{total_pages} ページ目</strong>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    with col_next:
+        if st.button("次へ ▶", use_container_width=True, disabled=page >= total_pages, key=f"library_next_{position}"):
+            st.session_state.library_page = min(total_pages, page + 1)
+
+
 @st.fragment
 def render_library_tab(on_play, on_judge):
     """動画一覧タブを描画"""
-    st.header("📚 動画一覧")
+    st.header("📚 ライブラリ")
+
+    # ページネーション状態の初期化
+    if 'library_page' not in st.session_state:
+        st.session_state.library_page = 1
+    if 'library_page_size' not in st.session_state:
+        st.session_state.library_page_size = 100
+    if 'library_last_signature' not in st.session_state:
+        st.session_state.library_last_signature = None
 
     # P1: キャッシュ版のKPI統計を使用
     kpi_stats = app_service.get_kpi_stats_cached()
@@ -139,8 +194,8 @@ def render_library_tab(on_play, on_judge):
 
     st.markdown("---")
 
-    # 横並び配置：カラム数、未判定フィルタ、ソート、検索
-    ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns([1.5, 1.5, 2, 2], gap="small")
+    # 横並び配置：カラム数、未判定フィルタ、ソート、検索、ページサイズ
+    ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4, ctrl_col5 = st.columns([1.2, 1.2, 2, 2, 1.2], gap="small")
 
     with ctrl_col1:
         col_count = st.radio(
@@ -172,6 +227,17 @@ def render_library_tab(on_play, on_judge):
         )
         st.session_state.search_keyword = search_keyword
 
+    with ctrl_col5:
+        page_size = st.selectbox(
+            "表示件数",
+            options=PAGE_SIZE_OPTIONS,
+            index=PAGE_SIZE_OPTIONS.index(st.session_state.library_page_size)
+            if st.session_state.library_page_size in PAGE_SIZE_OPTIONS else 1,
+            key="library_page_size_select",
+            on_change=_reset_library_page,
+        )
+        st.session_state.library_page_size = page_size
+
     settings: DisplaySettings = render_display_settings(key_prefix="library_disp")
     settings.num_columns = col_count
 
@@ -196,9 +262,26 @@ def render_library_tab(on_play, on_judge):
         availability=availability,
         show_unavailable=True if availability is None else False,
         show_deleted=False,
+        show_judging_only=st.session_state.filter_judging_only,
     )
 
     videos = _filter_by_keyword(videos, search_keyword)
+
+    # 条件が変わった場合はページを先頭に戻す
+    signature = (
+        sort_option,
+        search_keyword,
+        tuple(filter_levels),
+        tuple(st.session_state.filter_actors),
+        tuple(st.session_state.filter_storage),
+        tuple(st.session_state.filter_availability),
+        st.session_state.filter_judging_only,
+        unrated_filter,
+        st.session_state.library_page_size,
+    )
+    if signature != st.session_state.library_last_signature:
+        _reset_library_page()
+        st.session_state.library_last_signature = signature
 
     if st.session_state.selected_video:
         st.caption(f"再生中: {st.session_state.selected_video.essential_filename}")
@@ -215,11 +298,21 @@ def render_library_tab(on_play, on_judge):
         st.info("条件に合う動画が見つかりません。フィルタや検索条件を確認してください。")
         return
 
+    total_pages = max(1, math.ceil(len(videos) / st.session_state.library_page_size))
+    if st.session_state.library_page > total_pages:
+        st.session_state.library_page = total_pages
+
+    _render_pagination(total_pages, position="top")
+
+    start_idx = (st.session_state.library_page - 1) * st.session_state.library_page_size
+    end_idx = start_idx + st.session_state.library_page_size
+    page_videos = videos[start_idx:end_idx]
+
     col_count = max(1, min(6, settings.num_columns))
 
     # カードの上下揃えのため、行ごとにカラムを作成
-    for row_start in range(0, len(videos), col_count):
-        row_videos = videos[row_start:row_start + col_count]
+    for row_start in range(0, len(page_videos), col_count):
+        row_videos = page_videos[row_start:row_start + col_count]
         cols = st.columns(col_count, gap="small")
 
         for col_idx, video in enumerate(row_videos):
@@ -250,3 +343,5 @@ def render_library_tab(on_play, on_judge):
                     on_judge_callback=make_judge_handler(current_video),
                     key_prefix="library",
                 )
+
+    _render_pagination(total_pages, position="bottom")
