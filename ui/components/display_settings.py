@@ -1,5 +1,5 @@
-ï»¿"""
-ClipBox - è¡¨ç¤ºè¨­å®šUIã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆ
+"""
+ClipBox - •\¦İ’èUIƒRƒ“ƒ|[ƒlƒ“ƒg
 """
 
 from __future__ import annotations
@@ -10,36 +10,36 @@ import streamlit as st
 
 @dataclass
 class DisplaySettings:
-    """ä¸€è¦§ã‚«ãƒ¼ãƒ‰ã®è¡¨ç¤ºè¨­å®šã‚’ä¿æŒã™ã‚‹ãƒ‡ãƒ¼ã‚¿ã‚¯ãƒ©ã‚¹ã€‚"""
+    """ˆê——ƒJ[ƒh‚Ì•\¦İ’è‚ğ•Û‚·‚éƒf[ƒ^ƒNƒ‰ƒXB"""
 
     show_level_badge: bool = True
     show_availability_badge: bool = True
-    show_view_count_badge: bool = True  # F1: ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆONã«å¤‰æ›´
+    show_view_count_badge: bool = True  # F1: ƒfƒtƒHƒ‹ƒgON‚É•ÏX
     show_storage_badge: bool = False
     show_filesize_badge: bool = False
     show_modified_badge: bool = False
-    show_filename_badge: bool = True  # F1: ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆONã«å¤‰æ›´
-    show_created_badge: bool = True  # F2: ä½œæˆæ—¥æ™‚è¿½åŠ ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆONï¼‰
-    max_title_length: int = 60
+    show_filename_badge: bool = True  # F1: ƒfƒtƒHƒ‹ƒgON‚É•ÏX
+    show_created_badge: bool = True  # F2: ì¬“ú’Ç‰ÁiƒfƒtƒHƒ‹ƒgONj
+    max_title_length: int = 100
     num_columns: int = 3
 
 
 def _init_defaults(key_prefix: str) -> None:
-    """ã‚»ãƒƒã‚·ãƒ§ãƒ³çŠ¶æ…‹ã«ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’åˆæœŸåŒ–ï¼ˆB2ä¿®æ­£ï¼šè¨­å®šæ°¸ç¶šåŒ–ï¼‰
+    """ƒZƒbƒVƒ‡ƒ“ó‘Ô‚ÉƒfƒtƒHƒ‹ƒg’l‚ğ‰Šú‰»iB2C³Fİ’è‰i‘±‰»j
 
-    Streamlitã®ã‚¦ã‚£ã‚¸ã‚§ãƒƒãƒˆã¯ã€keyã‚’æŒ‡å®šã™ã‚‹ã¨è‡ªå‹•çš„ã«session_stateã«å€¤ã‚’ä¿å­˜ã™ã‚‹ã€‚
-    åˆå›ã®ã¿ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’è¨­å®šã—ã€ä»¥é™ã¯ã‚¦ã‚£ã‚¸ã‚§ãƒƒãƒˆè‡ªèº«ãŒç®¡ç†ã™ã‚‹ã€‚
+    Streamlit‚ÌƒEƒBƒWƒFƒbƒg‚ÍAkey‚ğw’è‚·‚é‚Æ©“®“I‚Ésession_state‚É’l‚ğ•Û‘¶‚·‚éB
+    ‰‰ñ‚Ì‚İƒfƒtƒHƒ‹ƒg’l‚ğİ’è‚µAˆÈ~‚ÍƒEƒBƒWƒFƒbƒg©g‚ªŠÇ—‚·‚éB
     """
     defaults = {
         f"{key_prefix}_level": True,
         f"{key_prefix}_avail": True,
-        f"{key_prefix}_views": True,  # F1: ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆON
+        f"{key_prefix}_views": True,  # F1: ƒfƒtƒHƒ‹ƒgON
         f"{key_prefix}_storage": False,
         f"{key_prefix}_filesize": False,
         f"{key_prefix}_modified": False,
-        f"{key_prefix}_filename": True,  # F1: ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆON
-        f"{key_prefix}_created": True,  # F2: ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆON
-        f"{key_prefix}_max_title": 60,
+        f"{key_prefix}_filename": True,  # F1: ƒfƒtƒHƒ‹ƒgON
+        f"{key_prefix}_created": True,  # F2: ƒfƒtƒHƒ‹ƒgON
+        f"{key_prefix}_max_title": 100,
     }
     for key, default_val in defaults.items():
         if key not in st.session_state:
@@ -47,35 +47,35 @@ def _init_defaults(key_prefix: str) -> None:
 
 
 def render_display_settings(key_prefix: str = "disp") -> DisplaySettings:
-    """è¡¨ç¤ºè¨­å®šã®UIã‚’æç”»ã—ã€é¸æŠçµæœã‚’è¿”ã™ã€‚
+    """•\¦İ’è‚ÌUI‚ğ•`‰æ‚µA‘I‘ğŒ‹‰Ê‚ğ•Ô‚·B
 
     Args:
-        key_prefix: Streamlitã‚¦ã‚£ã‚¸ã‚§ãƒƒãƒˆç”¨ã‚­ãƒ¼ã®ãƒ—ãƒ¬ãƒ•ã‚£ãƒƒã‚¯ã‚¹ï¼ˆã‚¿ãƒ–é–“ã®è¡çªé˜²æ­¢ï¼‰
+        key_prefix: StreamlitƒEƒBƒWƒFƒbƒg—pƒL[‚ÌƒvƒŒƒtƒBƒbƒNƒXiƒ^ƒuŠÔ‚ÌÕ“Ë–h~j
     """
-    # åˆå›ã®ã¿ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’è¨­å®š
+    # ‰‰ñ‚Ì‚İƒfƒtƒHƒ‹ƒg’l‚ğİ’è
     _init_defaults(key_prefix)
 
-    with st.expander("ğŸ¨ è¡¨ç¤ºè¨­å®š", expanded=False):
-        st.write("**ãƒãƒƒã‚¸è¡¨ç¤º / ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆ**")
+    with st.expander("?? •\¦İ’è", expanded=False):
+        st.write("**ƒoƒbƒW•\¦ / ƒŒƒCƒAƒEƒg**")
         col1, col2, col3, col4 = st.columns(4, gap="small")
 
         with col1:
-            show_level = st.checkbox("ãƒ¬ãƒ™ãƒ«", key=f"{key_prefix}_level")
-            show_avail = st.checkbox("åˆ©ç”¨å¯å¦", key=f"{key_prefix}_avail")
-            show_views = st.checkbox("è¦–è´å›æ•°", key=f"{key_prefix}_views")
+            show_level = st.checkbox("ƒŒƒxƒ‹", key=f"{key_prefix}_level")
+            show_avail = st.checkbox("—˜—p‰Â”Û", key=f"{key_prefix}_avail")
+            show_views = st.checkbox("‹’®‰ñ”", key=f"{key_prefix}_views")
 
         with col2:
-            show_storage = st.checkbox("ä¿å­˜å ´æ‰€", key=f"{key_prefix}_storage")
-            show_filesize = st.checkbox("ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚º", key=f"{key_prefix}_filesize")
+            show_storage = st.checkbox("•Û‘¶êŠ", key=f"{key_prefix}_storage")
+            show_filesize = st.checkbox("ƒtƒ@ƒCƒ‹ƒTƒCƒY", key=f"{key_prefix}_filesize")
 
         with col3:
-            show_modified = st.checkbox("æ›´æ–°æ—¥æ™‚", key=f"{key_prefix}_modified")
-            show_filename = st.checkbox("ãƒ•ã‚¡ã‚¤ãƒ«å", key=f"{key_prefix}_filename")
-            show_created = st.checkbox("ä½œæˆæ—¥æ™‚", key=f"{key_prefix}_created")
+            show_modified = st.checkbox("XV“ú", key=f"{key_prefix}_modified")
+            show_filename = st.checkbox("ƒtƒ@ƒCƒ‹–¼", key=f"{key_prefix}_filename")
+            show_created = st.checkbox("ì¬“ú", key=f"{key_prefix}_created")
 
         with col4:
             max_title = st.slider(
-                "ã‚¿ã‚¤ãƒˆãƒ«æœ€å¤§æ–‡å­—æ•°",
+                "ƒ^ƒCƒgƒ‹Å‘å•¶š”",
                 min_value=20,
                 max_value=100,
                 step=5,
@@ -92,5 +92,5 @@ def render_display_settings(key_prefix: str = "disp") -> DisplaySettings:
         show_filename_badge=show_filename,
         show_created_badge=show_created,
         max_title_length=max_title,
-        num_columns=3,  # ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ï¼ˆå¤–éƒ¨ã‹ã‚‰ä¸Šæ›¸ãã•ã‚Œã‚‹ï¼‰
+        num_columns=3,  # ƒfƒtƒHƒ‹ƒg’liŠO•”‚©‚çã‘‚«‚³‚ê‚éj
     )
