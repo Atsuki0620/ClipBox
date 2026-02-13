@@ -20,7 +20,7 @@ class DisplaySettings:
     show_modified_badge: bool = False
     show_filename_badge: bool = True  # F1: デフォルトONに変更
     show_created_badge: bool = True  # F2: 作成日時追加（デフォルトON）
-    max_title_length: int = 100
+    max_title_length: int = 60
     num_columns: int = 3
 
 
@@ -39,7 +39,7 @@ def _init_defaults(key_prefix: str) -> None:
         f"{key_prefix}_modified": False,
         f"{key_prefix}_filename": True,  # F1: デフォルトON
         f"{key_prefix}_created": True,  # F2: デフォルトON
-        f"{key_prefix}_max_title": 100,
+        f"{key_prefix}_max_title": 60,
     }
     for key, default_val in defaults.items():
         if key not in st.session_state:
@@ -54,13 +54,8 @@ def render_display_settings(key_prefix: str = "disp") -> DisplaySettings:
     """
     # 初回のみデフォルト値を設定
     _init_defaults(key_prefix)
-    expander_key = f"{key_prefix}_expander_open"
-    if expander_key not in st.session_state:
-        st.session_state[expander_key] = False
 
-    with st.expander("🎨 表示設定", expanded=st.session_state[expander_key]):
-        # expander内の操作が発生したタイミングでは開状態を維持する。
-        st.session_state[expander_key] = True
+    with st.expander("🎨 表示設定", expanded=False):
         st.write("**バッジ表示 / レイアウト**")
         col1, col2, col3, col4 = st.columns(4, gap="small")
 
