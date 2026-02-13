@@ -25,7 +25,8 @@ class VideoManager:
         storage_locations: Optional[List[str]] = None,
         availability: Optional[str] = None,
         show_unavailable: bool = False,
-        show_deleted: bool = False
+        show_deleted: bool = False,
+        show_judging_only: bool = False,
     ) -> List[Video]:
         """
         ????????????????
@@ -36,6 +37,7 @@ class VideoManager:
             availability: 'available' | 'unavailable' | 'all' | None?None ??????
             show_unavailable: ????????availability ? None ????????
             show_deleted: ?????????
+            show_judging_only: 判定中動画のみ取得する場合はTrue
         """
         with get_db_connection() as conn:
             query = "SELECT * FROM videos WHERE 1=1"
@@ -52,6 +54,8 @@ class VideoManager:
 
             if not show_deleted:
                 query += " AND is_deleted = 0"
+            if show_judging_only:
+                query += " AND is_judging = 1"
 
             if favorite_levels:
                 placeholders = ",".join("?" * len(favorite_levels))

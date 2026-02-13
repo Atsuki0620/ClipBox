@@ -65,3 +65,39 @@ def test_set_favorite_level_with_rename_logs_history(tmp_path, monkeypatch):
         assert history["old_level"] == 0
         assert history["new_level"] == -1
         assert history["rename_duration_ms"] >= 0
+
+
+def test_get_videos_filters_judging_only(tmp_path, monkeypatch):
+    """show_judging_only=Trueで判定中動画のみ返す"""
+    db_path = tmp_path / "videos.db"
+    monkeypatch.setattr(config_module, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+
+    database.init_database()
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, is_judging
+            ) VALUES (?, ?, ?, ?, 1, 0, 1)
+            """,
+            ("judging.mp4", str(tmp_path / "judging.mp4"), -1, "C_DRIVE"),
+        )
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, is_judging
+            ) VALUES (?, ?, ?, ?, 1, 0, 0)
+            """,
+            ("normal.mp4", str(tmp_path / "normal.mp4"), -1, "C_DRIVE"),
+        )
+
+    manager = VideoManager()
+    videos = manager.get_videos(show_judging_only=True)
+
+    assert len(videos) == 1
+    assert videos[0].essential_filename == "judging.mp4"
+    assert videos[0].is_judging is True

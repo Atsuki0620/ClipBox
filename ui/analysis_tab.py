@@ -11,7 +11,9 @@ import plotly.express as px
 from core import app_service
 from core.database import get_db_connection
 
-PALETTE = ["#2563eb", "#10b981", "#f97316", "#6366f1", "#e11d48", "#0891b2"]
+# 透明感のあるネオングラデーションに合わせた新パレット
+PALETTE = ["#68d3ff", "#a855f7", "#22d3ee", "#f97316", "#fb7185", "#c7d2fe"]
+TOP_N_OPTIONS = [10, 20, 50, 100]
 
 
 def _annotate_bars(ax):
@@ -91,7 +93,7 @@ def _render_kpis(df_filtered: pd.DataFrame) -> None:
             )
 
     show_kpi(col1, "総動画数", f"{total_videos:,} 本", 1)
-    show_kpi(col2, "総容量", f"{total_size_gb:,.2f} GB", 2)
+    show_kpi(col2, "総容量", f"{total_size_gb:,.0f} GB", 2)
     show_kpi(col3, "視聴済み", f"{viewed_videos:,} 本", 3)
     show_kpi(col4, "未視聴", f"{unviewed_videos:,} 本", 4)
     show_kpi(col5, "期間内総視聴回数", f"{period_view_count:,} 回", 5)
@@ -173,12 +175,17 @@ def _render_trend_chart(
     period_start: Optional[datetime],
     period_end: Optional[datetime],
 ) -> None:
-    st.subheader("📈 視聴回数の推移")
-    granularity = st.radio(
-        "集計粒度",
-        options=["日別", "週別", "月別"],
-        horizontal=True,
-    )
+    header_left, header_right = st.columns([1.2, 1])
+    with header_left:
+        st.subheader("📈 視聴回数の推移")
+    with header_right:
+        granularity = st.radio(
+            "集計粒度",
+            options=["日別", "週別", "月別"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="trend_granularity",
+        )
 
     views_df = app_service.get_viewing_history(
         period_start=period_start,
@@ -206,9 +213,73 @@ def _render_trend_chart(
         y="視聴回数",
         markers=True,
         color_discrete_sequence=[PALETTE[4]],
-        labels={"bucket": "期間", "視聴回数": "視聴回数"},
+        labels={"視聴回数": "視聴回数"},
     )
-    fig.update_layout(xaxis_tickangle=-25)
+    fig.update_layout(
+        xaxis_tickangle=-25,
+        height=320,
+        margin=dict(t=30, b=40),
+        xaxis_title="",
+    )
+    fig.update_xaxes(tickformat="%Y/%m/%d")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_judgment_trend(
+    df_filtered: pd.DataFrame,
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+) -> None:
+    header_left, header_right = st.columns([1.2, 1])
+    with header_left:
+        st.subheader("🧮 判定数の推移")
+    with header_right:
+        granularity = st.radio(
+            "判定粒度",
+            options=["日別", "週別", "月別"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="judgment_trend_granularity",
+        )
+
+    judgments_df = app_service.get_judgment_history(
+        period_start=period_start,
+        period_end=period_end,
+        video_ids=df_filtered["id"].tolist(),
+    )
+
+    if judgments_df.empty:
+        st.info("指定期間内の判定履歴がありません。")
+        return
+
+    judgments_df["judged_at"] = pd.to_datetime(judgments_df["judged_at"])
+
+    if granularity == "日別":
+        judgments_df["bucket"] = judgments_df["judged_at"].dt.date
+    elif granularity == "週別":
+        judgments_df["bucket"] = judgments_df["judged_at"].dt.to_period("W").apply(lambda p: p.start_time.date())
+    else:
+        judgments_df["bucket"] = judgments_df["judged_at"].dt.to_period("M").apply(lambda p: p.start_time.date())
+
+    # 「本日の判定」と同じく、同一日・同一動画の重複を1件にまとめる
+    judgments_df = judgments_df.drop_duplicates(subset=["video_id", "bucket"])
+    trend = judgments_df.groupby("bucket").size().reset_index(name="判定数")
+
+    fig = px.line(
+        trend,
+        x="bucket",
+        y="判定数",
+        markers=True,
+        color_discrete_sequence=[PALETTE[1]],
+        labels={"判定数": "判定数"},
+    )
+    fig.update_layout(
+        xaxis_tickangle=-25,
+        height=320,
+        margin=dict(t=30, b=40),
+        xaxis_title="",
+    )
+    fig.update_xaxes(tickformat="%Y/%m/%d")
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -264,11 +335,8 @@ def _render_ranking(df_filtered: pd.DataFrame) -> None:
         st.info("ランキングを表示できるデータがありません。")
         return
 
-    # U3: スライダーからラジオボタンに変更
     max_n = int(df_filtered.shape[0])
-    top_options = [10, 20, 50, 100]
-    # データ数より大きい選択肢は除外
-    valid_options = [n for n in top_options if n <= max_n]
+    valid_options = [n for n in TOP_N_OPTIONS if n <= max_n]
     if not valid_options:
         valid_options = [max_n]  # データ数が少ない場合は最大数を表示
 
@@ -299,24 +367,87 @@ def _render_ranking(df_filtered: pd.DataFrame) -> None:
     )
 
 
+def _render_view_days_ranking(
+    df_filtered: pd.DataFrame,
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+) -> None:
+    """視聴日数（ユニーク日数）ランキングを表示"""
+    st.subheader("📅 視聴日数ランキング")
+
+    if df_filtered.empty:
+        st.info("ランキングを表示できるデータがありません。")
+        return
+
+    max_n = int(df_filtered.shape[0])
+    valid_options = [n for n in TOP_N_OPTIONS if n <= max_n]
+    if not valid_options:
+        valid_options = [max_n]
+
+    top_n = st.radio(
+        "表示件数 (Top N)",
+        options=valid_options,
+        index=min(1, len(valid_options) - 1) if len(valid_options) > 1 else 0,
+        horizontal=True,
+        key="ranking_view_days_top_n",
+    )
+
+    ranking_df = app_service.get_view_days_ranking(
+        df_filtered=df_filtered,
+        period_start=period_start,
+        period_end=period_end,
+        top_n=top_n,
+    )
+
+    st.dataframe(
+        ranking_df,
+        use_container_width=True,
+        height=300,
+        hide_index=True,
+        column_config={
+            "順位": st.column_config.NumberColumn("順位", width="small"),
+            "ファイル名": st.column_config.TextColumn("ファイル名", width="large"),
+            "利用可否": st.column_config.TextColumn("利用可否", width="small"),
+            "保存場所": st.column_config.TextColumn("保存場所", width="small"),
+            "ファイル作成日": st.column_config.TextColumn("ファイル作成日", width="small"),
+            "お気に入りレベル": st.column_config.NumberColumn("お気に入りレベル", width="small"),
+            "視聴日数": st.column_config.NumberColumn("視聴日数", width="small"),
+        },
+    )
+
+
 def _render_graphs(
     df_filtered: pd.DataFrame,
     period_start: Optional[datetime],
     period_end: Optional[datetime],
 ) -> None:
-    # 左大・右小の2列レイアウト（比率 2:1）
-    col_left, col_right = st.columns([2, 1], gap="medium")
+    # 1. 視聴回数の推移（全幅）
+    st.markdown('<div class="chart-card animate-in">', unsafe_allow_html=True)
+    _render_trend_chart(df_filtered, period_start, period_end)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 1b. 判定数の推移（全幅）
+    st.markdown('<div class="chart-card animate-in animate-in-delay-1">', unsafe_allow_html=True)
+    _render_judgment_trend(df_filtered, period_start, period_end)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2. 残りグラフを左右に配置
+    col_left, col_right = st.columns([2, 1.2], gap="large")
 
     with col_left:
-        # 左列: レベル別集計 + 保存先別テーブル
+        st.markdown('<div class="chart-card animate-in animate-in-delay-2">', unsafe_allow_html=True)
         _render_level_chart(df_filtered)
         _render_storage_charts(df_filtered)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_right:
-        # 右列: 視聴回数の推移、容量分布、視聴回数分布を縦並び
-        _render_trend_chart(df_filtered, period_start, period_end)
+        st.markdown('<div class="chart-card animate-in animate-in-delay-3">', unsafe_allow_html=True)
         _render_size_distribution(df_filtered)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="chart-card animate-in animate-in-delay-4">', unsafe_allow_html=True)
         _render_view_count_distribution(df_filtered)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_response_time_histogram() -> None:
@@ -377,12 +508,24 @@ def _render_response_time_histogram() -> None:
 @st.fragment
 def render_analysis_tab() -> None:
     """分析タブのエントリーポイント"""
-    # 軽いテーマCSS
+    # クラシックテーマを適用（切替なし）
     st.markdown(
-        f"<style>{(Path(__file__).parent / '_theme.css').read_text(encoding='utf-8')}</style>",
+        f"<style>{(Path(__file__).parent / '_theme_classic.css').read_text(encoding='utf-8')}</style>",
         unsafe_allow_html=True,
     )
-    st.title("📊 分析ダッシュボード")
+
+    st.markdown(
+        """
+        <div class="hero-card animate-in">
+          <div>
+            <div class="hero-eyebrow">INSIGHTS</div>
+            <h1 class="hero-title">📊 分析ダッシュボード</h1>
+            <p class="hero-desc">ライブラリの健康状態と視聴動向を俯瞰できます。</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     availability, include_deleted, period_preset, custom_range = _render_filters()
 
@@ -400,21 +543,23 @@ def render_analysis_tab() -> None:
         st.warning("⚠ 条件に合致する動画が見つかりませんでした。フィルタ条件を変更してください。")
         return
 
-    # KPI Cards with glassmorphism
+    # KPI Cards
     with st.container():
         st.markdown('<div class="metrics-row">', unsafe_allow_html=True)
         _render_kpis(df_filtered)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Chart sections with modern card style
-    st.markdown('<div class="chart-card animate-in">', unsafe_allow_html=True)
+    # グラフ群
     _render_graphs(df_filtered, period_start, period_end)
-    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="chart-card animate-in animate-in-delay-1">', unsafe_allow_html=True)
+    st.markdown('<div class="chart-card animate-in animate-in-delay-2">', unsafe_allow_html=True)
     _render_response_time_histogram()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="chart-card animate-in animate-in-delay-2">', unsafe_allow_html=True)
+    st.markdown('<div class="chart-card animate-in animate-in-delay-3">', unsafe_allow_html=True)
     _render_ranking(df_filtered)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card animate-in animate-in-delay-4">', unsafe_allow_html=True)
+    _render_view_days_ranking(df_filtered, period_start, period_end)
     st.markdown('</div>', unsafe_allow_html=True)
