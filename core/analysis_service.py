@@ -186,6 +186,33 @@ def get_viewing_history(
         return pd.read_sql_query(query, conn, params=params)
 
 
+def get_judgment_history(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    video_ids: Sequence[int],
+) -> pd.DataFrame:
+    """期間・対象動画で絞った judgment_history を返す。"""
+    if not video_ids:
+        return pd.DataFrame(columns=["video_id", "judged_at"])
+
+    query = "SELECT video_id, judged_at FROM judgment_history WHERE 1=1"
+    params: list = []
+
+    if period_start is not None:
+        query += " AND judged_at >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        query += " AND judged_at <= ?"
+        params.append(period_end)
+
+    placeholders = ",".join("?" * len(video_ids))
+    query += f" AND video_id IN ({placeholders}) ORDER BY judged_at"
+    params.extend(video_ids)
+
+    with get_db_connection() as conn:
+        return pd.read_sql_query(query, conn, params=params)
+
+
 def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
     """period_view_count を用いたランキング DataFrame を返す。"""
     if df_filtered.empty:
@@ -217,4 +244,75 @@ def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
 
     return ranking[
         ["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴回数"]
+    ]
+
+
+def get_view_days_ranking(
+    df_filtered: pd.DataFrame,
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    top_n: int = 50,
+) -> pd.DataFrame:
+    """指定期間に「何日視聴されたか」で集計したランキングを返す。"""
+    if df_filtered.empty:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴日数"]
+        )
+
+    video_ids = df_filtered["id"].tolist()
+    if not video_ids:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴日数"]
+        )
+
+    placeholders = ",".join("?" * len(video_ids))
+    query = f"""
+        SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days
+          FROM viewing_history
+         WHERE video_id IN ({placeholders})
+    """
+    params: list = [*video_ids]
+
+    if period_start is not None:
+        query += " AND viewed_at >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        query += " AND viewed_at <= ?"
+        params.append(period_end)
+
+    query += " GROUP BY video_id"
+
+    with get_db_connection() as conn:
+        df_days = pd.read_sql_query(query, conn, params=params)
+
+    df_days = df_days.rename(columns={"video_id": "id"})
+    df_days["view_days"] = df_days["view_days"].fillna(0).astype(int)
+
+    ranking_base = df_filtered.merge(df_days, on="id", how="left")
+    ranking_base["view_days"] = ranking_base["view_days"].fillna(0).astype(int)
+
+    ranking = ranking_base.nlargest(top_n, "view_days").copy()
+    ranking.insert(0, "順位", range(1, len(ranking) + 1))
+
+    def _display_name(row) -> str:
+        if row.get("current_full_path"):
+            return Path(row["current_full_path"]).name
+        return row.get("essential_filename", "")
+
+    ranking["ファイル名"] = ranking.apply(_display_name, axis=1)
+    availability_series = ranking.get("is_available", pd.Series([None] * len(ranking)))
+    ranking["利用可否"] = availability_series.map({1: "利用可", 0: "利用不可"}).fillna("不明")
+
+    storage_series = ranking.get("storage_location", pd.Series([None] * len(ranking)))
+    ranking["保存場所"] = storage_series.fillna("")
+
+    created_series = ranking.get("file_created_at", pd.Series([None] * len(ranking)))
+    ranking["ファイル作成日"] = (
+        pd.to_datetime(created_series, errors="coerce").dt.strftime("%Y-%m-%d").fillna("-")
+    )
+    ranking["お気に入りレベル"] = ranking["current_favorite_level"]
+    ranking["視聴日数"] = ranking["view_days"]
+
+    return ranking[
+        ["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴日数"]
     ]

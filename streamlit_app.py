@@ -144,6 +144,8 @@ def init_session_state():
         st.session_state.filter_storage = ['C_DRIVE']
     if 'filter_availability' not in st.session_state:
         st.session_state.filter_availability = ['AVAILABLE']
+    if 'filter_judging_only' not in st.session_state:
+        st.session_state.filter_judging_only = False
     if 'title_max_length' not in st.session_state:
         st.session_state.title_max_length = 40
     if 'search_keyword' not in st.session_state:
@@ -180,8 +182,8 @@ def check_and_init_database():
         st.error(f"マイグレーション実行に失敗しました: {e}")
         st.stop()
 
-def render_sidebar():
-    """サイドバーの描画"""
+def render_sidebar() -> str:
+    """サイドバーの描画と画面選択"""
     st.sidebar.title("🎬 ClipBox")
     st.sidebar.markdown(
         """
@@ -195,6 +197,12 @@ def render_sidebar():
         unsafe_allow_html=True,
     )
 
+    nav_selection = st.sidebar.radio(
+        "画面を選択",
+        ["ライブラリ", "未判定ランダム", "分析ダッシュボード", "設定"],
+        index=0,
+    )
+
     st.sidebar.subheader('ユーティリティ')
     if st.sidebar.button('📁 ファイルをスキャン', use_container_width=True):
         scan_files()
@@ -203,6 +211,8 @@ def render_sidebar():
             detect_and_record_file_access()
             st.success('視聴履歴を更新しました')
             st.rerun()
+
+    return nav_selection
 
 def scan_files():
     """ファイルスキャン実行"""
@@ -232,22 +242,20 @@ def main():
     st.title("🎬 ClipBox")
 
     # サイドバー（共通）
-    render_sidebar()
-
-    tab_library, tab_unrated, tab_analysis, tab_settings = st.tabs(
-        ["動画一覧", "未判定ランダム", "分析", "設定"]
-    )
+    selected_view = render_sidebar()
 
     play_handler = lambda video, trigger="row_button": _handle_play(video, trigger)
 
-    with tab_library:
+    if selected_view == "ライブラリ":
         render_library_tab(play_handler, _handle_judgment)
-    with tab_unrated:
+    elif selected_view == "未判定ランダム":
         render_unrated_random_tab(play_handler, _handle_judgment)
-    with tab_analysis:
+    elif selected_view == "分析ダッシュボード":
         render_analysis_tab()
-    with tab_settings:
+    elif selected_view == "設定":
         render_settings_tab(scan_files_for_settings)
+    else:
+        st.info("画面を選択してください。")
 if __name__ == "__main__":
     main()
 
