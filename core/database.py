@@ -130,6 +130,16 @@ def init_database():
             conn.execute("ALTER TABLE videos ADD COLUMN is_judging BOOLEAN DEFAULT 0;")
             conn.execute("UPDATE videos SET is_judging = 0 WHERE is_judging IS NULL;")
 
+        # セレクション: needs_selection フラグ
+        if "needs_selection" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN needs_selection BOOLEAN DEFAULT 0")
+            conn.execute("UPDATE videos SET needs_selection = 0 WHERE needs_selection IS NULL")
+
+        # セレクション: judgment_history に was_selection_judgment フラグ
+        judgment_cols = [row[1] for row in conn.execute("PRAGMA table_info(judgment_history)").fetchall()]
+        if "was_selection_judgment" not in judgment_cols:
+            conn.execute("ALTER TABLE judgment_history ADD COLUMN was_selection_judgment BOOLEAN DEFAULT 0")
+
         # インデックス作成
         conn.execute("CREATE INDEX IF NOT EXISTS idx_essential_filename ON videos(essential_filename)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_favorite_level ON videos(current_favorite_level)")
@@ -138,6 +148,7 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_file_created_at ON videos(file_created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_available ON videos(is_available)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_deleted ON videos(is_deleted)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_needs_selection ON videos(needs_selection)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")
