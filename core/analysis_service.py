@@ -247,6 +247,127 @@ def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
     ]
 
 
+def get_like_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
+    """いいね数ランキング DataFrame を返す（全期間累計）。"""
+    if df_filtered.empty:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
+        )
+
+    video_ids = df_filtered["id"].tolist()
+    if not video_ids:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
+        )
+
+    # likesテーブルから動画別いいね数を集計
+    placeholders = ",".join("?" * len(video_ids))
+    query = f"""
+        SELECT video_id, COUNT(*) AS like_count
+          FROM likes
+         WHERE video_id IN ({placeholders})
+         GROUP BY video_id
+    """
+
+    with get_db_connection() as conn:
+        df_likes = pd.read_sql_query(query, conn, params=video_ids)
+
+    if df_likes.empty:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
+        )
+
+    df_likes = df_likes.rename(columns={"video_id": "id"})
+    df_likes["like_count"] = df_likes["like_count"].fillna(0).astype(int)
+
+    # df_filteredとマージ
+    ranking_base = df_filtered.merge(df_likes, on="id", how="left")
+    ranking_base["like_count"] = ranking_base["like_count"].fillna(0).astype(int)
+
+    # いいね数が1以上の動画のみフィルタ
+    ranking_base = ranking_base[ranking_base["like_count"] > 0]
+
+    if ranking_base.empty:
+        return pd.DataFrame(
+            columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
+        )
+
+    # Top N抽出
+    ranking = ranking_base.nlargest(top_n, "like_count").copy()
+    ranking.insert(0, "順位", range(1, len(ranking) + 1))
+
+    def _display_name(row) -> str:
+        if row.get("current_full_path"):
+            return Path(row["current_full_path"]).name
+        return row.get("essential_filename", "")
+
+    ranking["ファイル名"] = ranking.apply(_display_name, axis=1)
+    availability_series = ranking.get("is_available", pd.Series([None] * len(ranking)))
+    ranking["利用可否"] = availability_series.map({1: "利用可", 0: "利用不可"}).fillna("不明")
+
+    storage_series = ranking.get("storage_location", pd.Series([None] * len(ranking)))
+    ranking["保存場所"] = storage_series.fillna("")
+
+    created_series = ranking.get("file_created_at", pd.Series([None] * len(ranking)))
+    ranking["ファイル作成日"] = (
+        pd.to_datetime(created_series, errors="coerce").dt.strftime("%Y-%m-%d").fillna("-")
+    )
+    ranking["お気に入りレベル"] = ranking["current_favorite_level"]
+    ranking["いいね数"] = ranking["like_count"]
+
+    return ranking[
+        ["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
+    ]
+
+
+def get_selection_judgment_trend(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+) -> pd.DataFrame:
+    """
+    セレクション判定数の日別推移を返す。
+
+    Returns:
+        DataFrame: columns = ["date", "count"]
+    """
+    query = """
+        SELECT DATE(judged_at, 'localtime') AS date, COUNT(*) AS count
+          FROM judgment_history
+         WHERE was_selection_judgment = 1
+    """
+    params: list = []
+    if period_start is not None:
+        query += " AND judged_at >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        query += " AND judged_at <= ?"
+        params.append(period_end)
+    query += " GROUP BY DATE(judged_at, 'localtime') ORDER BY date"
+
+    with get_db_connection() as conn:
+        df = pd.read_sql_query(query, conn, params=params)
+
+    return df
+
+
+def get_selection_level_distribution() -> pd.DataFrame:
+    """
+    セレクション判定結果のレベル別分布を返す。
+
+    Returns:
+        DataFrame: columns = ["level", "count"]
+    """
+    query = """
+        SELECT new_level AS level, COUNT(*) AS count
+          FROM judgment_history
+         WHERE was_selection_judgment = 1
+         GROUP BY new_level
+         ORDER BY new_level DESC
+    """
+    with get_db_connection() as conn:
+        return pd.read_sql_query(query, conn)
+
+
 def get_view_days_ranking(
     df_filtered: pd.DataFrame,
     period_start: Optional[datetime],

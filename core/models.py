@@ -28,6 +28,7 @@ class Video:
     is_available: bool = True
     is_deleted: bool = False
     is_judging: bool = False  # F4: 判定中フラグ
+    needs_selection: bool = False  # セレクション対象フラグ（?プレフィックス）
 
     @property
     def display_name(self) -> str:

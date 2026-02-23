@@ -27,6 +27,7 @@ class VideoManager:
         show_unavailable: bool = False,
         show_deleted: bool = False,
         show_judging_only: bool = False,
+        needs_selection_filter: Optional[bool] = None,
     ) -> List[Video]:
         """
         ????????????????
@@ -56,6 +57,10 @@ class VideoManager:
                 query += " AND is_deleted = 0"
             if show_judging_only:
                 query += " AND is_judging = 1"
+
+            if needs_selection_filter is not None:
+                query += " AND needs_selection = ?"
+                params.append(1 if needs_selection_filter else 0)
 
             if favorite_levels:
                 placeholders = ",".join("?" * len(favorite_levels))
@@ -282,6 +287,7 @@ class VideoManager:
             is_available=bool(row['is_available']) if 'is_available' in row.keys() else True,
             is_deleted=bool(row['is_deleted']) if 'is_deleted' in row.keys() else False,
             is_judging=bool(row['is_judging']) if 'is_judging' in row.keys() else False,
+            needs_selection=bool(row['needs_selection']) if 'needs_selection' in row.keys() else False,
         )
 
     def set_judging_state(self, video_id: int, is_judging: bool) -> dict:
@@ -384,6 +390,7 @@ class VideoManager:
                     UPDATE videos
                        SET current_full_path = ?,
                            current_favorite_level = ?,
+                           needs_selection = 0,
                            last_scanned_at = CURRENT_TIMESTAMP
                      WHERE id = ?
                     """,
@@ -397,9 +404,10 @@ class VideoManager:
                     """
                     INSERT INTO judgment_history (
                         video_id, old_level, new_level, judged_at,
-                        rename_completed_at, rename_duration_ms, storage_location
+                        rename_completed_at, rename_duration_ms, storage_location,
+                        was_selection_judgment
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         video_id,
@@ -409,6 +417,7 @@ class VideoManager:
                         rename_completed_at,
                         rename_duration_ms,
                         video.storage_location,
+                        1 if video.needs_selection else 0,
                     ),
                 )
 
