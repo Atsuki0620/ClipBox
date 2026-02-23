@@ -156,6 +156,22 @@ def init_database():
             """
         )
 
+        # likes テーブル（いいね機能）
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS likes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_id INTEGER NOT NULL,
+                liked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        # likes テーブルのインデックス
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_likes_video_id ON likes(video_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_likes_liked_at ON likes(liked_at)")
+
         # 初期レコード投入（存在しないIDのみ）
         existing_ids = {row[0] for row in conn.execute("SELECT counter_id FROM counters").fetchall()}
         for cid in ["A", "B", "C"]:

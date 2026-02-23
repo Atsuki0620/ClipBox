@@ -110,6 +110,16 @@ with get_db_connection() as conn:
 | `counter_id` | TEXT | PRIMARY KEY | カウンタID ('A', 'B', 'C') |
 | `start_time` | DATETIME | | カウント開始日時（NULL = 未使用） |
 
+### 2.6 likes（いいね）
+
+動画への👍いいねを記録するテーブル。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 主キー |
+| `video_id` | INTEGER | NOT NULL, FK → videos(id) | 動画ID |
+| `liked_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | いいねした日時 |
+
 ---
 
 ## 3. テーブル関連図
@@ -119,6 +129,7 @@ erDiagram
     videos ||--o{ viewing_history : "has"
     videos ||--o{ play_history : "has"
     videos ||--o{ judgment_history : "has"
+    videos ||--o{ likes : "has"
     counters
 
     videos {
@@ -173,6 +184,12 @@ erDiagram
         TEXT counter_id PK
         DATETIME start_time
     }
+
+    likes {
+        INTEGER id PK
+        INTEGER video_id FK
+        DATETIME liked_at
+    }
 ```
 
 ---
@@ -186,6 +203,7 @@ erDiagram
 | viewing_history.video_id | videos.id | ON DELETE CASCADE |
 | play_history.video_id | videos.id | ON DELETE CASCADE |
 | judgment_history.video_id | videos.id | ON DELETE CASCADE |
+| likes.video_id | videos.id | ON DELETE CASCADE |
 
 ---
 
@@ -209,6 +227,8 @@ erDiagram
 | play_history | idx_play_history_video_id | video_id |
 | judgment_history | idx_judged_at | judged_at |
 | judgment_history | idx_judgment_video_id | video_id |
+| likes | idx_likes_video_id | video_id |
+| likes | idx_likes_liked_at | liked_at |
 
 ---
 
@@ -337,6 +357,7 @@ class ViewingHistory:
 | - | file_created_at, is_available, is_deleted追加 |
 | - | is_judging追加（判定中フラグ） |
 | - | judgment_history, countersテーブル追加 |
+| 2026-02-21 | likesテーブル追加（いいね機能） |
 
 ---
 
