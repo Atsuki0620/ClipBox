@@ -320,6 +320,54 @@ def get_like_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
     ]
 
 
+def get_selection_judgment_trend(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+) -> pd.DataFrame:
+    """
+    セレクション判定数の日別推移を返す。
+
+    Returns:
+        DataFrame: columns = ["date", "count"]
+    """
+    query = """
+        SELECT DATE(judged_at, 'localtime') AS date, COUNT(*) AS count
+          FROM judgment_history
+         WHERE was_selection_judgment = 1
+    """
+    params: list = []
+    if period_start is not None:
+        query += " AND judged_at >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        query += " AND judged_at <= ?"
+        params.append(period_end)
+    query += " GROUP BY DATE(judged_at, 'localtime') ORDER BY date"
+
+    with get_db_connection() as conn:
+        df = pd.read_sql_query(query, conn, params=params)
+
+    return df
+
+
+def get_selection_level_distribution() -> pd.DataFrame:
+    """
+    セレクション判定結果のレベル別分布を返す。
+
+    Returns:
+        DataFrame: columns = ["level", "count"]
+    """
+    query = """
+        SELECT new_level AS level, COUNT(*) AS count
+          FROM judgment_history
+         WHERE was_selection_judgment = 1
+         GROUP BY new_level
+         ORDER BY new_level DESC
+    """
+    with get_db_connection() as conn:
+        return pd.read_sql_query(query, conn)
+
+
 def get_view_days_ranking(
     df_filtered: pd.DataFrame,
     period_start: Optional[datetime],

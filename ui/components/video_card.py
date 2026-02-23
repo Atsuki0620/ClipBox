@@ -69,8 +69,15 @@ def _build_badge_list(
     settings: DisplaySettings,
     view_count: int,
     last_modified: Optional[datetime | str],
+    show_selection_state: bool = False,
 ) -> list[str]:
-    """動画情報からバッジHTMLリストを生成"""
+    """動画情報からバッジHTMLリストを生成
+
+    Args:
+        show_selection_state: True のとき「判定済み/未判定」の代わりに
+                              「選別済み/未選別」（needs_selection ベース）を表示する。
+                              セレクションタブ用。
+    """
     badges = []
 
     # 利用可否バッジ
@@ -80,18 +87,28 @@ def _build_badge_list(
         else:
             badges.append(_create_badge("×", "#ef4444"))
 
-    # 未判定バッジ（レベル-1の場合）
     is_judged = video.current_favorite_level >= 0
-    if not is_judged:
-        badges.append(_create_badge("未判定", "#f9a8d4"))
 
-    # F3: 判定済みバッジ（current_favorite_level >= 0 の場合）
-    if is_judged:
-        badges.append(_create_badge("判定済み", "#22c55e"))
+    if show_selection_state:
+        # セレクションタブ: 選別状態バッジ（needs_selection ベース）
+        if getattr(video, "needs_selection", False):
+            badges.append(_create_badge("未選別", "#e879f9"))
+        else:
+            badges.append(_create_badge("選別済み", "#22c55e"))
+    else:
+        # ライブラリ / 未判定ランダムタブ: 判定状態バッジ
+        if not is_judged:
+            badges.append(_create_badge("未判定", "#f9a8d4"))
+        else:
+            badges.append(_create_badge("判定済み", "#22c55e"))
 
-    # F4: 判定中バッジ（is_judging = True の場合）
-    if getattr(video, "is_judging", False):
-        badges.append(_create_badge("判定中", "#f59e0b"))
+        # F4: 判定中バッジ
+        if getattr(video, "is_judging", False):
+            badges.append(_create_badge("判定中", "#f59e0b"))
+
+        # 旧: needs_selection バッジ（ライブラリで !プレフィックスファイルが表示された場合）
+        if getattr(video, "needs_selection", False):
+            badges.append(_create_badge("未選別", "#e879f9"))
 
     # レベルバッジ（判定済みの場合）
     if settings.show_level_badge and is_judged:
@@ -163,6 +180,7 @@ def render_video_card(
     like_count: int = 0,
     last_modified: Optional[datetime | str] = None,
     show_judgment_ui: bool = True,
+    show_selection_state: bool = False,
     is_selected: bool = False,
     on_play_callback: Optional[Callable[[Video], None]] = None,
     on_judge_callback: Optional[Callable[[Video, int], None]] = None,
@@ -273,7 +291,7 @@ def render_video_card(
 
     # バッジ表示
     with badge_col:
-        badges = _build_badge_list(video, settings, view_count, last_modified)
+        badges = _build_badge_list(video, settings, view_count, last_modified, show_selection_state)
         if badges:
             card.markdown(" ".join(badges), unsafe_allow_html=True)
 

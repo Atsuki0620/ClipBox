@@ -14,11 +14,21 @@ def render_settings_tab(scan_files_for_settings):
         value="\n".join(cfg.get("library_roots", [])),
         height=120,
     )
+    selection_folder = st.text_input(
+        "セレクションフォルダパス",
+        value=cfg.get("selection_folder", ""),
+        placeholder="例: C:\\Temp\\Review_2026-02",
+        help="セレクションタブで使用するフォルダパス。保存すると起動時に自動でセットされます。",
+    )
     default_player = st.text_input("既定プレイヤー", value=cfg.get("default_player", "vlc"))
 
     if st.button("設定を保存", use_container_width=True):
         new_roots = [line.strip() for line in library_roots_text.splitlines() if line.strip()]
-        cfg.update({"library_roots": new_roots, "default_player": default_player})
+        cfg.update({
+            "library_roots": new_roots,
+            "selection_folder": selection_folder.strip(),
+            "default_player": default_player,
+        })
         app_service.save_user_config(cfg)
         st.success("設定を保存しました")
 

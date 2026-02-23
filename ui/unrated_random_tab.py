@@ -34,6 +34,7 @@ def _row_to_video(row: Row) -> Video:
         is_available=bool(row["is_available"]) if "is_available" in row.keys() else True,
         is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
         is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
+        needs_selection=bool(row["needs_selection"]) if "needs_selection" in row.keys() else False,
     )
 
 

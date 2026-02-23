@@ -549,6 +549,82 @@ def _render_response_time_histogram() -> None:
         st.metric("最小", f"{df['duration_ms'].min():.0f}ms")
 
 
+def _render_selection_analysis(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+) -> None:
+    """セレクション成果分析セクション"""
+    st.subheader("🎯 セレクション成果分析")
+
+    trend_df = app_service.get_selection_judgment_trend(period_start, period_end)
+    dist_df = app_service.get_selection_level_distribution()
+
+    col_left, col_right = st.columns(2, gap="large")
+
+    with col_left:
+        header_l, header_r = st.columns([2, 1])
+        with header_l:
+            st.markdown("**選別数の推移**")
+        with header_r:
+            granularity = st.radio(
+                "粒度",
+                options=["日別", "週別", "月別"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="selection_trend_granularity",
+            )
+
+        if trend_df.empty:
+            st.info("セレクション判定データがありません。")
+        else:
+            trend_df["date"] = pd.to_datetime(trend_df["date"])
+            if granularity == "週別":
+                trend_df["bucket"] = trend_df["date"].dt.to_period("W").apply(lambda p: p.start_time.date())
+            elif granularity == "月別":
+                trend_df["bucket"] = trend_df["date"].dt.to_period("M").apply(lambda p: p.start_time.date())
+            else:
+                trend_df["bucket"] = trend_df["date"].dt.date
+
+            agg = trend_df.groupby("bucket")["count"].sum().reset_index(name="選別数")
+            fig = px.line(
+                agg,
+                x="bucket",
+                y="選別数",
+                markers=True,
+                color_discrete_sequence=[PALETTE[4]],
+                labels={"bucket": "日付", "選別数": "選別数"},
+            )
+            fig.update_layout(
+                xaxis_tickangle=-25,
+                height=300,
+                margin=dict(t=20, b=40),
+                xaxis_title="",
+            )
+            fig.update_xaxes(tickformat="%Y/%m/%d")
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_right:
+        st.markdown("**選別結果のレベル分布**")
+        if dist_df.empty:
+            st.info("セレクション判定データがありません。")
+        else:
+            level_colors = {-1: "#9ca3af", 0: "#d1d5db", 1: "#93c5fd", 2: "#3b82f6", 3: "#2563eb", 4: "#1d4ed8"}
+            dist_df["color"] = dist_df["level"].map(lambda l: level_colors.get(l, "#6b7280"))
+            dist_df["level_label"] = dist_df["level"].map(
+                lambda l: "未判定" if l == -1 else f"Lv{l}"
+            )
+            fig = px.bar(
+                dist_df,
+                x="level_label",
+                y="count",
+                color="level_label",
+                color_discrete_map={row["level_label"]: row["color"] for _, row in dist_df.iterrows()},
+                labels={"level_label": "レベル", "count": "選別数"},
+            )
+            fig.update_layout(height=300, margin=dict(t=20, b=40), showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+
 @st.fragment
 def render_analysis_tab() -> None:
     """分析タブのエントリーポイント"""
@@ -610,4 +686,8 @@ def render_analysis_tab() -> None:
 
     st.markdown('<div class="chart-card animate-in animate-in-delay-5">', unsafe_allow_html=True)
     _render_like_count_ranking(df_filtered)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card animate-in animate-in-delay-5">', unsafe_allow_html=True)
+    _render_selection_analysis(period_start, period_end)
     st.markdown('</div>', unsafe_allow_html=True)
