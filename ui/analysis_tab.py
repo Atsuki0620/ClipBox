@@ -416,6 +416,50 @@ def _render_view_days_ranking(
     )
 
 
+def _render_like_count_ranking(df_filtered: pd.DataFrame) -> None:
+    """いいね数ランキングを表示"""
+    st.subheader("👍 いいね数ランキング")
+
+    if df_filtered.empty:
+        st.info("ランキングを表示できるデータがありません。")
+        return
+
+    max_n = int(df_filtered.shape[0])
+    valid_options = [n for n in TOP_N_OPTIONS if n <= max_n]
+    if not valid_options:
+        valid_options = [max_n]
+
+    top_n = st.radio(
+        "表示件数 (Top N)",
+        options=valid_options,
+        index=min(1, len(valid_options) - 1) if len(valid_options) > 1 else 0,
+        horizontal=True,
+        key="ranking_like_count_top_n",
+    )
+
+    ranking_df = app_service.get_like_count_ranking(df_filtered, top_n=top_n)
+
+    if ranking_df.empty:
+        st.info("いいねが1件も記録されていません。")
+        return
+
+    st.dataframe(
+        ranking_df,
+        use_container_width=True,
+        height=300,
+        hide_index=True,
+        column_config={
+            "順位": st.column_config.NumberColumn("順位", width="small"),
+            "ファイル名": st.column_config.TextColumn("ファイル名", width="large"),
+            "利用可否": st.column_config.TextColumn("利用可否", width="small"),
+            "保存場所": st.column_config.TextColumn("保存場所", width="small"),
+            "ファイル作成日": st.column_config.TextColumn("ファイル作成日", width="small"),
+            "お気に入りレベル": st.column_config.NumberColumn("お気に入りレベル", width="small"),
+            "いいね数": st.column_config.NumberColumn("いいね数", width="small"),
+        },
+    )
+
+
 def _render_graphs(
     df_filtered: pd.DataFrame,
     period_start: Optional[datetime],
@@ -562,4 +606,8 @@ def render_analysis_tab() -> None:
 
     st.markdown('<div class="chart-card animate-in animate-in-delay-4">', unsafe_allow_html=True)
     _render_view_days_ranking(df_filtered, period_start, period_end)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card animate-in animate-in-delay-5">', unsafe_allow_html=True)
+    _render_like_count_ranking(df_filtered)
     st.markdown('</div>', unsafe_allow_html=True)

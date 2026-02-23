@@ -18,7 +18,7 @@ from ui.components.display_settings import DisplaySettings
 
 def _inject_base_styles() -> None:
     """カード用のCSSスタイルを注入（CSS only - JavaScriptは使用しない）"""
-    if st.session_state.get("_cb_video_card_css_injected"):
+    if st.session_state.get("_cb_video_card_css_injected_v2"):
         return
 
     st.markdown(
@@ -29,10 +29,10 @@ def _inject_base_styles() -> None:
 
 /* コンパクトなボタンスタイル */
 div[data-testid="stHorizontalBlock"] div[data-testid="column"] button {
-    padding: 2px 6px !important;
-    min-height: 24px !important;
-    font-size: 14px !important;
-    border-radius: 4px !important;
+    padding: 1px 2px !important;
+    min-height: 20px !important;
+    font-size: 13px !important;
+    border-radius: 3px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     max-width: 300px !important;
@@ -56,7 +56,7 @@ section[data-testid="stVerticalBlock"] > div {
         """,
         unsafe_allow_html=True,
     )
-    st.session_state["_cb_video_card_css_injected"] = True
+    st.session_state["_cb_video_card_css_injected_v2"] = True
 
 
 def _create_badge(label: str, color: str) -> str:
@@ -160,11 +160,13 @@ def render_video_card(
     settings: DisplaySettings,
     *,
     view_count: int = 0,
+    like_count: int = 0,
     last_modified: Optional[datetime | str] = None,
     show_judgment_ui: bool = True,
     is_selected: bool = False,
     on_play_callback: Optional[Callable[[Video], None]] = None,
     on_judge_callback: Optional[Callable[[Video, int], None]] = None,
+    on_like_callback: Optional[Callable[[Video], None]] = None,
     key_prefix: str = "",
 ) -> None:
     """
@@ -211,14 +213,14 @@ def render_video_card(
         unsafe_allow_html=True,
     )
 
-    # ボタン・判定UI・バッジの横並び配置
+    # ボタン・判定UI・いいね・バッジの横並び配置
     key_base = f"{key_prefix}_" if key_prefix else ""
 
     if show_judgment_ui:
-        # U1修正: カラム幅比率を調整してボタンはみ出しを防止
-        btn_col, judge_col, select_col, badge_col = card.columns([2, 2, 3, 1])
+        # いいねボタンを select_col と badge_col の間に追加
+        btn_col, judge_col, select_col, like_col, badge_col = card.columns([2, 2, 5, 4, 1])
     else:
-        btn_col, badge_col = card.columns([1, 4])
+        btn_col, like_col, badge_col = card.columns([1, 2.5, 3])
         judge_col = None
         select_col = None
 
@@ -261,6 +263,13 @@ def render_video_card(
             if st.button("✓", key=f"{key_base}judge_{video.id}", disabled=is_disabled, help="判定を確定"):
                 if on_judge_callback:
                     on_judge_callback(video, selected_level)
+
+    # いいねボタン
+    with like_col:
+        like_label = f"👍 {like_count}"
+        if st.button(like_label, key=f"{key_base}like_{video.id}", disabled=is_disabled, help="いいね"):
+            if on_like_callback:
+                on_like_callback(video)
 
     # バッジ表示
     with badge_col:
