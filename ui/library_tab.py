@@ -288,6 +288,10 @@ def render_library_tab(on_play, on_judge):
 
     view_counts, last_viewed_map = app_service.get_view_counts_and_last_viewed()
 
+    # いいね数を一括取得（N+1クエリ回避）
+    video_ids = [v.id for v in videos]
+    like_counts = app_service.get_like_counts(video_ids)
+
     if sort_option:
         videos = sorted(
             videos,
@@ -332,15 +336,25 @@ def render_library_tab(on_play, on_judge):
                         on_judge(vid, level)
                     return handler
 
+                def make_like_handler(vid):
+                    def handler(v):
+                        # いいねを追加して画面を更新
+                        new_count = app_service.add_like(vid.id)
+                        like_counts[vid.id] = new_count
+                        st.rerun(scope="fragment")
+                    return handler
+
                 render_video_card(
                     video=current_video,
                     settings=settings,
                     view_count=view_counts.get(current_video.id, 0),
+                    like_count=like_counts.get(current_video.id, 0),
                     last_modified=current_video.last_file_modified,
                     show_judgment_ui=True,
                     is_selected=is_selected,
                     on_play_callback=make_play_handler(current_video),
                     on_judge_callback=make_judge_handler(current_video),
+                    on_like_callback=make_like_handler(current_video),
                     key_prefix="library",
                 )
 

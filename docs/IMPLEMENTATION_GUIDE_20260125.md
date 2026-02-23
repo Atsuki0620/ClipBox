@@ -156,6 +156,7 @@ ClipBox/
 | `core/analysis_service.py` | 統計分析 |
 | `core/history_repository.py` | 再生履歴リポジトリ |
 | `core/file_ops.py` | ファイル操作ユーティリティ |
+| `core/like_service.py` | いいね機能（追加・取得） |
 
 ---
 
@@ -235,6 +236,14 @@ streamlit_app.py
 | カウンター取得 | `core/counter_service.py` | `get_counter_values()` | ✅ |
 | カウンターリセット | `core/counter_service.py` | `reset_counter()` | ✅ |
 | 視聴回数ランキング | `core/analysis_service.py` | `get_viewing_ranking()` | ✅ |
+
+### 5.5 いいね機能
+
+| 機能 | ファイル | 関数 | 状態 |
+|------|---------|------|------|
+| いいね追加 | `core/like_service.py` | `add_like()` | ✅ |
+| いいね数取得 | `core/like_service.py` | `get_like_counts()` | ✅ |
+| UIカード表示 | `ui/components/video_card.py` | `render_video_card()` | ✅ |
 
 ---
 

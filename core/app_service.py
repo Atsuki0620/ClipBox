@@ -19,6 +19,8 @@ from core.database import init_database, check_database_exists, get_db_connectio
 from core.settings import get_last_access_check_time, update_last_access_check_time
 from core import analysis_service
 from core.video_manager import VideoManager
+from core import like_service
+from core import selection_service
 
 
 # DB / 接続管理 -------------------------------------------------------------
@@ -160,3 +162,14 @@ get_viewing_history = analysis_service.get_viewing_history
 get_judgment_history = analysis_service.get_judgment_history
 get_view_count_ranking = analysis_service.get_view_count_ranking
 get_view_days_ranking = analysis_service.get_view_days_ranking
+get_like_count_ranking = analysis_service.get_like_count_ranking
+get_selection_judgment_trend = analysis_service.get_selection_judgment_trend
+get_selection_level_distribution = analysis_service.get_selection_level_distribution
+
+# いいね機能 -------------------------------------------------------------
+add_like = like_service.add_like
+get_like_counts = like_service.get_like_counts
+
+# セレクション ----------------------------------------------------------
+scan_selection_folder = selection_service.scan_selection_folder
+get_selection_kpi = selection_service.get_selection_kpi

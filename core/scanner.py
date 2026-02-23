@@ -11,33 +11,36 @@ from datetime import datetime
 from config import VIDEO_EXTENSIONS
 
 
-def extract_essential_filename(filename: str) -> Tuple[int, str]:
+def extract_essential_filename(filename: str) -> Tuple[int, str, bool]:
     """
-    ???????????????????????????
+    ファイル名からお気に入りレベル、本質的ファイル名、セレクションフラグを抽出
 
-    ?????????:
-    - "####_???.mp4" -> (4, "???.mp4")
-    - "###_???.mp4"  -> (3, "???.mp4")
-    - "##_???.mp4"   -> (2, "???.mp4")
-    - "#_???.mp4"    -> (1, "???.mp4")
-    - "_???.mp4"     -> (0, "???.mp4")
-    - "?_???.mp4"    -> (-1, "???.mp4")  # ???????
-    - "???.mp4"      -> (-1, "???.mp4")  # ?????????????
+    パース例:
+    - "!###_作品.mp4" -> (3, "作品.mp4", True)
+    - "!_作品.mp4"    -> (0, "作品.mp4", True)
+    - "!作品.mp4"     -> (-1, "作品.mp4", True)
+    - "####_作品.mp4"  -> (4, "作品.mp4", False)
+    - "###_作品.mp4"  -> (3, "作品.mp4", False)
+    - "##_作品.mp4"   -> (2, "作品.mp4", False)
+    - "#_作品.mp4"    -> (1, "作品.mp4", False)
+    - "_作品.mp4"     -> (0, "作品.mp4", False)
+    - "作品.mp4"      -> (-1, "作品.mp4", False)
     """
-    # ??????? '?_' ????
-    if filename.startswith('?_'):
-        return -1, filename[2:]
+    needs_selection = False
+    if filename.startswith('!'):
+        needs_selection = True
+        filename = filename[1:]  # '!'を除去
 
-    # # ????????????????
+    # プレフィックスパターンマッチ
     match = re.match(r'^(#{0,})_(.+)$', filename)
     if match:
         prefix = match.group(1)
         essential = match.group(2)
         level = len(prefix)
-        return level, essential
+        return level, essential, needs_selection
 
-    # ???????????????
-    return -1, filename
+    # プレフィックスなし（未判定）
+    return -1, filename, needs_selection
 
 def is_video_file(file_path: Path) -> bool:
     """
@@ -126,6 +129,25 @@ class FileScanner:
                     (video_id,)
                 )
 
+    def scan_single_directory(self, directory: Path, db_conn) -> int:
+        """
+        指定ディレクトリのみをスキャンしてDB登録/更新を行う。
+        他のディレクトリのレコードの is_available は変更しない。
+        セレクションフォルダのスキャンに使用する。
+
+        Args:
+            directory: スキャン対象ディレクトリ
+            db_conn: データベース接続
+
+        Returns:
+            int: 検出したファイル数
+        """
+        if not directory.exists() or not directory.is_dir():
+            return 0
+        self.found_files = set()
+        self._scan_directory(directory, db_conn)
+        return len(self.found_files)
+
     def _scan_directory(self, directory: Path, db_conn):
         """
         ディレクトリをスキャン
@@ -147,7 +169,7 @@ class FileScanner:
             db_conn: データベース接続
         """
         # お気に入りレベルと本質的ファイル名を抽出
-        level, essential = extract_essential_filename(file_path.name)
+        level, essential, needs_selection = extract_essential_filename(file_path.name)
 
         # スキャンで見つかったファイルとして記録
         self.found_files.add(essential)
@@ -178,19 +200,20 @@ class FileScanner:
                     last_file_modified = ?,
                     file_created_at = ?,
                     is_available = 1,
+                    needs_selection = ?,
                     last_scanned_at = CURRENT_TIMESTAMP
                 WHERE essential_filename = ?
-            """, (str(file_path), level, storage_location, last_modified, file_created, essential))
+            """, (str(file_path), level, storage_location, last_modified, file_created, 1 if needs_selection else 0, essential))
         else:
             # 新規追加（デフォルトで is_available=1, is_deleted=0）
             db_conn.execute("""
                 INSERT INTO videos (
                     essential_filename, current_full_path, current_favorite_level,
                     file_size, performer, storage_location, last_file_modified,
-                    file_created_at, is_available, is_deleted, last_scanned_at
+                    file_created_at, is_available, is_deleted, needs_selection, last_scanned_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, CURRENT_TIMESTAMP)
-            """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified, file_created))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, CURRENT_TIMESTAMP)
+            """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified, file_created, 1 if needs_selection else 0))
 
 
 def detect_recently_accessed_files(last_check_time: Optional[datetime], db_conn) -> List[dict]:

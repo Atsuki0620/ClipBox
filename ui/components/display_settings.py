@@ -39,7 +39,7 @@ def _init_defaults(key_prefix: str) -> None:
         f"{key_prefix}_modified": False,
         f"{key_prefix}_filename": True,  # F1: デフォルトON
         f"{key_prefix}_created": True,  # F2: デフォルトON
-        f"{key_prefix}_max_title": 60,
+        f"{key_prefix}_max_title": 100,
     }
     for key, default_val in defaults.items():
         if key not in st.session_state:
