@@ -11,6 +11,7 @@ from core import app_service
 from core.migration import Migration
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
+from ui.analysis_tab_v2 import render_analysis_tab_v2
 from ui.library_tab import render_library_tab
 from ui.unrated_random_tab import render_unrated_random_tab
 from ui.extra_tabs import render_settings_tab
@@ -200,7 +201,7 @@ def render_sidebar() -> str:
 
     nav_selection = st.sidebar.radio(
         "画面を選択",
-        ["ライブラリ", "未判定ランダム", "セレクション", "分析ダッシュボード", "設定"],
+        ["ライブラリ", "未判定ランダム", "セレクション", "分析ダッシュボード", "分析ダッシュボード v2", "設定"],
         index=0,
     )
 
@@ -255,6 +256,8 @@ def main():
         render_unrated_random_tab(play_handler, _handle_judgment)
     elif selected_view == "分析ダッシュボード":
         render_analysis_tab()
+    elif selected_view == "分析ダッシュボード v2":
+        render_analysis_tab_v2()
     elif selected_view == "設定":
         render_settings_tab(scan_files_for_settings)
     else:

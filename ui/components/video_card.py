@@ -89,12 +89,15 @@ def _build_badge_list(
 
     is_judged = video.current_favorite_level >= 0
 
-    if show_selection_state:
-        # セレクションタブ: 選別状態バッジ（needs_selection ベース）
-        if getattr(video, "needs_selection", False):
-            badges.append(_create_badge("未選別", "#e879f9"))
-        else:
-            badges.append(_create_badge("選別済み", "#22c55e"))
+    # + プレフィックス（選別済み）バッジ: セレクション/ライブラリ両タブ共通で優先表示
+    if getattr(video, "is_selection_completed", False):
+        badges.append(_create_badge("🎯 選別済み", "#22c55e"))
+    elif getattr(video, "needs_selection", False):
+        # ! プレフィックス（未選別）: セレクション/ライブラリ両タブで表示
+        badges.append(_create_badge("📋 未選別", "#e879f9"))
+    elif show_selection_state:
+        # セレクションタブ: !も+もない場合は選別済みとして扱う
+        badges.append(_create_badge("🎯 選別済み", "#22c55e"))
     else:
         # ライブラリ / 未判定ランダムタブ: 判定状態バッジ
         if not is_judged:
@@ -102,13 +105,9 @@ def _build_badge_list(
         else:
             badges.append(_create_badge("判定済み", "#22c55e"))
 
-        # F4: 判定中バッジ
-        if getattr(video, "is_judging", False):
-            badges.append(_create_badge("判定中", "#f59e0b"))
-
-        # 旧: needs_selection バッジ（ライブラリで !プレフィックスファイルが表示された場合）
-        if getattr(video, "needs_selection", False):
-            badges.append(_create_badge("未選別", "#e879f9"))
+    # F4: 判定中バッジ
+    if getattr(video, "is_judging", False):
+        badges.append(_create_badge("判定中", "#f59e0b"))
 
     # レベルバッジ（判定済みの場合）
     if settings.show_level_badge and is_judged:
