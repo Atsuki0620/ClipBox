@@ -41,6 +41,11 @@ class Video:
             prefix = "_"
         return f"{prefix}{self.essential_filename}"
 
+    @property
+    def is_selection_completed(self) -> bool:
+        """ファイル名に+プレフィックスが付いているかどうか（セレクション経由済み）"""
+        return Path(self.current_full_path).name.startswith('+')
+
     def is_judged(self) -> bool:
         """判定済みかどうかを判別（プレフィックスの有無で判定）"""
         filename = Path(self.current_full_path).name
