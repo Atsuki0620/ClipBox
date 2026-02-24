@@ -379,6 +379,12 @@ class VideoManager:
                 new_filename = f"{prefix}_{video.essential_filename}"
                 db_level = target_level
 
+            # セレクション経由（! or + プレフィックス）の場合は + を付与
+            was_selection = video.needs_selection  # ! prefix
+            has_plus_prefix = current_path.name.startswith('+')  # + prefix（再判定時）
+            if was_selection or has_plus_prefix:
+                new_filename = f"+{new_filename}"
+
             new_path = current_path.with_name(new_filename)
 
             try:
