@@ -16,19 +16,22 @@ def _fetch_start_times(conn) -> Dict[str, Optional[datetime]]:
     return {row["counter_id"]: row["start_time"] for row in rows}
 
 
-def auto_start_counters(event_time: datetime):
+def auto_start_counters(event_time: datetime, conn):
     """
     初回視聴時に全カウンタを同時開始する。
     すでに1つでも start_time が入っていれば何もしない。
+
+    Args:
+        event_time: 視聴イベント発生時刻
+        conn: 呼び出し元のDBコネクション（ネスト接続によるロック競合を防ぐため必須）
     """
-    with get_db_connection() as conn:
-        starts = _fetch_start_times(conn)
-        if not starts or all(starts.get(cid) is None for cid in COUNTER_IDS):
-            for cid in COUNTER_IDS:
-                conn.execute(
-                    "UPDATE counters SET start_time = ? WHERE counter_id = ?",
-                    (event_time, cid),
-                )
+    starts = _fetch_start_times(conn)
+    if not starts or all(starts.get(cid) is None for cid in COUNTER_IDS):
+        for cid in COUNTER_IDS:
+            conn.execute(
+                "UPDATE counters SET start_time = ? WHERE counter_id = ?",
+                (event_time, cid),
+            )
 
 
 def reset_counter(counter_id: str, start_time: Optional[datetime] = None):

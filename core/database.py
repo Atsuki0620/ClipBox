@@ -214,18 +214,24 @@ def insert_play_history(
     trigger: str,
     video_id: Optional[int] = None,
     internal_id: Optional[str] = None,
+    conn=None,
 ) -> None:
     """
     play_history に 1 件の再生レコードを挿入する。
+
+    conn を渡すと既存トランザクションを再利用する（viewing_history との同一トランザクション記録に使用）。
+    conn が None の場合は新規接続を開いて挿入する。
     """
-    with get_db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO play_history (file_path, title, player, library_root, trigger, video_id, internal_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (file_path, title, player, library_root, trigger, video_id, internal_id),
-        )
+    sql = """
+        INSERT INTO play_history (file_path, title, player, library_root, trigger, video_id, internal_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """
+    params = (file_path, title, player, library_root, trigger, video_id, internal_id)
+    if conn is not None:
+        conn.execute(sql, params)
+    else:
+        with get_db_connection() as _conn:
+            _conn.execute(sql, params)
 
 
 # --------------------------------------------------------------------------- #
