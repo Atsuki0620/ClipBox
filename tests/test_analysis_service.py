@@ -8,18 +8,6 @@ from core import analysis_service
 import core.database as db
 
 
-def _setup_temp_db(tmp_path, monkeypatch):
-    """テスト用の一時DBを初期化する。"""
-    db_path = tmp_path / "analysis_test.db"
-    monkeypatch.setattr(db, "DATABASE_PATH", db_path)
-    monkeypatch.setattr(config, "DATABASE_PATH", db_path)
-    db.init_database()
-    with db.get_db_connection() as conn:
-        conn.execute("DELETE FROM viewing_history")
-        conn.execute("DELETE FROM videos")
-    return db_path
-
-
 def test_convert_period_filter_preset_span():
     start, end = analysis_service.convert_period_filter("直近7日")
     assert start is not None and end is not None
@@ -37,8 +25,7 @@ def test_apply_scope_filter_filters_available_only():
     assert set(filtered["id"]) == {1}
 
 
-def test_calculate_period_view_count_uses_period_range(tmp_path, monkeypatch):
-    _setup_temp_db(tmp_path, monkeypatch)
+def test_calculate_period_view_count_uses_period_range(tmp_db):
     now = datetime.now()
     with db.get_db_connection() as conn:
         conn.execute(
