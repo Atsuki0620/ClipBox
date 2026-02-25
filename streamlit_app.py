@@ -9,6 +9,7 @@ import hashlib
 from pathlib import Path
 from core import app_service
 from core.migration import Migration
+from ui import cache as ui_cache
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
 from ui.analysis_tab_v2 import render_analysis_tab_v2
@@ -56,6 +57,10 @@ def detect_and_record_file_access():
 
         # チェック日時を更新
         app_service.update_last_access_check_time()
+        if accessed_files:
+            # 視聴履歴記録後はキャッシュを無効化して最新の視聴回数を表示する
+            ui_cache.get_view_counts_and_last_viewed.clear()
+            ui_cache.get_metrics.clear()
         return recorded_count if accessed_files else 0
     except Exception as e:
         st.error(f"ファイルアクセス検知エラー: {e}")
@@ -68,32 +73,30 @@ def _handle_play(video, trigger: str):
     F4: 再生開始時にis_judging=Trueに設定
     """
     player = st.session_state.user_config.get("default_player", "vlc")
-    result = st.session_state.video_manager.play_video(video.id)
+    file_path = Path(video.current_full_path)
+    internal_id = hashlib.sha256(str(file_path).encode("utf-8")).hexdigest()
+    library_root = app_service.detect_library_root(file_path, st.session_state.user_config.get("library_roots", []))
+    result = st.session_state.video_manager.play_video(
+        video.id,
+        player=player,
+        trigger=trigger,
+        library_root=library_root,
+        internal_id=internal_id,
+    )
     if result.get("status") != "success":
         st.error(result.get("message", "再生に失敗しました"))
         return
 
     # F4: 判定中フラグをON
     st.session_state.video_manager.set_judging_state(video.id, True)
-    file_path = Path(video.current_full_path)
-    internal_id = hashlib.sha256(str(file_path).encode("utf-8")).hexdigest()
-    library_root = app_service.detect_library_root(file_path, st.session_state.user_config.get("library_roots", []))
-    try:
-        app_service.insert_play_history(
-            file_path=str(file_path),
-            title=video.essential_filename,
-            player=player,
-            library_root=library_root,
-            trigger=trigger,
-            video_id=video.id,
-            internal_id=internal_id,
-        )
-        st.session_state.selected_video = video
-        # カード内の細いカラムに通知を出すと縦長になるため、全幅のトーストで表示する
-        st.toast("再生を開始しました")
-        st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
-    except Exception as e:
-        st.error(f"再生履歴の記録に失敗しました: {e}")
+    st.session_state.selected_video = video
+    # 再生後はキャッシュを無効化して最新の視聴回数・KPIを表示する
+    ui_cache.get_view_counts_and_last_viewed.clear()
+    ui_cache.get_kpi_stats_cached.clear()
+    ui_cache.get_metrics.clear()
+    # カード内の細いカラムに通知を出すと縦長になるため、全幅のトーストで表示する
+    st.toast("再生を開始しました")
+    st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
 
 def _handle_judgment(video, new_level):
     """
@@ -108,6 +111,9 @@ def _handle_judgment(video, new_level):
         # F4: 判定中フラグをOFF
         st.session_state.video_manager.set_judging_state(video.id, False)
         st.session_state.selected_video = video
+        # 判定後はキャッシュを無効化して最新のKPI・フィルタオプションを表示する
+        ui_cache.get_kpi_stats_cached.clear()
+        ui_cache.get_filter_options.clear()
         st.toast(result.get("message"))
         st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     else:
@@ -158,8 +164,6 @@ def init_session_state():
 
 def check_and_init_database():
     """データベースの確認と初期化"""
-    # 既存DBでも不足テーブルを補うため毎回 init_database を実行（CREATE IF NOT EXISTS で安全）
-    app_service.init_database()
     if not app_service.check_database_exists():
         st.error(f"データベースが見つかりません: {DATABASE_PATH}")
         st.info("セットアップスクリプトを実行してください:")
@@ -223,6 +227,10 @@ def scan_files():
             library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
             scanner = app_service.create_file_scanner(library_roots)
             app_service.scan_and_update_with_connection(scanner)
+            # スキャン後はキャッシュを無効化して最新の状態を表示する
+            ui_cache.get_filter_options.clear()
+            ui_cache.get_metrics.clear()
+            ui_cache.get_kpi_stats_cached.clear()
             st.success("ファイルスキャンが完了しました！")
             st.rerun()
         except Exception as e:
