@@ -16,6 +16,36 @@ import pandas as pd
 
 from core.database import get_db_connection
 
+_SQLITE_MAX_VARS = 900  # SQLite の SQLITE_LIMIT_VARIABLE_NUMBER 上限余裕込み
+
+
+def _run_chunked_query(
+    conn,
+    base_query: str,
+    video_ids: list,
+    extra_params: list | None = None,
+) -> list[dict]:
+    """video_ids を 900 件ずつに分割してクエリを実行し結果を結合する。
+
+    base_query の ``{placeholders}`` が IN 句のプレースホルダに置換される。
+    extra_params は各チャンクの IN 句パラメータより前に渡されるパラメータ。
+
+    NOTE: 複数チャンクにまたがる場合、結果の順序はチャンク内の ORDER BY のみ
+    保証される。チャンク間の順序は保証されないため、呼び出し側で再ソートすること。
+    """
+    extra_params = extra_params or []
+    results: list[dict] = []
+    if not video_ids:
+        return results
+    for i in range(0, len(video_ids), _SQLITE_MAX_VARS):
+        chunk = video_ids[i : i + _SQLITE_MAX_VARS]
+        placeholders = ",".join("?" * len(chunk))
+        query = base_query.format(placeholders=placeholders)
+        rows = conn.execute(query, [*extra_params, *chunk]).fetchall()
+        results.extend([dict(row) for row in rows])
+    return results
+
+
 AvailabilityFilter = Literal["利用可能のみ", "利用不可のみ", "すべて"]
 PeriodPreset = Literal["全期間", "直近7日", "直近30日", "直近90日", "直近180日", "カスタム"]
 
@@ -135,21 +165,20 @@ def calculate_period_view_count(
         df_result["period_view_count"] = 0
         return df_result
 
-    placeholders = ",".join("?" * len(video_ids))
-    query = f"""
+    base_query = """
         SELECT video_id, COUNT(*) AS period_view_count
           FROM viewing_history
          WHERE viewed_at BETWEEN ? AND ?
            AND video_id IN ({placeholders})
          GROUP BY video_id
     """
-
     with get_db_connection() as conn:
-        df_period = pd.read_sql_query(
-            query,
-            conn,
-            params=[period_start, period_end, *video_ids],
-        )
+        rows = _run_chunked_query(conn, base_query, video_ids, [period_start, period_end])
+    df_period = (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=["video_id", "period_view_count"])
+    )
 
     df_result = df_result.merge(df_period, left_on="id", right_on="video_id", how="left")
     df_result["period_view_count"] = df_result["period_view_count"].fillna(0).astype(int)
@@ -168,22 +197,24 @@ def get_viewing_history(
     if not video_ids:
         return pd.DataFrame(columns=["video_id", "viewed_at"])
 
-    query = "SELECT video_id, viewed_at FROM viewing_history WHERE 1=1"
-    params: list = []
+    base_query = "SELECT video_id, viewed_at FROM viewing_history WHERE 1=1"
+    extra_params: list = []
 
     if period_start is not None:
-        query += " AND viewed_at >= ?"
-        params.append(period_start)
+        base_query += " AND viewed_at >= ?"
+        extra_params.append(period_start)
     if period_end is not None:
-        query += " AND viewed_at <= ?"
-        params.append(period_end)
+        base_query += " AND viewed_at <= ?"
+        extra_params.append(period_end)
 
-    placeholders = ",".join("?" * len(video_ids))
-    query += f" AND video_id IN ({placeholders}) ORDER BY viewed_at"
-    params.extend(video_ids)
+    base_query += " AND video_id IN ({placeholders})"
 
     with get_db_connection() as conn:
-        return pd.read_sql_query(query, conn, params=params)
+        rows = _run_chunked_query(conn, base_query, list(video_ids), extra_params)
+
+    if not rows:
+        return pd.DataFrame(columns=["video_id", "viewed_at"])
+    return pd.DataFrame(rows).sort_values("viewed_at").reset_index(drop=True)
 
 
 def get_judgment_history(
@@ -195,22 +226,24 @@ def get_judgment_history(
     if not video_ids:
         return pd.DataFrame(columns=["video_id", "judged_at"])
 
-    query = "SELECT video_id, judged_at FROM judgment_history WHERE 1=1"
-    params: list = []
+    base_query = "SELECT video_id, judged_at FROM judgment_history WHERE 1=1"
+    extra_params: list = []
 
     if period_start is not None:
-        query += " AND judged_at >= ?"
-        params.append(period_start)
+        base_query += " AND judged_at >= ?"
+        extra_params.append(period_start)
     if period_end is not None:
-        query += " AND judged_at <= ?"
-        params.append(period_end)
+        base_query += " AND judged_at <= ?"
+        extra_params.append(period_end)
 
-    placeholders = ",".join("?" * len(video_ids))
-    query += f" AND video_id IN ({placeholders}) ORDER BY judged_at"
-    params.extend(video_ids)
+    base_query += " AND video_id IN ({placeholders})"
 
     with get_db_connection() as conn:
-        return pd.read_sql_query(query, conn, params=params)
+        rows = _run_chunked_query(conn, base_query, list(video_ids), extra_params)
+
+    if not rows:
+        return pd.DataFrame(columns=["video_id", "judged_at"])
+    return pd.DataFrame(rows).sort_values("judged_at").reset_index(drop=True)
 
 
 def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
@@ -261,16 +294,19 @@ def get_like_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
         )
 
     # likesテーブルから動画別いいね数を集計
-    placeholders = ",".join("?" * len(video_ids))
-    query = f"""
+    base_query = """
         SELECT video_id, COUNT(*) AS like_count
           FROM likes
          WHERE video_id IN ({placeholders})
          GROUP BY video_id
     """
-
     with get_db_connection() as conn:
-        df_likes = pd.read_sql_query(query, conn, params=video_ids)
+        rows = _run_chunked_query(conn, base_query, video_ids)
+    df_likes = (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=["video_id", "like_count"])
+    )
 
     if df_likes.empty:
         return pd.DataFrame(
@@ -386,25 +422,29 @@ def get_view_days_ranking(
             columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴日数"]
         )
 
-    placeholders = ",".join("?" * len(video_ids))
-    query = f"""
+    base_query = """
         SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days
           FROM viewing_history
-         WHERE video_id IN ({placeholders})
+         WHERE 1=1
     """
-    params: list = [*video_ids]
+    extra_params: list = []
 
     if period_start is not None:
-        query += " AND viewed_at >= ?"
-        params.append(period_start)
+        base_query += " AND viewed_at >= ?"
+        extra_params.append(period_start)
     if period_end is not None:
-        query += " AND viewed_at <= ?"
-        params.append(period_end)
+        base_query += " AND viewed_at <= ?"
+        extra_params.append(period_end)
 
-    query += " GROUP BY video_id"
+    base_query += " AND video_id IN ({placeholders}) GROUP BY video_id"
 
     with get_db_connection() as conn:
-        df_days = pd.read_sql_query(query, conn, params=params)
+        rows = _run_chunked_query(conn, base_query, video_ids, extra_params)
+    df_days = (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=["video_id", "view_days"])
+    )
 
     df_days = df_days.rename(columns={"video_id": "id"})
     df_days["view_days"] = df_days["view_days"].fillna(0).astype(int)
@@ -437,3 +477,20 @@ def get_view_days_ranking(
     return ranking[
         ["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "視聴日数"]
     ]
+
+
+def get_response_time_data() -> list[dict]:
+    """判定応答速度データを返す（UIから直接DB接続させないためのサービス関数）。
+
+    Returns:
+        list of dict with keys ``duration_ms`` and ``storage``
+    """
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT rename_duration_ms, storage_location
+              FROM judgment_history
+             WHERE rename_duration_ms IS NOT NULL
+            """
+        ).fetchall()
+    return [{"duration_ms": row["rename_duration_ms"], "storage": row["storage_location"]} for row in rows]
