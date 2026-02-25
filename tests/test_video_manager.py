@@ -15,14 +15,8 @@ def test_video_manager_initialization():
     assert manager is not None
 
 
-def test_set_favorite_level_with_rename_logs_history(tmp_path, monkeypatch):
+def test_set_favorite_level_with_rename_logs_history(tmp_path, tmp_db, monkeypatch):
     """set_favorite_level_with_renameが履歴を記録しレベル-1へリネームする"""
-    db_path = tmp_path / "videos.db"
-    monkeypatch.setattr(config_module, "DATABASE_PATH", db_path)
-    monkeypatch.setattr(database, "DATABASE_PATH", db_path)
-
-    database.init_database()
-
     original_file = tmp_path / "_movie.mp4"
     original_file.write_text("dummy")
 
@@ -67,13 +61,8 @@ def test_set_favorite_level_with_rename_logs_history(tmp_path, monkeypatch):
         assert history["rename_duration_ms"] >= 0
 
 
-def test_get_videos_filters_judging_only(tmp_path, monkeypatch):
+def test_get_videos_filters_judging_only(tmp_path, tmp_db):
     """show_judging_only=Trueで判定中動画のみ返す"""
-    db_path = tmp_path / "videos.db"
-    monkeypatch.setattr(config_module, "DATABASE_PATH", db_path)
-    monkeypatch.setattr(database, "DATABASE_PATH", db_path)
-
-    database.init_database()
 
     with database.get_db_connection() as conn:
         conn.execute(
