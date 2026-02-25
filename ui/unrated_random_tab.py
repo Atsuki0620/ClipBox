@@ -6,36 +6,12 @@ ClipBox - 未判定ランダムタブ
 from __future__ import annotations
 
 import streamlit as st
-from sqlite3 import Row
-from typing import List
 
-from core.database import get_db_connection
-from core.models import Video
 from core import app_service
+from ui import cache as ui_cache
 from ui.components.kpi_display import render_kpi_cards
 from ui.components.display_settings import render_display_settings, DisplaySettings
 from ui.components.video_card import render_video_card
-
-
-def _row_to_video(row: Row) -> Video:
-    return Video(
-        id=row["id"],
-        essential_filename=row["essential_filename"],
-        current_full_path=row["current_full_path"],
-        current_favorite_level=row["current_favorite_level"],
-        file_size=row["file_size"] if "file_size" in row.keys() else None,
-        performer=row["performer"] if "performer" in row.keys() else None,
-        storage_location=row["storage_location"] if "storage_location" in row.keys() else "",
-        last_file_modified=row["last_file_modified"] if "last_file_modified" in row.keys() else None,
-        created_at=row["created_at"] if "created_at" in row.keys() else None,
-        last_scanned_at=row["last_scanned_at"] if "last_scanned_at" in row.keys() else None,
-        notes=row["notes"] if "notes" in row.keys() else None,
-        file_created_at=row["file_created_at"] if "file_created_at" in row.keys() else None,
-        is_available=bool(row["is_available"]) if "is_available" in row.keys() else True,
-        is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
-        is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
-        needs_selection=bool(row["needs_selection"]) if "needs_selection" in row.keys() else False,
-    )
 
 
 @st.fragment
@@ -44,7 +20,7 @@ def render_unrated_random_tab(on_play, on_judge):
     st.header("🎲 未判定ランダム")
 
     # P1: キャッシュ版のKPI統計を使用
-    kpi_stats = app_service.get_kpi_stats_cached()
+    kpi_stats = ui_cache.get_kpi_stats_cached()
     render_kpi_cards(
         unrated_count=kpi_stats["unrated_count"],
         judged_count=kpi_stats["judged_count"],
@@ -97,47 +73,18 @@ def render_unrated_random_tab(on_play, on_judge):
     )
 
     if need_new_sample:
-        with get_db_connection() as conn:
-            ids = [
-                row["id"]
-                for row in conn.execute(
-                    """
-                    SELECT id
-                      FROM videos
-                     WHERE current_favorite_level = -1
-                       AND is_available = 1
-                       AND is_deleted = 0
-                     ORDER BY RANDOM()
-                     LIMIT ?
-                    """,
-                    (num_videos,),
-                ).fetchall()
-            ]
-        st.session_state.unrated_sample_ids = ids
+        videos_sample = st.session_state.video_manager.get_unrated_random_videos(num_videos)
+        st.session_state.unrated_videos = videos_sample
+        st.session_state.unrated_sample_ids = [v.id for v in videos_sample]
         st.session_state.unrated_prev_token = shuffle_token
         st.session_state.unrated_prev_n = num_videos
 
-    sample_ids = st.session_state.get("unrated_sample_ids", [])
+    videos = st.session_state.get("unrated_videos", [])
 
-    if not sample_ids:
+    if not videos:
         st.info("未判定動画がありません。")
         return
-
-    placeholder = ",".join(["?"] * len(sample_ids))
-    order_case = " ".join([f"WHEN ? THEN {idx}" for idx in range(len(sample_ids))])
-    with get_db_connection() as conn:
-        rows: List[Row] = conn.execute(
-            f"""
-            SELECT *
-              FROM videos
-             WHERE id IN ({placeholder})
-             ORDER BY CASE id {order_case} END
-            """,
-            tuple(sample_ids + sample_ids),
-        ).fetchall()
-
-    videos = [_row_to_video(row) for row in rows]
-    view_counts, _ = app_service.get_view_counts_and_last_viewed()
+    view_counts, _ = ui_cache.get_view_counts_and_last_viewed()
 
     # いいね数を一括取得（N+1クエリ回避）
     video_ids = [v.id for v in videos]

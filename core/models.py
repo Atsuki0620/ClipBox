@@ -68,6 +68,32 @@ class ViewingHistory:
     viewing_method: str  # 'APP_PLAYBACK', 'MANUAL_ENTRY', 'FILE_ACCESS_DETECTED'
 
 
+class _ReverseStr:
+    """文字列降順ソート用ラッパークラス"""
+    __slots__ = ("_s",)
+
+    def __init__(self, s: str):
+        self._s = s
+
+    def __lt__(self, other):
+        return self._s > other._s
+
+    def __gt__(self, other):
+        return self._s < other._s
+
+    def __le__(self, other):
+        return self._s >= other._s
+
+    def __ge__(self, other):
+        return self._s <= other._s
+
+    def __eq__(self, other):
+        return self._s == other._s
+
+    def __hash__(self):
+        return hash(self._s)
+
+
 def normalize_text(text: str) -> str:
     """全角半角・大小・カナ差を吸収した簡易正規化"""
     if text is None:
@@ -141,6 +167,6 @@ def create_sort_key(video, sort_option: str, view_counts: dict, last_viewed_map:
         "ファイル更新:新しい順": ((-fm.timestamp()) if fm else float("inf"), video.id),
         "ファイル更新:古い順": ((fm.timestamp()) if fm else float("inf"), video.id),
         "タイトル:昇順": name,
-        "タイトル:降順": name[::-1],
+        "タイトル:降順": _ReverseStr(name),
     }
     return sort_keys.get(sort_option, video.id)
