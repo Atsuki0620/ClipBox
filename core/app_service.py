@@ -10,8 +10,6 @@ from typing import Iterable, List, Optional, Dict
 from pathlib import Path
 from datetime import datetime
 
-import streamlit as st
-
 from core import database, snapshot, counter_service
 from core import config_utils
 from core.file_ops import create_file_scanner, detect_recently_accessed_files
@@ -56,40 +54,6 @@ def detect_library_root(file_path: Path, active_roots: list) -> str:
     return ""
 
 
-@st.cache_data(ttl=30)
-def get_filter_options() -> tuple[list[int], list[str], list[str]]:
-    """フィルタオプションを取得（お気に入り、登場人物、保存場所）
-    P1: 30秒間キャッシュしてDBクエリを削減
-    """
-    with get_db_connection() as conn:
-        favorite_levels = database.get_distinct_favorite_levels(conn)
-        performers = database.get_distinct_performers(conn)
-        storage_locations = database.get_distinct_storage_locations(conn)
-    return favorite_levels, performers, storage_locations
-
-
-@st.cache_data(ttl=10)
-def get_view_counts_and_last_viewed() -> tuple[dict, dict]:
-    """視聴回数と最終視聴日時のマップを返す
-    P1: 10秒間キャッシュしてDBクエリを削減
-    """
-    with get_db_connection() as conn:
-        view_counts = database.get_view_counts_map(conn)
-        last_viewed = database.get_last_viewed_map(conn)
-    return view_counts, last_viewed
-
-
-@st.cache_data(ttl=30)
-def get_metrics() -> tuple[int, int]:
-    """総動画数と総視聴回数を返す
-    P1: 30秒間キャッシュしてDBクエリを削減
-    """
-    with get_db_connection() as conn:
-        total_videos = database.get_total_videos_count(conn)
-        total_views = database.get_total_views_count(conn)
-    return total_videos, total_views
-
-
 # ファイルスキャン / アクセス検知 ------------------------------------------
 create_file_scanner = create_file_scanner
 detect_recently_accessed_files = detect_recently_accessed_files
@@ -122,7 +86,8 @@ save_user_config = config_utils.save_user_config
 
 # 再生履歴 ------------------------------------------------------------------
 def insert_play_history(*, file_path: str, title: str, player: str, library_root: str,
-                        trigger: str, video_id: Optional[int] = None, internal_id: Optional[str] = None) -> None:
+                        trigger: str, video_id: Optional[int] = None, internal_id: Optional[str] = None,
+                        conn=None) -> None:
     database.insert_play_history(
         file_path=file_path,
         title=title,
@@ -131,6 +96,7 @@ def insert_play_history(*, file_path: str, title: str, player: str, library_root
         trigger=trigger,
         video_id=video_id,
         internal_id=internal_id,
+        conn=conn,
     )
 
 
@@ -144,15 +110,6 @@ compare_snapshots = snapshot.compare_snapshots
 get_counters_with_counts = counter_service.get_counters_with_counts
 reset_counter = counter_service.reset_counter
 
-# KPI統計（キャッシュ版）-------------------------------------------------
-@st.cache_data(ttl=10)
-def get_kpi_stats_cached() -> dict:
-    """KPI統計を取得（P1: 10秒間キャッシュ）"""
-    from ui.components.kpi_display import get_kpi_stats
-    with get_db_connection() as conn:
-        return get_kpi_stats(conn)
-
-
 # 分析タブ ---------------------------------------------------------------
 load_analysis_data = analysis_service.load_analysis_data
 apply_scope_filter = analysis_service.apply_scope_filter
@@ -165,6 +122,7 @@ get_view_days_ranking = analysis_service.get_view_days_ranking
 get_like_count_ranking = analysis_service.get_like_count_ranking
 get_selection_judgment_trend = analysis_service.get_selection_judgment_trend
 get_selection_level_distribution = analysis_service.get_selection_level_distribution
+get_response_time_data = analysis_service.get_response_time_data
 
 # いいね機能 -------------------------------------------------------------
 add_like = like_service.add_like

@@ -9,7 +9,6 @@ import streamlit as st
 import plotly.express as px
 
 from core import app_service
-from core.database import get_db_connection
 
 # 透明感のあるネオングラデーションに合わせた新パレット
 PALETTE = ["#68d3ff", "#a855f7", "#22d3ee", "#f97316", "#fb7185", "#c7d2fe"]
@@ -498,20 +497,13 @@ def _render_response_time_histogram() -> None:
     """判定後の応答速度ヒストグラム"""
     st.subheader("⚡ 判定応答速度")
 
-    with get_db_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT rename_duration_ms, storage_location
-              FROM judgment_history
-             WHERE rename_duration_ms IS NOT NULL
-            """
-        ).fetchall()
+    rows = app_service.get_response_time_data()
 
     if not rows:
         st.info("応答速度データがまだありません")
         return
 
-    df = pd.DataFrame(rows, columns=["duration_ms", "storage"])
+    df = pd.DataFrame(rows)
     df["duration_ms"] = pd.to_numeric(df["duration_ms"], errors="coerce")
     df = df.dropna(subset=["duration_ms"])
 

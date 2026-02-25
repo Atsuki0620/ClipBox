@@ -7,6 +7,7 @@ import streamlit as st
 
 from core import app_service
 from core.models import normalize_text, create_sort_key
+from ui import cache as ui_cache
 from config import FAVORITE_LEVEL_NAMES
 from ui.components.display_settings import render_display_settings, DisplaySettings
 from ui.components.kpi_display import render_kpi_cards
@@ -44,7 +45,7 @@ def _filter_by_keyword(videos, keyword: str):
 
 def _render_filter_controls():
     """ライブラリ用フィルタをエクスパンダー内に表示"""
-    _, performers, _ = app_service.get_filter_options()
+    _, performers, _ = ui_cache.get_filter_options()
 
     level_options = [4, 3, 2, 1, 0, -1]
     level_label_map = {lv: FAVORITE_LEVEL_NAMES.get(lv, f"レベル{lv}") for lv in level_options}
@@ -184,7 +185,7 @@ def render_library_tab(on_play, on_judge):
         st.session_state.library_last_signature = None
 
     # P1: キャッシュ版のKPI統計を使用
-    kpi_stats = app_service.get_kpi_stats_cached()
+    kpi_stats = ui_cache.get_kpi_stats_cached()
     render_kpi_cards(
         unrated_count=kpi_stats["unrated_count"],
         judged_count=kpi_stats["judged_count"],
@@ -286,7 +287,7 @@ def render_library_tab(on_play, on_judge):
     if st.session_state.selected_video:
         st.caption(f"再生中: {st.session_state.selected_video.essential_filename}")
 
-    view_counts, last_viewed_map = app_service.get_view_counts_and_last_viewed()
+    view_counts, last_viewed_map = ui_cache.get_view_counts_and_last_viewed()
 
     # いいね数を一括取得（N+1クエリ回避）
     video_ids = [v.id for v in videos]
