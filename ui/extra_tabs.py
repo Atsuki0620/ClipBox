@@ -1,4 +1,6 @@
-﻿import streamlit as st
+﻿from pathlib import Path
+
+import streamlit as st
 from core import app_service
 
 __all__ = ["render_settings_tab"]
@@ -20,6 +22,14 @@ def render_settings_tab(scan_files_for_settings):
         placeholder="例: C:\\Temp\\Review_2026-02",
         help="セレクションタブで使用するフォルダパス。保存すると起動時に自動でセットされます。",
     )
+    if st.button("🔍 セレクションフォルダをスキャン", use_container_width=True):
+        folder = Path(selection_folder.strip())
+        with st.spinner("スキャン中..."):
+            result = app_service.scan_selection_folder(folder)
+        if result["status"] == "success":
+            st.success(result["message"])
+        else:
+            st.error(result["message"])
     default_player = st.text_input("既定プレイヤー", value=cfg.get("default_player", "vlc"))
 
     if st.button("設定を保存", use_container_width=True):
