@@ -116,22 +116,46 @@ class FileScanner:
         """
         # スキャン前に見つかったファイルをリセット
         self.found_files = set()
+        scanned_dirs: List[Path] = []
 
-        # 各ディレクトリをスキャン
+        # 各ディレクトリをスキャン（実際にスキャンしたディレクトリを記録）
         for directory in self.scan_directories:
             if directory.exists():
                 self._scan_directory(directory, db_conn)
+                scanned_dirs.append(directory.resolve())
 
-        # スキャンで見つからなかったファイルを is_available=0 に更新
-        cursor = db_conn.execute("SELECT id, essential_filename FROM videos")
+        if not scanned_dirs:
+            # スキャン実行済みディレクトリが1つもなければ is_available の更新はスキップ
+            # （全ドライブ未接続時に全レコードのフラグを落とさないための安全策）
+            return
+
+        # スキャンで見つからなかったファイルを is_available=0 に更新。
+        # ただし、今回実際にスキャンしたディレクトリ配下のレコードのみを対象とする。
+        # これにより、未接続のドライブ上の動画レコードを誤って is_available=0 にしない。
+        cursor = db_conn.execute("SELECT id, essential_filename, current_full_path FROM videos")
         all_videos = cursor.fetchall()
 
         for video in all_videos:
             video_id = video[0]
             essential_filename = video[1]
+            current_full_path = video[2]
 
-            if essential_filename not in self.found_files:
-                # ファイルが見つからなかったので is_available=0 に設定
+            if essential_filename in self.found_files:
+                continue  # スキャンで見つかった → スキップ
+
+            # このレコードのパスが、今回スキャンしたいずれかのディレクトリ配下かを確認
+            try:
+                record_path = Path(current_full_path).resolve()
+            except Exception:
+                continue
+
+            under_scanned_dir = any(
+                str(record_path).startswith(str(scanned_dir))
+                for scanned_dir in scanned_dirs
+            )
+
+            if under_scanned_dir:
+                # スキャン対象ディレクトリ配下だが見つからなかった → 利用不可
                 db_conn.execute(
                     "UPDATE videos SET is_available = 0 WHERE id = ?",
                     (video_id,)

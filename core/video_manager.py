@@ -10,9 +10,31 @@ from datetime import datetime
 from pathlib import Path
 
 from core.models import Video
-from core.database import get_db_connection
+from core.database import get_db_connection, insert_play_history
 from core import counter_service
 from config import FAVORITE_LEVEL_NAMES
+
+
+def video_from_row(row) -> Video:
+    """データベースの行を Video オブジェクトに変換（モジュールレベル公開関数）"""
+    return Video(
+        id=row["id"],
+        essential_filename=row["essential_filename"],
+        current_full_path=row["current_full_path"],
+        current_favorite_level=row["current_favorite_level"],
+        file_size=row["file_size"] if "file_size" in row.keys() else None,
+        performer=row["performer"] if "performer" in row.keys() else None,
+        storage_location=row["storage_location"] if "storage_location" in row.keys() else "",
+        last_file_modified=row["last_file_modified"] if "last_file_modified" in row.keys() else None,
+        created_at=row["created_at"] if "created_at" in row.keys() else None,
+        last_scanned_at=row["last_scanned_at"] if "last_scanned_at" in row.keys() else None,
+        notes=row["notes"] if "notes" in row.keys() else None,
+        file_created_at=row["file_created_at"] if "file_created_at" in row.keys() else None,
+        is_available=bool(row["is_available"]) if "is_available" in row.keys() else True,
+        is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
+        is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
+        needs_selection=bool(row["needs_selection"]) if "needs_selection" in row.keys() else False,
+    )
 
 
 class VideoManager:
@@ -84,6 +106,19 @@ class VideoManager:
 
             return [self._row_to_video(row) for row in rows]
 
+    def get_videos_by_ids(self, video_ids: List[int]) -> List[Video]:
+        """指定IDリストの動画をDBから取得し、IDの順序を保って返す"""
+        if not video_ids:
+            return []
+        with get_db_connection() as conn:
+            placeholders = ",".join("?" * len(video_ids))
+            rows = conn.execute(
+                f"SELECT * FROM videos WHERE id IN ({placeholders})",
+                video_ids,
+            ).fetchall()
+        id_to_video = {row["id"]: video_from_row(row) for row in rows}
+        return [id_to_video[vid] for vid in video_ids if vid in id_to_video]
+
     def get_videos_with_stats(
             self,
             favorite_levels: Optional[List[int]] = None,
@@ -147,12 +182,44 @@ class VideoManager:
 
         return random.choice(videos)
 
-    def play_video(self, video_id: int) -> Dict[str, str]:
+    def get_unrated_random_videos(self, n: int) -> List[Video]:
+        """レベル-1の動画をランダムに n 件取得して返す。
+
+        ランダム順序を保ったまま全フィールドの Video リストを返すため、
+        UI 側は DB に直接アクセスする必要がない。
         """
-        動画を再生し、視聴履歴を記録
+        with get_db_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM videos
+                WHERE current_favorite_level = -1
+                  AND is_available = 1
+                  AND is_deleted = 0
+                ORDER BY RANDOM()
+                LIMIT ?
+                """,
+                (n,),
+            ).fetchall()
+        return [video_from_row(row) for row in rows]
+
+    def play_video(
+        self,
+        video_id: int,
+        *,
+        player: Optional[str] = None,
+        trigger: Optional[str] = None,
+        library_root: Optional[str] = None,
+        internal_id: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """
+        動画を再生し、viewing_history と play_history を同一トランザクションで記録する。
 
         Args:
             video_id: 再生する動画のID
+            player: 使用するプレイヤー名（省略時は play_history を記録しない）
+            trigger: 再生トリガー識別子
+            library_root: ライブラリルートパス
+            internal_id: ファイルの内部識別子
 
         Returns:
             Dict: 実行結果 {'status': 'success'|'error', 'message': '...'}
@@ -193,7 +260,7 @@ class VideoManager:
                 }
 
             viewed_at = datetime.now()
-            # 視聴履歴を記録
+            # viewing_history と play_history を同一トランザクションで記録
             conn.execute(
                 """
                 INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
@@ -201,8 +268,19 @@ class VideoManager:
                 """,
                 (video_id, viewed_at)
             )
-            # カウンタを初期化（未使用なら同時開始）
-            counter_service.auto_start_counters(viewed_at)
+            if player is not None:
+                insert_play_history(
+                    file_path=str(file_path),
+                    title=row["essential_filename"],
+                    player=player,
+                    library_root=library_root or "",
+                    trigger=trigger or "",
+                    video_id=video_id,
+                    internal_id=internal_id,
+                    conn=conn,
+                )
+            # カウンタを初期化（未使用なら同時開始）。外側の conn を渡してネスト接続を防ぐ
+            counter_service.auto_start_counters(viewed_at, conn)
 
             return {'status': 'success', 'message': '再生を開始しました'}
 
@@ -222,7 +300,7 @@ class VideoManager:
                 """,
                 (video_id, now)
             )
-            counter_service.auto_start_counters(now)
+            counter_service.auto_start_counters(now, conn)
 
     def get_viewing_stats(self) -> Dict:
         """
@@ -262,33 +340,8 @@ class VideoManager:
             }
 
     def _row_to_video(self, row) -> Video:
-        """
-        データベースの行をVideoオブジェクトに変換
-
-        Args:
-            row: sqlite3.Row
-
-        Returns:
-            Video: 動画オブジェクト
-        """
-        return Video(
-            id=row['id'],
-            essential_filename=row['essential_filename'],
-            current_full_path=row['current_full_path'],
-            current_favorite_level=row['current_favorite_level'],
-            file_size=row['file_size'],
-            performer=row['performer'],
-            storage_location=row['storage_location'],
-            last_file_modified=row['last_file_modified'],
-            created_at=row['created_at'],
-            last_scanned_at=row['last_scanned_at'],
-            notes=row['notes'],
-            file_created_at=row['file_created_at'] if 'file_created_at' in row.keys() else None,
-            is_available=bool(row['is_available']) if 'is_available' in row.keys() else True,
-            is_deleted=bool(row['is_deleted']) if 'is_deleted' in row.keys() else False,
-            is_judging=bool(row['is_judging']) if 'is_judging' in row.keys() else False,
-            needs_selection=bool(row['needs_selection']) if 'needs_selection' in row.keys() else False,
-        )
+        """データベースの行を Video オブジェクトに変換（モジュールレベル関数に委譲）"""
+        return video_from_row(row)
 
     def set_judging_state(self, video_id: int, is_judging: bool) -> dict:
         """
@@ -336,9 +389,7 @@ class VideoManager:
                     INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
                     VALUES (?, ?, 'FILE_ACCESS_DETECTED')
                 """, (file_info['video_id'], file_info['access_time']))
-                counter_service.auto_start_counters(file_info['access_time'])
-
-            conn.commit()
+                counter_service.auto_start_counters(file_info['access_time'], conn)
 
         return len(accessed_files)
 
