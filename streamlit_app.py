@@ -17,6 +17,7 @@ from ui.library_tab import render_library_tab
 from ui.unrated_random_tab import render_unrated_random_tab
 from ui.extra_tabs import render_settings_tab
 from ui.selection_tab import render_selection_tab
+from ui.search_tab import render_search_tab
 
 # ページ設定
 st.set_page_config(
@@ -205,7 +206,7 @@ def render_sidebar() -> str:
 
     nav_selection = st.sidebar.radio(
         "画面を選択",
-        ["ライブラリ", "未判定ランダム", "セレクション", "分析ダッシュボード", "分析ダッシュボード v2", "設定"],
+        ["ライブラリ", "未判定ランダム", "セレクション", "分析ダッシュボード", "分析ダッシュボード v2", "検索", "設定"],
         index=0,
     )
 
@@ -266,6 +267,8 @@ def main():
         render_analysis_tab()
     elif selected_view == "分析ダッシュボード v2":
         render_analysis_tab_v2()
+    elif selected_view == "検索":
+        render_search_tab(play_handler, _handle_judgment)
     elif selected_view == "設定":
         render_settings_tab(scan_files_for_settings)
     else:
