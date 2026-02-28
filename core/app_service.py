@@ -63,13 +63,13 @@ def scan_and_update(scanner, conn) -> None:
     scanner.scan_and_update(conn)
 
 def scan_and_update_with_connection(scanner) -> None:
-    """DB?????????????????"""
+    """DB 接続を内部で確立してスキャンを実行する。接続を外部から渡さない場合に使用。"""
     with get_db_connection() as conn:
         scanner.scan_and_update(conn)
 
 
 def detect_recently_accessed_files_with_connection(last_check_time):
-    """DB????????????????????"""
+    """DB 接続を内部で確立して最近アクセスされたファイルを検知する。"""
     with get_db_connection() as conn:
         return detect_recently_accessed_files(last_check_time, conn)
 
@@ -123,6 +123,7 @@ get_like_count_ranking = analysis_service.get_like_count_ranking
 get_selection_judgment_trend = analysis_service.get_selection_judgment_trend
 get_selection_level_distribution = analysis_service.get_selection_level_distribution
 get_response_time_data = analysis_service.get_response_time_data
+get_ranked_videos_for_tab = analysis_service.get_ranked_videos_for_tab
 
 # いいね機能 -------------------------------------------------------------
 add_like = like_service.add_like
@@ -131,3 +132,19 @@ get_like_counts = like_service.get_like_counts
 # セレクション ----------------------------------------------------------
 scan_selection_folder = selection_service.scan_selection_folder
 get_selection_kpi = selection_service.get_selection_kpi
+
+
+# マイグレーション ----------------------------------------------------------
+def run_startup_migration() -> dict:
+    """
+    起動時マイグレーションを実行する（UI層からの直接DB接続を排除するため）。
+
+    Returns:
+        dict: マイグレーション結果 {'status': str, 'message': str, 'updated_count': int}
+    """
+    from config import DATABASE_PATH
+    from core.migration import Migration
+
+    migration = Migration(DATABASE_PATH)
+    with get_db_connection() as conn:
+        return migration.migrate_level_0_to_minus_1(conn)
