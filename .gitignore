@@ -210,6 +210,9 @@ __marimo__/
 # データベースファイル（個人データが含まれるため）
 data/videos.db
 data/backups/*.db
+# アプリケーションログ
+data/clipbox.log
+data/clipbox.log.*
 # スナップショット（機密パスを含む）
 data/snapshots/
 # アプリケーション設定ファイル（ユーザー固有のランタイムデータ）

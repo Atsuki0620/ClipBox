@@ -4,16 +4,25 @@ ClipBox - ファイルスキャン機能
 """
 
 import re
+import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 from datetime import datetime
 
 from config import VIDEO_EXTENSIONS
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def extract_essential_filename(filename: str) -> Tuple[int, str, bool, bool]:
     """
-    ファイル名からお気に入りレベル、本質的ファイル名、セレクションフラグを抽出
+    ファイル名からお気に入りレベル、本質的ファイル名、セレクションフラグを抽出。
+
+    【設計意図】この関数は DB 同一性判定の基盤。プレフィックスが変わっても
+    （レベル変更・ファイル移動）同じ動画と認識するための核心ロジック。
+    変更時は必ず tests/test_scanner.py を実行すること。
+    （設計根拠: docs/decisions/001-essential-filename.md）
 
     パース例:
     - "!###_作品.mp4" -> (3, "作品.mp4", True, False)
@@ -109,11 +118,16 @@ class FileScanner:
 
     def scan_and_update(self, db_conn):
         """
-        ファイルをスキャンしてデータベースを更新
+        ファイルをスキャンしてデータベースを更新。
+
+        【重要】is_available=0 の更新は引数で渡された scan_directories 配下のレコードのみ。
+        外付けHDDのディレクトリを含まない場合、外付けHDD動画の is_available は変更しない。
+        （未接続ドライブの動画を誤って is_available=0 にしないための設計）
 
         Args:
-            db_conn: データベース接続
+            db_conn: データベース接続（get_db_connection() のコンテキスト内で渡すこと）
         """
+        start_time = time.monotonic()
         # スキャン前に見つかったファイルをリセット
         self.found_files = set()
         scanned_dirs: List[Path] = []
@@ -127,6 +141,9 @@ class FileScanner:
         if not scanned_dirs:
             # スキャン実行済みディレクトリが1つもなければ is_available の更新はスキップ
             # （全ドライブ未接続時に全レコードのフラグを落とさないための安全策）
+            logger.info(
+                "operation=scan dirs=0 skipped=true reason=no_scanned_dirs"
+            )
             return
 
         # スキャンで見つからなかったファイルを is_available=0 に更新。
@@ -135,6 +152,7 @@ class FileScanner:
         cursor = db_conn.execute("SELECT id, essential_filename, current_full_path FROM videos")
         all_videos = cursor.fetchall()
 
+        unavailable_count = 0
         for video in all_videos:
             video_id = video[0]
             essential_filename = video[1]
@@ -150,7 +168,7 @@ class FileScanner:
                 continue
 
             under_scanned_dir = any(
-                str(record_path).startswith(str(scanned_dir))
+                record_path.is_relative_to(scanned_dir)
                 for scanned_dir in scanned_dirs
             )
 
@@ -160,6 +178,16 @@ class FileScanner:
                     "UPDATE videos SET is_available = 0 WHERE id = ?",
                     (video_id,)
                 )
+                unavailable_count += 1
+
+        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "operation=scan dirs=%d found=%d unavailable=%d elapsed_ms=%d",
+            len(scanned_dirs),
+            len(self.found_files),
+            unavailable_count,
+            elapsed_ms,
+        )
 
     def scan_single_directory(self, directory: Path, db_conn) -> int:
         """
@@ -290,7 +318,7 @@ def detect_recently_accessed_files(last_check_time: Optional[datetime], db_conn)
                     'access_time': access_time
                 })
         except Exception as e:
-            print(f"ファイルアクセス情報の取得エラー ({file_path}): {e}")
+            logger.warning("operation=file_access_check filename=%s reason=%s", file_path.name, str(e))
             continue
 
     # アクセス日時でソート（古い順）

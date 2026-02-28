@@ -479,6 +479,147 @@ def get_view_days_ranking(
     ]
 
 
+def _df_row_to_video(row) -> "Video":
+    """pandas DataFrame の行から Video オブジェクトを生成"""
+    from core.models import Video
+
+    def _dt(val):
+        if val is None:
+            return None
+        try:
+            return pd.to_datetime(val).to_pydatetime()
+        except Exception:
+            return None
+
+    return Video(
+        id=int(row["id"]) if row["id"] is not None else None,
+        essential_filename=row.get("essential_filename", ""),
+        current_full_path=row.get("current_full_path", ""),
+        current_favorite_level=int(row.get("current_favorite_level", -1)),
+        file_size=int(row["file_size"]) if row.get("file_size") is not None else None,
+        performer=row.get("performer"),
+        storage_location=row.get("storage_location", "C_DRIVE"),
+        last_file_modified=_dt(row.get("last_file_modified")),
+        created_at=_dt(row.get("created_at")),
+        last_scanned_at=_dt(row.get("last_scanned_at")),
+        notes=row.get("notes"),
+        file_created_at=_dt(row.get("file_created_at")),
+        is_available=bool(int(row.get("is_available", 1) or 0)),
+        is_deleted=bool(int(row.get("is_deleted", 0) or 0)),
+        is_judging=bool(int(row.get("is_judging", 0) or 0)),
+        needs_selection=bool(int(row.get("needs_selection", 0) or 0)),
+    )
+
+
+_RANKING_PERIOD_DAYS = {"30日": 30, "90日": 90, "1年": 365}
+
+
+def get_ranked_videos_for_tab(
+    ranking_type: str,
+    period_label: str,
+    lv3_only: bool,
+    availability_filter: str,
+    top_n: int,
+) -> list:
+    """
+    ランキングタブ用: (Video, score) のリストを返す。
+    同スコア時は last_viewed_at 降順（タイブレーカー）。
+
+    Args:
+        ranking_type: "view_count" | "view_days" | "likes"
+        period_label: "30日" | "90日" | "1年" | "全期間"
+        lv3_only: True で current_favorite_level=3 のみに絞る
+        availability_filter: "利用可能のみ" | "すべて"
+        top_n: 上位何件を返すか
+    """
+    from datetime import datetime, timedelta
+
+    df = load_analysis_data(is_deleted_filter=0)
+    if df.empty:
+        return []
+
+    df = apply_scope_filter(df, availability_filter)
+    if lv3_only:
+        df = df[df["current_favorite_level"] == 3]
+    if df.empty:
+        return []
+
+    # 期間計算
+    if period_label == "全期間":
+        period_start, period_end = None, None
+    else:
+        days = _RANKING_PERIOD_DAYS[period_label]
+        period_end = datetime.now()
+        period_start = period_end - timedelta(days=days)
+
+    if ranking_type == "view_count":
+        df = calculate_period_view_count(df, period_start, period_end)
+        score_col = "period_view_count"
+        df[score_col] = df[score_col].fillna(0).astype(int)
+
+    elif ranking_type == "view_days":
+        video_ids = df["id"].tolist()
+        query = (
+            "SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days"
+            " FROM viewing_history WHERE 1=1"
+        )
+        params: list = []
+        if period_start:
+            query += " AND viewed_at >= ?"
+            params.append(period_start)
+        if period_end:
+            query += " AND viewed_at <= ?"
+            params.append(period_end)
+        query += " AND video_id IN ({placeholders}) GROUP BY video_id"
+        with get_db_connection() as conn:
+            rows = _run_chunked_query(conn, query, video_ids, params)
+        df_days = (
+            pd.DataFrame(rows) if rows
+            else pd.DataFrame(columns=["video_id", "view_days"])
+        )
+        df_days = df_days.rename(columns={"video_id": "id"})
+        df = df.merge(df_days, on="id", how="left")
+        score_col = "view_days"
+        df[score_col] = df[score_col].fillna(0).astype(int)
+
+    elif ranking_type == "likes":
+        video_ids = df["id"].tolist()
+        query = "SELECT video_id, COUNT(*) AS like_count FROM likes WHERE 1=1"
+        params = []
+        if period_start:
+            query += " AND liked_at >= ?"
+            params.append(period_start)
+        if period_end:
+            query += " AND liked_at <= ?"
+            params.append(period_end)
+        query += " AND video_id IN ({placeholders}) GROUP BY video_id"
+        with get_db_connection() as conn:
+            rows = _run_chunked_query(conn, query, video_ids, params)
+        df_likes = (
+            pd.DataFrame(rows) if rows
+            else pd.DataFrame(columns=["video_id", "like_count"])
+        )
+        df_likes = df_likes.rename(columns={"video_id": "id"})
+        df = df.merge(df_likes, on="id", how="left")
+        score_col = "like_count"
+        df[score_col] = df[score_col].fillna(0).astype(int)
+
+    else:
+        return []
+
+    # スコア0は除外
+    df = df[df[score_col] > 0]
+    if df.empty:
+        return []
+
+    # タイブレーカー: score DESC → last_viewed_at DESC
+    df["_lv_dt"] = pd.to_datetime(df.get("last_viewed_at"), errors="coerce")
+    df = df.sort_values([score_col, "_lv_dt"], ascending=[False, False], na_position="last")
+    df = df.head(top_n)
+
+    return [(_df_row_to_video(row), int(row[score_col])) for _, row in df.iterrows()]
+
+
 def get_response_time_data() -> list[dict]:
     """判定応答速度データを返す（UIから直接DB接続させないためのサービス関数）。
 

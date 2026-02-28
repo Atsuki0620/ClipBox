@@ -301,3 +301,112 @@ def render_video_card(
             f'<div style="color: #6b7280; font-size: 0.65em; line-height: 1.0; margin: 1px 2px 0; padding:0;">{escape(file_name)}</div>',
             unsafe_allow_html=True,
         )
+
+
+def _abbreviate_filename(name: str, head: int = 10, tail: int = 5) -> str:
+    """ファイル名を先頭 head 文字 + 「・・・」 + 末尾 tail 文字に省略する。"""
+    if len(name) <= head + 3 + tail:
+        return name
+    return name[:head] + "・・・" + name[-tail:]
+
+
+def render_search_video_card(
+    video: Video,
+    settings: DisplaySettings,
+    *,
+    view_count: int = 0,
+    like_count: int = 0,
+    last_modified: Optional[datetime | str] = None,
+    on_play_callback: Optional[Callable[[Video], None]] = None,
+    on_judge_callback: Optional[Callable[[Video, int], None]] = None,
+    on_like_callback: Optional[Callable[[Video], None]] = None,
+    key_prefix: str = "",
+) -> None:
+    """検索タブ専用カード（左=情報 4 / 右=操作 1 の 2 カラム構造）
+
+    右列2行:
+      行1: [▶️][👍]
+      行2: [ー▼][✓]
+    """
+    _inject_base_styles()
+
+    is_disabled = not video.is_available
+    key_base = f"{key_prefix}_" if key_prefix else ""
+
+    card = st.container(border=True)
+    left_col, right_col = card.columns([3, 1], gap="small")
+
+    # ── 左列: タイトル / フルパス / バッジ ──────────────────────────
+    with left_col:
+        title_text = video.essential_filename
+        title_style = "" if video.is_available else ' style="opacity:0.5;color:#9ca3af;"'
+        st.markdown(
+            f'<div style="margin:0;padding:1px 2px;line-height:1.2;">'
+            f'<span{title_style} style="font-size:14px;" title="{escape(title_text)}">'
+            f'{escape(title_text)}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        # フルパス（ディレクトリ部は折り返し、ファイル名は省略）
+        p = Path(video.current_full_path)
+        parent_str = str(p.parent).replace("\\", "/")
+        abbrev_name = _abbreviate_filename(p.name)
+        display_path = parent_str + "/" + abbrev_name
+        st.markdown(
+            f'<div style="color:#6b7280;font-size:0.68em;line-height:1.3;'
+            f'word-break:break-all;margin:2px 2px 2px;">'
+            f'{escape(display_path)}</div>',
+            unsafe_allow_html=True,
+        )
+
+        # バッジ
+        badges = _build_badge_list(video, settings, view_count, last_modified)
+        if badges:
+            st.markdown(" ".join(badges), unsafe_allow_html=True)
+
+    # ── 右列: 1行ボタン [▶️][👍][▼][✓] ─────────────────────────────
+    judgment_options = [-1, 0, 1, 2, 3, 4]
+    level_labels = {-1: "ー", 0: "0", 1: "1", 2: "2", 3: "3", 4: "4"}
+    current_level = video.current_favorite_level
+    if current_level not in judgment_options:
+        current_level = -1
+
+    with right_col:
+        rc1, rc2, rc3, rc4 = st.columns([1, 1, 1.5, 1], gap="small")
+        with rc1:
+            if st.button(
+                "▶️",
+                key=f"{key_base}splay_{video.id}",
+                disabled=is_disabled,
+                help="再生",
+            ):
+                if on_play_callback:
+                    on_play_callback(video)
+        with rc2:
+            if st.button(
+                f"👍{like_count}",
+                key=f"{key_base}slike_{video.id}",
+                disabled=False,
+                help="いいね",
+            ):
+                if on_like_callback:
+                    on_like_callback(video)
+        with rc3:
+            selected_level = st.selectbox(
+                "レベル",
+                options=judgment_options,
+                format_func=lambda v: level_labels.get(v, str(v)),
+                key=f"{key_base}sjudge_select_{video.id}",
+                index=judgment_options.index(current_level),
+                label_visibility="collapsed",
+                disabled=is_disabled,
+            )
+        with rc4:
+            if st.button(
+                "✓",
+                key=f"{key_base}sjudge_{video.id}",
+                disabled=is_disabled,
+                help="判定を確定",
+            ):
+                if on_judge_callback:
+                    on_judge_callback(video, selected_level)

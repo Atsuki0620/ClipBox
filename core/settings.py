@@ -9,6 +9,9 @@ from datetime import datetime
 from typing import Optional
 
 from config import PROJECT_ROOT
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # 設定ファイルのパス
@@ -31,7 +34,7 @@ def load_settings() -> dict:
         with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"設定ファイルの読み込みエラー: {e}")
+        logger.warning("operation=settings_load reason=json_parse_error error=%s", str(e))
         return {
             'last_access_check_time': None
         }
@@ -51,7 +54,7 @@ def save_settings(settings: dict):
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"設定ファイルの保存エラー: {e}")
+        logger.warning("operation=settings_save reason=write_error error=%s", str(e))
 
 
 def get_last_access_check_time() -> Optional[datetime]:
@@ -70,7 +73,7 @@ def get_last_access_check_time() -> Optional[datetime]:
     try:
         return datetime.fromisoformat(time_str)
     except Exception as e:
-        print(f"日時の解析エラー: {e}")
+        logger.warning("operation=settings_load reason=datetime_parse_error error=%s", str(e))
         return None
 
 

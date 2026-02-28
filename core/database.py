@@ -8,15 +8,23 @@ from contextlib import contextmanager
 
 from config import DATABASE_PATH
 from typing import Optional
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @contextmanager
 def get_db_connection():
     """
-    データベース接続のコンテキストマネージャ
+    データベース接続のコンテキストマネージャ。
+
+    成功時に自動 commit、例外時に自動 rollback する。
+    PRAGMA foreign_keys = ON を常に設定（CASCADE DELETE を有効化）。
+
+    直接 sqlite3.connect() を使わず、必ずこの関数を使うこと。
 
     Yields:
-        sqlite3.Connection: データベース接続
+        sqlite3.Connection: 辞書形式アクセス可能なデータベース接続
     """
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row  # 辞書形式でアクセス可能
@@ -190,6 +198,44 @@ def init_database():
                 conn.execute("INSERT INTO counters (counter_id, start_time) VALUES (?, NULL)", (cid,))
 
         conn.commit()
+
+
+def create_backup() -> dict:
+    """
+    DBをバックアップし結果を返す。
+
+    Returns:
+        dict: {'status': 'success'|'error', 'message': str, 'filename': str, 'size_bytes': int}
+    """
+    import shutil
+    from datetime import datetime
+    from config import BACKUP_DIR
+
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        backup_path = BACKUP_DIR / f"videos_{timestamp}.db"
+        shutil.copy2(DATABASE_PATH, backup_path)
+        size_bytes = backup_path.stat().st_size
+        logger.info(
+            'operation=backup filename="%s" size_kb=%d',
+            backup_path.name,
+            size_bytes // 1024,
+        )
+        return {
+            "status": "success",
+            "message": f"バックアップを作成しました: {backup_path.name}",
+            "filename": backup_path.name,
+            "size_bytes": size_bytes,
+        }
+    except Exception as e:
+        logger.warning("operation=backup reason=error error=%s", str(e))
+        return {
+            "status": "error",
+            "message": str(e),
+            "filename": "",
+            "size_bytes": 0,
+        }
 
 
 def check_database_exists() -> bool:
