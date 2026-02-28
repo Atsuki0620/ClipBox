@@ -8,7 +8,6 @@ import streamlit as st
 import hashlib
 from pathlib import Path
 from core import app_service
-from core.migration import Migration
 from ui import cache as ui_cache
 from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
@@ -18,6 +17,7 @@ from ui.unrated_random_tab import render_unrated_random_tab
 from ui.extra_tabs import render_settings_tab
 from ui.selection_tab import render_selection_tab
 from ui.search_tab import render_search_tab
+from ui.ranking_tab import render_ranking_tab
 
 # ページ設定
 st.set_page_config(
@@ -90,6 +90,12 @@ def _handle_play(video, trigger: str):
 
     # F4: 判定中フラグをON
     st.session_state.video_manager.set_judging_state(video.id, True)
+    # 未判定ランダムタブのセッションキャッシュ内 Video オブジェクトも更新
+    if "unrated_videos" in st.session_state:
+        for v in st.session_state.unrated_videos:
+            if v.id == video.id:
+                v.is_judging = True
+                break
     st.session_state.selected_video = video
     # 再生後はキャッシュを無効化して最新の視聴回数・KPIを表示する
     ui_cache.get_view_counts_and_last_viewed.clear()
@@ -115,6 +121,14 @@ def _handle_judgment(video, new_level):
         # 判定後はキャッシュを無効化して最新のKPI・フィルタオプションを表示する
         ui_cache.get_kpi_stats_cached.clear()
         ui_cache.get_filter_options.clear()
+        # 未判定ランダムタブのセッションキャッシュ内 Video オブジェクトを更新
+        # （セッションキャッシュが古いまま再描画されるとバッジが更新されないバグの修正）
+        if "unrated_videos" in st.session_state:
+            for v in st.session_state.unrated_videos:
+                if v.id == video.id:
+                    v.current_favorite_level = new_level
+                    v.is_judging = False
+                    break
         st.toast(result.get("message"))
         st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     else:
@@ -180,11 +194,9 @@ def check_and_init_database():
 
     # マイグレーション実行（レベル-1導入）
     try:
-        migration = Migration(DATABASE_PATH)
-        with app_service.get_db_connection() as conn:
-            result = migration.migrate_level_0_to_minus_1(conn)
-            if result.get("status") == "completed" and result.get("updated_count", 0) > 0:
-                st.info(f"✅ {result['message']}")
+        result = app_service.run_startup_migration()
+        if result.get("status") == "completed" and result.get("updated_count", 0) > 0:
+            st.info(f"✅ {result['message']}")
     except Exception as e:
         st.error(f"マイグレーション実行に失敗しました: {e}")
         st.stop()
@@ -206,7 +218,7 @@ def render_sidebar() -> str:
 
     nav_selection = st.sidebar.radio(
         "画面を選択",
-        ["ライブラリ", "未判定ランダム", "セレクション", "分析ダッシュボード", "分析ダッシュボード v2", "検索", "設定"],
+        ["ライブラリ", "未判定ランダム", "セレクション", "ランキング", "分析ダッシュボード", "分析ダッシュボード v2", "検索", "設定"],
         index=0,
     )
 
@@ -228,6 +240,10 @@ def scan_files():
             library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
             scanner = app_service.create_file_scanner(library_roots)
             app_service.scan_and_update_with_connection(scanner)
+            # セレクションフォルダが設定されていれば一緒にスキャンして is_available を同期する
+            selection_folder_str = st.session_state.user_config.get("selection_folder", "")
+            if selection_folder_str:
+                app_service.scan_selection_folder(Path(selection_folder_str))
             # スキャン後はキャッシュを無効化して最新の状態を表示する
             ui_cache.get_filter_options.clear()
             ui_cache.get_metrics.clear()
@@ -245,6 +261,10 @@ def scan_files_for_settings():
     library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
     scanner = app_service.create_file_scanner(library_roots)
     app_service.scan_and_update_with_connection(scanner)
+    # セレクションフォルダが設定されていれば一緒にスキャンして is_available を同期する
+    selection_folder_str = st.session_state.user_config.get("selection_folder", "")
+    if selection_folder_str:
+        app_service.scan_selection_folder(Path(selection_folder_str))
 
 def main():
     """エントリーポイント"""
@@ -263,6 +283,8 @@ def main():
         render_selection_tab(play_handler, _handle_judgment)
     elif selected_view == "未判定ランダム":
         render_unrated_random_tab(play_handler, _handle_judgment)
+    elif selected_view == "ランキング":
+        render_ranking_tab(play_handler, _handle_judgment)
     elif selected_view == "分析ダッシュボード":
         render_analysis_tab()
     elif selected_view == "分析ダッシュボード v2":

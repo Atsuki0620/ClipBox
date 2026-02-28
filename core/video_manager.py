@@ -1,6 +1,13 @@
 """
-ClipBox - 動画管理ビジネスロジック
-フィルタリング、再生、視聴履歴記録などの主要機能を提供
+動画管理のビジネスロジック層。
+
+【設計制約】
+- streamlit を import しない（Flask移行時に再利用するため）
+- DBアクセスは get_db_connection() 経由のみ（直接 sqlite3.connect 禁止）
+- N+1クエリ禁止（ループ内でDB呼び出しをしない）
+
+【依存関係】
+models.py → database.py → video_manager.py → streamlit_app.py（UI）
 """
 
 import subprocess
@@ -12,7 +19,10 @@ from pathlib import Path
 from core.models import Video
 from core.database import get_db_connection, insert_play_history
 from core import counter_service
+from core.logger import get_logger
 from config import FAVORITE_LEVEL_NAMES
+
+logger = get_logger(__name__)
 
 
 def video_from_row(row) -> Video:
@@ -52,21 +62,26 @@ class VideoManager:
         needs_selection_filter: Optional[bool] = None,
     ) -> List[Video]:
         """
-        ????????????????
+        フィルタ条件に合致する動画一覧を返す。
+
         Args:
-            favorite_levels: ????????????
-            performers: ????????
-            storage_locations: ????????
-            availability: 'available' | 'unavailable' | 'all' | None?None ??????
-            show_unavailable: ????????availability ? None ????????
-            show_deleted: ?????????
-            show_judging_only: 判定中動画のみ取得する場合はTrue
+            favorite_levels: 取得するお気に入りレベルのリスト（例: [3, 4]）。None で全レベル。
+            performers: 出演者名のリスト。None で全出演者。
+            storage_locations: ストレージ場所のリスト（'C_DRIVE', 'EXTERNAL_HDD'）。None で全ストレージ。
+            availability: 'available'=利用可能のみ / 'unavailable'=利用不可のみ / None=show_unavailable に従う。
+            show_unavailable: True のとき is_available=0 も含める（availability が None のときのみ有効）。
+            show_deleted: True のとき is_deleted=1 も含める。通常は False。
+            show_judging_only: True のとき is_judging=1 の動画のみ返す。
+            needs_selection_filter: True=!プレフィックス動画のみ / False=通常動画のみ / None=全て。
+
+        Returns:
+            List[Video]: 条件に合致する動画のリスト。
         """
         with get_db_connection() as conn:
             query = "SELECT * FROM videos WHERE 1=1"
             params: list = []
 
-            # ??????????????
+            # is_available / 表示可否フィルタ
             if availability == "available":
                 query += " AND is_available = 1"
             elif availability == "unavailable":
@@ -187,6 +202,9 @@ class VideoManager:
 
         ランダム順序を保ったまま全フィールドの Video リストを返すため、
         UI 側は DB に直接アクセスする必要がない。
+        ファイルが実際に存在しない動画（外付けHDD未接続など）は除外する。
+        ドライブ単位の接続確認を 1 回のみ行い、未接続ドライブのファイルを高速スキップする。
+        LIMIT を設けず全件をシャッフル取得することで、接続済みドライブの動画が少数でも確実に拾える。
         """
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -196,11 +214,26 @@ class VideoManager:
                   AND is_available = 1
                   AND is_deleted = 0
                 ORDER BY RANDOM()
-                LIMIT ?
                 """,
-                (n,),
             ).fetchall()
-        return [video_from_row(row) for row in rows]
+
+        # ドライブ単位の存在確認を 1 回のみ実行（未接続ドライブのファイルを高速スキップ）
+        drive_cache: dict = {}
+
+        result = []
+        for row in rows:
+            video = video_from_row(row)
+            path = Path(video.current_full_path)
+            drive = path.drive  # "C:", "D:" など
+            if drive not in drive_cache:
+                drive_cache[drive] = Path(drive + "/").exists()
+            if not drive_cache[drive]:
+                continue
+            if path.exists():
+                result.append(video)
+                if len(result) >= n:
+                    break
+        return result
 
     def play_video(
         self,
@@ -417,6 +450,9 @@ class VideoManager:
 
             if not current_path.exists():
                 conn.execute("UPDATE videos SET is_available = 0 WHERE id = ?", (video_id,))
+                logger.warning(
+                    "operation=judgment video_id=%d reason=file_not_found", video_id
+                )
                 return {'status': 'error', 'message': 'ファイルが見つかりません。移動または削除された可能性があります'}
 
             if target_level == -1:
@@ -478,14 +514,32 @@ class VideoManager:
                     ),
                 )
 
+                logger.info(
+                    "operation=judgment video_id=%d old_level=%d new_level=%d "
+                    "rename=success elapsed_ms=%d storage=%s",
+                    video_id,
+                    video.current_favorite_level,
+                    db_level,
+                    rename_duration_ms,
+                    video.storage_location or "unknown",
+                )
                 level_name = FAVORITE_LEVEL_NAMES.get(db_level, f"レベル{db_level}")
                 return {'status': 'success', 'message': f'判定完了: {level_name}'}
 
             except FileNotFoundError:
+                logger.warning(
+                    "operation=judgment video_id=%d reason=file_not_found_on_rename", video_id
+                )
                 return {'status': 'error', 'message': 'ファイルが見つかりません'}
             except PermissionError:
+                logger.warning(
+                    "operation=judgment video_id=%d reason=permission_error", video_id
+                )
                 return {'status': 'error', 'message': 'ファイルが使用中、またはアクセス権がありません'}
             except Exception as e:
+                logger.warning(
+                    "operation=judgment video_id=%d reason=rename_error error=%s", video_id, str(e)
+                )
                 return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
 
     def set_favorite_level(self, video_id: int, new_level: int) -> Dict[str, str]:
