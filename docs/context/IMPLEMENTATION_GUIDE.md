@@ -51,7 +51,7 @@ Data層 (SQLite)
 1. **レイヤー分離**: UI層とCore層の依存は一方向のみ（UI → Core）
 2. **本質的ファイル名による識別**: パスではなくファイル名（プレフィックス除去後）で動画を識別
 3. **グレースフルデグラデーション**: エラー時もクラッシュせず動作継続
-4. **is_available スコープ制約**: scan_and_update() の is_available=0 更新は実際にスキャンしたディレクトリ配下のみ
+4. **is_available 一括更新**: scan_and_update() はスキャンで見つからなかった全動画を is_available=0 に更新する（スキャン0件時のみスキップ）
 
 ---
 
@@ -273,8 +273,8 @@ User → スキャンボタン → FileScanner.scan_and_update()
       └─ extract_essential_filename() でプレフィックス解析
       └─ determine_storage_location() でストレージ判定
       └─ DB: INSERT or UPDATE videos
-  └─ 実際にスキャンしたディレクトリ配下の未発見ファイル → is_available = 0
-  └─ スキャンしていないディレクトリ（未接続HDD等）は is_available を変更しない
+  └─ スキャンで見つからなかった全動画 → is_available = 0
+  └─ スキャン済みディレクトリが0件の場合は is_available の更新をスキップ（安全ガード）
 ```
 
 ### 6.2 動画再生フロー
@@ -350,7 +350,7 @@ def extract_essential_filename(filename) -> Tuple[int, str, bool, bool]
 
 class FileScanner:
     def scan_and_update(db_conn) -> None
-    # 【重要】is_available=0の更新は引数directoriesのスキャン済みディレクトリ配下のみ
+    # 【重要】スキャンで見つからなかった全動画を is_available=0 に更新する（スキャン0件時はスキップ）
 ```
 
 ### 7.3 AppService

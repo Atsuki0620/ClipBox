@@ -54,7 +54,7 @@ def get_kpi_stats(conn: Connection) -> Dict[str, float]:
     """
     KPI統計を取得する。
     """
-    # 未判定数（レベル-1、利用可能、未削除）
+    # 未判定数（レベル-1、利用可能、未削除、セレクションフォルダを除く）
     unrated_count = conn.execute(
         """
         SELECT COUNT(*)
@@ -62,10 +62,12 @@ def get_kpi_stats(conn: Connection) -> Dict[str, float]:
          WHERE current_favorite_level = -1
            AND is_available = 1
            AND is_deleted = 0
+           AND needs_selection = 0
+           AND is_selection_completed = 0
         """
     ).fetchone()[0]
 
-    # 判定済み数（レベル0以上、利用可能、未削除）
+    # 判定済み数（レベル0以上、利用可能、未削除、セレクションフォルダを除く）
     judged_count = conn.execute(
         """
         SELECT COUNT(*)
@@ -73,6 +75,8 @@ def get_kpi_stats(conn: Connection) -> Dict[str, float]:
          WHERE current_favorite_level >= 0
            AND is_available = 1
            AND is_deleted = 0
+           AND needs_selection = 0
+           AND is_selection_completed = 0
         """
     ).fetchone()[0]
 
@@ -86,6 +90,7 @@ def get_kpi_stats(conn: Connection) -> Dict[str, float]:
             SELECT COUNT(DISTINCT video_id)
               FROM judgment_history
              WHERE DATE(judged_at) = DATE('now','localtime')
+               AND was_selection_judgment = 0
             """
         ).fetchone()[0]
     except Exception:
