@@ -120,9 +120,9 @@ class FileScanner:
         """
         ファイルをスキャンしてデータベースを更新。
 
-        【重要】is_available=0 の更新は引数で渡された scan_directories 配下のレコードのみ。
-        外付けHDDのディレクトリを含まない場合、外付けHDD動画の is_available は変更しない。
-        （未接続ドライブの動画を誤って is_available=0 にしないための設計）
+        【重要】スキャンで見つからなかった全動画を is_available=0 に更新する。
+        スキャン済みディレクトリが1つもない場合のみ更新をスキップ（安全ガード）。
+        セレクションフォルダの個別スキャンには scan_single_directory() を使うこと。
 
         Args:
             db_conn: データベース接続（get_db_connection() のコンテキスト内で渡すこと）
@@ -146,34 +146,16 @@ class FileScanner:
             )
             return
 
-        # スキャンで見つからなかったファイルを is_available=0 に更新。
-        # ただし、今回実際にスキャンしたディレクトリ配下のレコードのみを対象とする。
-        # これにより、未接続のドライブ上の動画レコードを誤って is_available=0 にしない。
-        cursor = db_conn.execute("SELECT id, essential_filename, current_full_path FROM videos")
+        # スキャンで見つからなかった全動画を is_available=0 に更新
+        cursor = db_conn.execute("SELECT id, essential_filename FROM videos")
         all_videos = cursor.fetchall()
 
         unavailable_count = 0
         for video in all_videos:
             video_id = video[0]
             essential_filename = video[1]
-            current_full_path = video[2]
 
-            if essential_filename in self.found_files:
-                continue  # スキャンで見つかった → スキップ
-
-            # このレコードのパスが、今回スキャンしたいずれかのディレクトリ配下かを確認
-            try:
-                record_path = Path(current_full_path).resolve()
-            except Exception:
-                continue
-
-            under_scanned_dir = any(
-                record_path.is_relative_to(scanned_dir)
-                for scanned_dir in scanned_dirs
-            )
-
-            if under_scanned_dir:
-                # スキャン対象ディレクトリ配下だが見つからなかった → 利用不可
+            if essential_filename not in self.found_files:
                 db_conn.execute(
                     "UPDATE videos SET is_available = 0 WHERE id = ?",
                     (video_id,)
@@ -229,7 +211,7 @@ class FileScanner:
             db_conn: データベース接続
         """
         # お気に入りレベルと本質的ファイル名を抽出
-        level, essential, needs_selection, _is_sel_completed = extract_essential_filename(file_path.name)
+        level, essential, needs_selection, is_sel_completed = extract_essential_filename(file_path.name)
 
         # スキャンで見つかったファイルとして記録
         self.found_files.add(essential)
@@ -261,19 +243,23 @@ class FileScanner:
                     file_created_at = ?,
                     is_available = 1,
                     needs_selection = ?,
+                    is_selection_completed = ?,
                     last_scanned_at = CURRENT_TIMESTAMP
                 WHERE essential_filename = ?
-            """, (str(file_path), level, storage_location, last_modified, file_created, 1 if needs_selection else 0, essential))
+            """, (str(file_path), level, storage_location, last_modified, file_created,
+                  1 if needs_selection else 0, 1 if is_sel_completed else 0, essential))
         else:
             # 新規追加（デフォルトで is_available=1, is_deleted=0）
             db_conn.execute("""
                 INSERT INTO videos (
                     essential_filename, current_full_path, current_favorite_level,
                     file_size, performer, storage_location, last_file_modified,
-                    file_created_at, is_available, is_deleted, needs_selection, last_scanned_at
+                    file_created_at, is_available, is_deleted, needs_selection,
+                    is_selection_completed, last_scanned_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, CURRENT_TIMESTAMP)
-            """, (essential, str(file_path), level, file_size, performer, storage_location, last_modified, file_created, 1 if needs_selection else 0))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, CURRENT_TIMESTAMP)
+            """, (essential, str(file_path), level, file_size, performer, storage_location,
+                  last_modified, file_created, 1 if needs_selection else 0, 1 if is_sel_completed else 0))
 
 
 def detect_recently_accessed_files(last_check_time: Optional[datetime], db_conn) -> List[dict]:
