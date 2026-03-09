@@ -4,6 +4,40 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-03-09 — 機能改善: ランキングタブ（集計期間・デフォルト・総合ランキング追加）
+
+**関連ファイル**: `core/analysis_service.py`, `ui/ranking_tab.py`, `streamlit_app.py`
+
+- **集計期間を整理**: 30日・90日を削除し180日を追加。デフォルトを「全期間」に変更
+- **表示件数デフォルト変更**: 10件 → 20件
+- **「総合」ランキング追加**: 視聴回数(×1.0)・視聴日数(×1.2)・いいね数(×1.5) を正規化合算し、レベル乗数（Lv4=1.5〜未判定=0.0）を掛けた複合スコア（最大555pt）。未判定動画は除外される
+- **セッション状態の防衛的初期化**: 旧セッションに "30日"/"90日" が残っていた場合に "全期間" へリセット
+
+---
+
+## 2026-03-09 — 機能改善: ランキングタブのレベルフィルタをラジオボタンに変更
+
+**関連ファイル**: `core/analysis_service.py`, `ui/ranking_tab.py`
+
+### ランキングタブ: レベルフィルタの改善
+- **目的**: 「Lv3のみ」トグルでは Lv4 を選択できなかった問題を解消
+- `core/analysis_service.py`: `get_ranked_videos_for_tab()` の `lv3_only: bool` パラメータを `min_level: Optional[int] = None` に変更。`None`=フィルタなし、`3`=Lv3以上、`4`=Lv4のみ
+- `ui/ranking_tab.py`: トグルをラジオボタン（「制限なし」「Lv3以上」「Lv4のみ」）に差し替え。列比率を `[4,1]` → `[3,2]` に変更
+
+---
+
+## 2026-03-09 — 機能追加: ライブラリタブにセレクション関連除外フィルタを追加
+
+**関連ファイル**: `core/video_manager.py`, `ui/library_tab.py`, `streamlit_app.py`
+
+### ライブラリタブ: セレクション関連ファイルの除外フィルタ
+- **目的**: ライブラリタブに `[!]`（未選別）・`[+]`（セレクション完了）プレフィックスのファイルが混在する問題を解消
+- `core/video_manager.py`: `get_videos()` に `exclude_selection: bool = False` パラメータを追加。`True` のとき `needs_selection = 0 AND is_selection_completed = 0` を WHERE 句に付加
+- `streamlit_app.py`: `filter_hide_selection = True` をセッション状態の初期値として追加（デフォルトON）
+- `ui/library_tab.py`: フィルタエクスパンダー内に「セレクション関連を除外」チェックボックスを追加、`get_videos()` 呼び出しに `exclude_selection` を渡す、`signature` にも含めてページリセットに対応
+
+---
+
 ## 2026-03-03 — バグ修正: KPI計算の修正・セレクション関連改善
 
 **関連ファイル**: `core/scanner.py`, `core/database.py`, `ui/components/kpi_display.py`, `ui/selection_tab.py`, `tests/test_scanner.py`
