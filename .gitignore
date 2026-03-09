@@ -219,6 +219,8 @@ data/snapshots/
 data/app_settings.json
 # ユーザー設定ファイル（個人のパス情報が含まれるため）
 data/user_config.json
+# Claude Code ローカル設定（環境固有の設定）
+.claude/settings.local.json
 # Streamlit設定
 .streamlit/
 # 分析ノートブック（個人の動画情報が含まれるため）

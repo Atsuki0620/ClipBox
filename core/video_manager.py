@@ -60,6 +60,7 @@ class VideoManager:
         show_deleted: bool = False,
         show_judging_only: bool = False,
         needs_selection_filter: Optional[bool] = None,
+        exclude_selection: bool = False,
     ) -> List[Video]:
         """
         フィルタ条件に合致する動画一覧を返す。
@@ -73,6 +74,7 @@ class VideoManager:
             show_deleted: True のとき is_deleted=1 も含める。通常は False。
             show_judging_only: True のとき is_judging=1 の動画のみ返す。
             needs_selection_filter: True=!プレフィックス動画のみ / False=通常動画のみ / None=全て。
+            exclude_selection: True のとき needs_selection=1 と is_selection_completed=1 の動画を除外する。
 
         Returns:
             List[Video]: 条件に合致する動画のリスト。
@@ -98,6 +100,9 @@ class VideoManager:
             if needs_selection_filter is not None:
                 query += " AND needs_selection = ?"
                 params.append(1 if needs_selection_filter else 0)
+
+            if exclude_selection:
+                query += " AND needs_selection = 0 AND is_selection_completed = 0"
 
             if favorite_levels:
                 placeholders = ",".join("?" * len(favorite_levels))

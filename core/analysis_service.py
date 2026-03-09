@@ -511,24 +511,24 @@ def _df_row_to_video(row) -> "Video":
     )
 
 
-_RANKING_PERIOD_DAYS = {"30日": 30, "90日": 90, "1年": 365}
+_RANKING_PERIOD_DAYS = {"180日": 180, "1年": 365}
 
 
 def get_ranked_videos_for_tab(
     ranking_type: str,
     period_label: str,
-    lv3_only: bool,
-    availability_filter: str,
-    top_n: int,
+    min_level: "Optional[int]" = None,
+    availability_filter: str = "利用可能のみ",
+    top_n: int = 10,
 ) -> list:
     """
     ランキングタブ用: (Video, score) のリストを返す。
     同スコア時は last_viewed_at 降順（タイブレーカー）。
 
     Args:
-        ranking_type: "view_count" | "view_days" | "likes"
-        period_label: "30日" | "90日" | "1年" | "全期間"
-        lv3_only: True で current_favorite_level=3 のみに絞る
+        ranking_type: "view_count" | "view_days" | "likes" | "composite"
+        period_label: "180日" | "1年" | "全期間"
+        min_level: None=フィルタなし, 3=Lv3以上, 4=Lv4のみ
         availability_filter: "利用可能のみ" | "すべて"
         top_n: 上位何件を返すか
     """
@@ -539,8 +539,8 @@ def get_ranked_videos_for_tab(
         return []
 
     df = apply_scope_filter(df, availability_filter)
-    if lv3_only:
-        df = df[df["current_favorite_level"] == 3]
+    if min_level is not None:
+        df = df[df["current_favorite_level"] >= min_level]
     if df.empty:
         return []
 
@@ -603,6 +603,78 @@ def get_ranked_videos_for_tab(
         df = df.merge(df_likes, on="id", how="left")
         score_col = "like_count"
         df[score_col] = df[score_col].fillna(0).astype(int)
+
+    elif ranking_type == "composite":
+        # 視聴回数
+        df = calculate_period_view_count(df, period_start, period_end)
+        df["period_view_count"] = df["period_view_count"].fillna(0)
+
+        # 視聴日数
+        video_ids = df["id"].tolist()
+        q_days = (
+            "SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days"
+            " FROM viewing_history WHERE 1=1"
+        )
+        p_days: list = []
+        if period_start:
+            q_days += " AND viewed_at >= ?"
+            p_days.append(period_start)
+        if period_end:
+            q_days += " AND viewed_at <= ?"
+            p_days.append(period_end)
+        q_days += " AND video_id IN ({placeholders}) GROUP BY video_id"
+        with get_db_connection() as conn:
+            rows_days = _run_chunked_query(conn, q_days, video_ids, p_days)
+        df_days = (
+            pd.DataFrame(rows_days) if rows_days
+            else pd.DataFrame(columns=["video_id", "view_days"])
+        ).rename(columns={"video_id": "id"})
+        df = df.merge(df_days, on="id", how="left")
+        df["view_days"] = df["view_days"].fillna(0)
+
+        # いいね数
+        q_lk = "SELECT video_id, COUNT(*) AS like_count FROM likes WHERE 1=1"
+        p_lk: list = []
+        if period_start:
+            q_lk += " AND liked_at >= ?"
+            p_lk.append(period_start)
+        if period_end:
+            q_lk += " AND liked_at <= ?"
+            p_lk.append(period_end)
+        q_lk += " AND video_id IN ({placeholders}) GROUP BY video_id"
+        with get_db_connection() as conn:
+            rows_lk = _run_chunked_query(conn, q_lk, video_ids, p_lk)
+        df_lk = (
+            pd.DataFrame(rows_lk) if rows_lk
+            else pd.DataFrame(columns=["video_id", "like_count"])
+        ).rename(columns={"video_id": "id"})
+        df = df.merge(df_lk, on="id", how="left")
+        df["like_count"] = df["like_count"].fillna(0)
+
+        # 正規化（各指標を max で割って 0-1 に）
+        max_vc = df["period_view_count"].max() or 1
+        max_vd = df["view_days"].max() or 1
+        max_lk = df["like_count"].max() or 1
+        df["_norm_vc"] = df["period_view_count"] / max_vc
+        df["_norm_vd"] = df["view_days"] / max_vd
+        df["_norm_lk"] = df["like_count"] / max_lk
+
+        # 重み付け合算（視聴回数×1.0 + 視聴日数×1.2 + いいね×1.5）
+        df["_raw_score"] = (
+            df["_norm_vc"] * 1.0
+            + df["_norm_vd"] * 1.2
+            + df["_norm_lk"] * 1.5
+        )
+
+        # レベル乗数（未判定=0 → composite_score=0 → ランキング除外）
+        _LV_MULT = {4: 1.5, 3: 1.2, 2: 0.9, 1: 0.6, 0: 0.5, -1: 0.0}
+        df["_lv_mult"] = df["current_favorite_level"].apply(
+            lambda lv: _LV_MULT.get(int(lv) if pd.notna(lv) else -1, 0.0)
+        )
+
+        # × 100 して整数化（表示用: 最大約555pt）
+        df["composite_score"] = (df["_raw_score"] * df["_lv_mult"] * 100).round(0).astype(int)
+        score_col = "composite_score"
 
     else:
         return []

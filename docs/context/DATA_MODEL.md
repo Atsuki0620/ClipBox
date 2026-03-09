@@ -54,6 +54,7 @@ with get_db_connection() as conn:
 | `is_deleted` | BOOLEAN | DEFAULT 0 | 論理削除フラグ |
 | `is_judging` | BOOLEAN | DEFAULT 0 | 判定中フラグ |
 | `needs_selection` | BOOLEAN | DEFAULT 0 | !プレフィックス付き（セレクション未選別） |
+| `is_selection_completed` | BOOLEAN | DEFAULT 0 | +プレフィックス付き（セレクション選別完了・物理的にセレクションフォルダ内） |
 
 ### 2.2 viewing_history（視聴履歴）
 
@@ -162,6 +163,8 @@ counters （独立）
 | videos | idx_file_created_at | file_created_at |
 | videos | idx_is_available | is_available |
 | videos | idx_is_deleted | is_deleted |
+| videos | idx_needs_selection | needs_selection |
+| videos | idx_is_selection_completed | is_selection_completed |
 | viewing_history | idx_video_id | video_id |
 | viewing_history | idx_viewed_at | viewed_at |
 | play_history | idx_play_history_file_path | file_path |
@@ -303,6 +306,7 @@ class ViewingHistory:
 | - | judgment_history, countersテーブル追加 |
 | 2026-02-21 | likesテーブル追加（いいね機能） |
 | 2026-02-23 | needs_selection, was_selection_judgmentカラム追加 |
+| 2026-03-03 | is_selection_completedカラム追加（+プレフィックス動画の管理） |
 
 ---
 
