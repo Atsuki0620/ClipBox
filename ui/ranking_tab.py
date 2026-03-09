@@ -25,8 +25,9 @@ _RANKING_TYPES = {
     "view_count": "視聴回数",
     "view_days": "視聴日数",
     "likes": "いいね数",
+    "composite": "総合",
 }
-_SCORE_LABELS = {"view_count": "回", "view_days": "日", "likes": "個"}
+_SCORE_LABELS = {"view_count": "回", "view_days": "日", "likes": "個", "composite": "pt"}
 _MEDAL = {1: "🥇", 2: "🥈", 3: "🥉"}
 _MEDAL_COLOR = {1: "#FFD700", 2: "#C0C0C0", 3: "#CD7F32"}
 
@@ -36,24 +37,33 @@ def render_ranking_tab(on_play, on_judge):
     st.subheader("🏆 ランキング")
 
     # --- コントロール行1 ---
-    ctrl1, ctrl2 = st.columns([4, 1], gap="small")
+    ctrl1, ctrl2 = st.columns([3, 2], gap="small")
     with ctrl1:
         ranking_type = st.radio(
             "ランキング種類",
             options=list(_RANKING_TYPES.keys()),
             format_func=lambda x: _RANKING_TYPES[x],
+            index=3,
             horizontal=True,
             key="ranking_type",
         )
     with ctrl2:
-        lv3_only = st.toggle("Lv3のみ", key="ranking_lv3_only")
+        level_filter_label = st.radio(
+            "レベルフィルタ",
+            options=["制限なし", "Lv3以上", "Lv4のみ"],
+            horizontal=True,
+            key="ranking_level_filter",
+        )
+    _LEVEL_FILTER_MAP = {"制限なし": None, "Lv3以上": 3, "Lv4のみ": 4}
+    min_level = _LEVEL_FILTER_MAP[level_filter_label]
 
     # --- コントロール行2 ---
     ctrl3, ctrl4, ctrl5 = st.columns([4, 3, 2], gap="small")
     with ctrl3:
         period_label = st.radio(
             "集計期間",
-            options=["30日", "90日", "1年", "全期間"],
+            options=["180日", "1年", "全期間"],
+            index=2,
             horizontal=True,
             key="ranking_period",
         )
@@ -61,6 +71,7 @@ def render_ranking_tab(on_play, on_judge):
         top_n = st.radio(
             "表示件数",
             options=[10, 20, 50],
+            index=1,
             horizontal=True,
             key="ranking_top_n",
         )
@@ -73,7 +84,7 @@ def render_ranking_tab(on_play, on_judge):
     # --- データ取得 ---
     availability_filter = "すべて" if show_unavailable else "利用可能のみ"
     with st.spinner("ランキングを集計中..."):
-        ranked_items = _fetch_ranking(ranking_type, period_label, lv3_only, availability_filter, top_n)
+        ranked_items = _fetch_ranking(ranking_type, period_label, min_level, availability_filter, top_n)
 
     if not ranked_items:
         st.info("表示できるランキングデータがありません。")
@@ -140,12 +151,12 @@ def render_ranking_tab(on_play, on_judge):
 
 
 @st.cache_data(ttl=60)
-def _fetch_ranking(ranking_type, period_label, lv3_only, availability_filter, top_n):
+def _fetch_ranking(ranking_type, period_label, min_level, availability_filter, top_n):
     """ランキングデータを60秒キャッシュ"""
     return app_service.get_ranked_videos_for_tab(
         ranking_type=ranking_type,
         period_label=period_label,
-        lv3_only=lv3_only,
+        min_level=min_level,
         availability_filter=availability_filter,
         top_n=top_n,
     )

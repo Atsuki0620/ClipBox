@@ -169,6 +169,11 @@ def init_session_state():
         st.session_state.filter_availability = ['AVAILABLE']
     if 'filter_judging_only' not in st.session_state:
         st.session_state.filter_judging_only = False
+    if 'filter_hide_selection' not in st.session_state:
+        st.session_state.filter_hide_selection = True
+    # 集計期間の選択肢変更に対応: 旧値が残っている場合はリセット
+    if st.session_state.get("ranking_period") not in ("180日", "1年", "全期間", None):
+        st.session_state["ranking_period"] = "全期間"
     if 'title_max_length' not in st.session_state:
         st.session_state.title_max_length = 40
     if 'search_keyword' not in st.session_state:

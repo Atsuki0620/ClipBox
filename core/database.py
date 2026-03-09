@@ -143,6 +143,23 @@ def init_database():
             conn.execute("ALTER TABLE videos ADD COLUMN needs_selection BOOLEAN DEFAULT 0")
             conn.execute("UPDATE videos SET needs_selection = 0 WHERE needs_selection IS NULL")
 
+        # セレクション: is_selection_completed フラグ（+プレフィックスファイル）
+        if "is_selection_completed" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN is_selection_completed BOOLEAN DEFAULT 0")
+            conn.execute("UPDATE videos SET is_selection_completed = 0 WHERE is_selection_completed IS NULL")
+            # 既存の + プレフィックスファイルを正しく設定
+            from pathlib import Path as _Path
+            existing_rows = conn.execute("SELECT id, current_full_path FROM videos").fetchall()
+            for _row in existing_rows:
+                try:
+                    if _Path(_row["current_full_path"]).name.startswith("+"):
+                        conn.execute(
+                            "UPDATE videos SET is_selection_completed = 1 WHERE id = ?",
+                            (_row["id"],)
+                        )
+                except Exception:
+                    pass
+
         # セレクション: judgment_history に was_selection_judgment フラグ
         judgment_cols = [row[1] for row in conn.execute("PRAGMA table_info(judgment_history)").fetchall()]
         if "was_selection_judgment" not in judgment_cols:
@@ -157,6 +174,7 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_available ON videos(is_available)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_deleted ON videos(is_deleted)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_needs_selection ON videos(needs_selection)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_is_selection_completed ON videos(is_selection_completed)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")

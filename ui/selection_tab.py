@@ -254,7 +254,7 @@ def _render_random_mode(on_play, on_judge, folder_path_str: str):
         rand_col_count = st.radio(
             "カラム数",
             options=[3, 4, 5, 6],
-            index=1,
+            index=2,
             horizontal=True,
             key="selection_rand_col_count",
         )

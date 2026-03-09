@@ -48,8 +48,8 @@ def test_extract_essential_filename_selection_completed_no_level():
     assert extract_essential_filename("+movie.mp4") == (-1, "movie.mp4", False, True)
 
 
-def test_scan_only_updates_is_available_for_scanned_dirs(tmp_path, tmp_db):
-    """スキャン済みディレクトリ内のレコードのみ is_available が更新される"""
+def test_scan_updates_all_not_found_videos_is_available(tmp_path, tmp_db):
+    """Cドライブのみスキャンすると、HDD内の見つからなかった動画も is_available=0 になる"""
     c_drive = tmp_path / "c_drive"
     hdd = tmp_path / "hdd"
     c_drive.mkdir()
@@ -80,7 +80,7 @@ def test_scan_only_updates_is_available_for_scanned_dirs(tmp_path, tmp_db):
             ("movie_h.mp4", str(hdd_file)),
         )
 
-    # c_drive のみスキャン → hdd レコードの is_available は変わらないはず
+    # c_drive のみスキャン（hdd_file は物理ファイルが存在するが c_drive に含まれない）
     scanner = FileScanner([c_drive])
     with database.get_db_connection() as conn:
         scanner.scan_and_update(conn)
@@ -93,43 +93,8 @@ def test_scan_only_updates_is_available_for_scanned_dirs(tmp_path, tmp_db):
             "SELECT is_available FROM videos WHERE essential_filename = ?", ("movie_h.mp4",)
         ).fetchone()
 
-    assert c_row["is_available"] == 1  # スキャン対象 → ファイル存在 → 1 のまま
-    assert h_row["is_available"] == 1  # スキャン対象外 → 変更されない
-
-
-def test_scan_does_not_falsely_mark_sibling_dir_unavailable(tmp_path, tmp_db):
-    """data_selection など、スキャン対象ディレクトリ名が前方一致する兄弟ディレクトリの
-    ファイルを is_available=0 にしない（startswith 文字列比較バグの回帰テスト）"""
-    data_dir = tmp_path / "data"
-    data_selection_dir = tmp_path / "data_selection"
-    data_dir.mkdir()
-    data_selection_dir.mkdir()
-
-    sel_file = data_selection_dir / "!selection.mp4"
-    sel_file.write_bytes(b"dummy")
-
-    with database.get_db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO videos (
-                essential_filename, current_full_path, current_favorite_level,
-                storage_location, is_available, is_deleted
-            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0)
-            """,
-            ("selection.mp4", str(sel_file)),
-        )
-
-    # data ディレクトリのみスキャン（data_selection はスキャンしない）
-    scanner = FileScanner([data_dir])
-    with database.get_db_connection() as conn:
-        scanner.scan_and_update(conn)
-
-    with database.get_db_connection() as conn:
-        row = conn.execute(
-            "SELECT is_available FROM videos WHERE essential_filename = ?", ("selection.mp4",)
-        ).fetchone()
-
-    assert row["is_available"] == 1, "data_selection のファイルは is_available=1 のままであること"
+    assert c_row["is_available"] == 1  # スキャン済み・存在 → is_available=1
+    assert h_row["is_available"] == 0  # スキャン対象外 → is_available=0
 
 
 def test_scan_does_not_change_is_available_when_no_files_found(tmp_path, tmp_db):

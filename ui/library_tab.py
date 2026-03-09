@@ -116,6 +116,14 @@ def _render_filter_controls():
             )
             st.session_state.filter_judging_only = judging_only
 
+            hide_selection = st.checkbox(
+                "セレクション関連を除外",
+                value=st.session_state.filter_hide_selection,
+                key="library_filter_hide_selection",
+                help="[!](未選別)・[+](完了)プレフィックスのファイルを非表示にする",
+            )
+            st.session_state.filter_hide_selection = hide_selection
+
         refresh_clicked = st.button(
             "🔄 画面を更新",
             use_container_width=True,
@@ -264,6 +272,7 @@ def render_library_tab(on_play, on_judge):
         show_unavailable=True if availability is None else False,
         show_deleted=False,
         show_judging_only=st.session_state.filter_judging_only,
+        exclude_selection=st.session_state.filter_hide_selection,
     )
 
     videos = _filter_by_keyword(videos, search_keyword)
@@ -277,6 +286,7 @@ def render_library_tab(on_play, on_judge):
         tuple(st.session_state.filter_storage),
         tuple(st.session_state.filter_availability),
         st.session_state.filter_judging_only,
+        st.session_state.filter_hide_selection,
         unrated_filter,
         st.session_state.library_page_size,
     )
