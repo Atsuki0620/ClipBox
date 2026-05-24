@@ -16,6 +16,7 @@ def _default_config() -> Dict[str, Any]:
     return {
         "library_roots": [str(p) for p in SCAN_DIRECTORIES],
         "default_player": "vlc",
+        "avp_exe_path": r"C:\Program Files (x86)\Awesome Video Player\AVPlayer.exe",
         "db_path": str(DATABASE_PATH),
     }
 
@@ -42,6 +43,12 @@ def load_user_config() -> Dict[str, Any]:
 
     # default_player フォールバック
     config["default_player"] = config.get("default_player", "vlc")
+
+    # avp_exe_path フォールバック
+    config["avp_exe_path"] = config.get(
+        "avp_exe_path",
+        r"C:\Program Files (x86)\Awesome Video Player\AVPlayer.exe",
+    )
 
     # db_path フォールバック
     config["db_path"] = config.get("db_path", str(DATABASE_PATH))

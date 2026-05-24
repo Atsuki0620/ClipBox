@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.models import Video
-from core.database import get_db_connection, insert_play_history
+from core.database import get_db_connection, insert_play_history, get_last_viewed_map
 from core import counter_service
 from core.logger import get_logger
 from config import FAVORITE_LEVEL_NAMES
@@ -201,6 +201,47 @@ class VideoManager:
             return None
 
         return random.choice(videos)
+
+    def get_fate_video(self, folder_path_str: str = "") -> Optional[Video]:
+        """経過日数重み付きで未選別動画を1本選出する（運命の1本用）。
+
+        一度も視聴していない動画は経過日数=9999として扱い選出されやすくする。
+        """
+        videos = self.get_videos(
+            needs_selection_filter=True,
+            show_unavailable=False,
+            show_deleted=False,
+        )
+        if not videos:
+            return None
+        if folder_path_str:
+            norm = folder_path_str.rstrip("/\\").lower()
+            videos = [v for v in videos if v.current_full_path.lower().startswith(norm)]
+        if not videos:
+            return None
+
+        video_ids = [v.id for v in videos]
+        placeholders = ",".join("?" * len(video_ids))
+        with get_db_connection() as conn:
+            rows = conn.execute(
+                f"SELECT video_id, MAX(viewed_at) AS last_viewed"
+                f" FROM viewing_history WHERE video_id IN ({placeholders})"
+                f" GROUP BY video_id",
+                video_ids,
+            ).fetchall()
+        last_viewed_map = {row["video_id"]: row["last_viewed"] for row in rows}
+
+        today = datetime.now()
+        weights = []
+        for v in videos:
+            lv = last_viewed_map.get(v.id)
+            if lv:
+                days = (today - datetime.fromisoformat(lv.replace(" ", "T"))).days
+                weights.append(max(1, days))
+            else:
+                weights.append(9999)
+
+        return random.choices(videos, weights=weights, k=1)[0]
 
     def get_unrated_random_videos(self, n: int) -> List[Video]:
         """レベル-1の動画をランダムに n 件取得して返す。

@@ -66,6 +66,8 @@ def render_selection_tab(on_play, on_judge):
         st.session_state.selection_random_videos = []
     if "selection_random_prev_n" not in st.session_state:
         st.session_state.selection_random_prev_n = 10
+    if "selection_fate_video" not in st.session_state:
+        st.session_state.selection_fate_video = None
 
     # フォルダパスは user_config から取得
     cfg = st.session_state.get("user_config", {})
@@ -77,13 +79,16 @@ def render_selection_tab(on_play, on_judge):
 
     st.markdown("---")
 
-    lib_tab, rand_tab = st.tabs(["📚 ライブラリ", "🎲 ランダム"])
+    lib_tab, rand_tab, fate_tab = st.tabs(["📚 ライブラリ", "🎲 ランダム", "🎯 運命の1本"])
 
     with lib_tab:
         _render_library_mode(on_play, on_judge, folder_path_str)
 
     with rand_tab:
         _render_random_mode(on_play, on_judge, folder_path_str)
+
+    with fate_tab:
+        _render_fate_mode(on_play, on_judge, folder_path_str, kpi)
 
 
 def _render_library_mode(on_play, on_judge, folder_path_str: str):
@@ -237,6 +242,8 @@ def _render_library_mode(on_play, on_judge, folder_path_str: str):
                     show_judgment_ui=True,
                     show_selection_state=True,
                     is_selected=is_selected,
+                    show_avp_checkbox=True,
+                    is_avp_checked=current_video.id in st.session_state.get("avp_selected_ids", set()),
                     on_play_callback=make_play_handler(current_video),
                     on_judge_callback=make_judge_handler(current_video),
                     on_like_callback=make_like_handler(current_video),
@@ -347,11 +354,100 @@ def _render_random_mode(on_play, on_judge, folder_path_str: str):
                     show_judgment_ui=True,
                     show_selection_state=True,
                     is_selected=is_selected,
+                    show_avp_checkbox=True,
+                    is_avp_checked=current_video.id in st.session_state.get("avp_selected_ids", set()),
                     on_play_callback=make_play_handler(current_video),
                     on_judge_callback=make_judge_handler(current_video),
                     on_like_callback=make_like_handler(current_video),
                     key_prefix="selection_rand",
                 )
+
+
+def _render_fate_mode(on_play, on_judge, folder_path_str: str, kpi: dict):
+    """運命の1本モードの描画。経過日数重み付きで未選別動画を1本選出・再生・評価する。"""
+    vm = st.session_state.video_manager
+
+    # フォルダ込みの未選別数は上位で算出済みの kpi を流用（余分なDBクエリを避ける）
+    has_candidates = kpi["unselected_count"] > 0
+
+    _, btn_col, _ = st.columns([1, 2, 1])
+    with btn_col:
+        draw = st.button(
+            "🎯 運命の1本を引く",
+            use_container_width=True,
+            disabled=not has_candidates,
+            key="selection_fate_draw",
+        )
+
+    if draw:
+        video = vm.get_fate_video(folder_path_str)
+        if video:
+            st.session_state.selection_fate_video = video
+            on_play(video, "selection_fate")
+
+    st.divider()
+
+    fate_video = st.session_state.selection_fate_video
+
+    if fate_video is None:
+        if has_candidates:
+            st.info("ボタンを押して運命の1本を引いてください。")
+        else:
+            st.info("条件に合う未選別動画がありません。設定タブでフォルダをスキャンしてください。")
+        return
+
+    # DB同期（判定・いいね反映）
+    synced = vm.get_videos_by_ids([fate_video.id])
+    if not synced:
+        st.session_state.selection_fate_video = None
+        st.warning("選出した動画が見つかりません。再度引き直してください。")
+        return
+    fate_video = synced[0]
+    st.session_state.selection_fate_video = fate_video
+
+    video_ids = [fate_video.id]
+    like_counts = app_service.get_like_counts(video_ids)
+    view_counts, _ = ui_cache.get_view_counts_and_last_viewed()
+
+    settings_fate = render_display_settings(key_prefix="selection_fate_disp")
+    settings_fate.num_columns = 1
+
+    is_selected = bool(
+        st.session_state.selected_video
+        and st.session_state.selected_video.id == fate_video.id
+    )
+
+    def play_handler(_v):
+        on_play(fate_video, "selection_fate")
+
+    def judge_handler(_v, level):
+        on_judge(fate_video, level)
+
+    def like_handler(_v):
+        new_count = app_service.add_like(fate_video.id)
+        like_counts[fate_video.id] = new_count
+        st.rerun(scope="fragment")
+
+    _, card_col, _ = st.columns([1, 4, 1])
+    with card_col:
+        render_video_card(
+            video=fate_video,
+            settings=settings_fate,
+            view_count=view_counts.get(fate_video.id, 0),
+            like_count=like_counts.get(fate_video.id, 0),
+            last_modified=fate_video.last_file_modified,
+            show_judgment_ui=True,
+            show_selection_state=True,
+            is_selected=is_selected,
+            show_avp_checkbox=True,
+            is_avp_checked=fate_video.id in st.session_state.get("avp_selected_ids", set()),
+            on_play_callback=play_handler,
+            on_judge_callback=judge_handler,
+            on_like_callback=like_handler,
+            key_prefix="selection_fate",
+        )
+
+    st.caption("重み: 前回視聴からの経過日数（未視聴は9999日扱い）")
 
 
 def _render_pagination(total_pages: int, position: str):

@@ -4,6 +4,31 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-05-24 — 新機能: AVP並列再生タブ追加
+
+**関連ファイル**: `ui/avp_tab.py`（新規）, `ui/components/video_card.py`, `ui/library_tab.py`, `ui/unrated_random_tab.py`, `ui/selection_tab.py`, `ui/search_tab.py`, `streamlit_app.py`, `ui/extra_tabs.py`, `core/config_utils.py`
+
+- **AVP再生タブを新設**: サイドバーに「AVP再生」タブを追加。ライブラリ・ランダム・セレクション・検索の各タブでチェックした動画を一覧表示し、最大4本を選択してAwesome Video Playerで並列再生する
+- **チェックボックス追加**: 全タブの `render_video_card` / `render_search_video_card` に `show_avp_checkbox` 引数を追加。カード左上に小さいチェックボックスを表示し、チェック状態はセッション全体の `avp_selected_ids: set[int]` で横断管理
+- **AVP並列再生フロー**: ①各タブでチェック → ②AVP再生タブを開く → ③チェック済み一覧から再生する本数（1〜4本）を選択 → ④「▶ AVPでN本再生」ボタンでAVP起動 → ⑤下段に評価カード即時表示 → ⑥判定
+- **設定タブ**: AVP実行ファイルパスの入力欄を追加。`user_config.json` の `avp_exe_path` キーで管理（デフォルト: `C:\Program Files (x86)\Awesome Video Player\AVPlayer.exe`）
+- **サイドバーカウント表示**: チェック済み本数が1本以上のとき「AVP再生 (N)」と件数を表示
+- **事前テスト済み**: Awesome Video Player に複数ファイルをコマンドライン引数で渡すと画面分割で並列再生されることを確認済み
+
+---
+
+## 2026-05-24 — 新機能: 「🎯 運命の1本」タブ追加
+
+**関連ファイル**: `core/video_manager.py`, `ui/selection_tab.py`
+
+- セレクションタブに「🎯 運命の1本」タブを新設（ライブラリ・ランダムと並列）
+- **選出ロジック**: `needs_selection=True` の動画を前回視聴からの経過日数で重み付けして `random.choices()` で1本選出。未視聴は経過9999日扱い
+- **UIフロー**: ボタン押下で自動再生 → 既存の評価UI（レベル選択・いいね）で判定 → 評価後も動画表示を維持。次の1本はボタン再押下で選出
+- `VideoManager.get_fate_video(folder_path_str)` を `core/video_manager.py` に追加
+- `get_last_viewed_map` を `core/database.py` から直接インポートして利用
+
+---
+
 ## 2026-03-09 — 機能改善: ランキングタブ（集計期間・デフォルト・総合ランキング追加）
 
 **関連ファイル**: `core/analysis_service.py`, `ui/ranking_tab.py`, `streamlit_app.py`
