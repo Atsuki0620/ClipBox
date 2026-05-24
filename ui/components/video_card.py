@@ -171,6 +171,17 @@ def _build_badge_list(
     return badges
 
 
+def _toggle_avp_selected(vid_id: int, cb_key: str) -> None:
+    """AVP選択チェックボックスの変化時にセッションステートを更新する"""
+    val: bool = st.session_state.get(cb_key, False)
+    avp_ids: set = st.session_state.get("avp_selected_ids", set())
+    if val:
+        avp_ids.add(vid_id)
+    else:
+        avp_ids.discard(vid_id)
+    st.session_state.avp_selected_ids = avp_ids
+
+
 def render_video_card(
     video: Video,
     settings: DisplaySettings,
@@ -181,6 +192,8 @@ def render_video_card(
     show_judgment_ui: bool = True,
     show_selection_state: bool = False,
     is_selected: bool = False,
+    show_avp_checkbox: bool = False,
+    is_avp_checked: bool = False,
     on_play_callback: Optional[Callable[[Video], None]] = None,
     on_judge_callback: Optional[Callable[[Video, int], None]] = None,
     on_like_callback: Optional[Callable[[Video], None]] = None,
@@ -234,12 +247,33 @@ def render_video_card(
     key_base = f"{key_prefix}_" if key_prefix else ""
 
     if show_judgment_ui:
-        # いいねボタンを select_col と badge_col の間に追加
-        btn_col, judge_col, select_col, like_col, badge_col = card.columns([2, 2, 5, 4, 1])
+        if show_avp_checkbox:
+            chk_col, btn_col, judge_col, select_col, like_col, badge_col = card.columns([1, 2, 2, 5, 4, 1])
+        else:
+            chk_col = None
+            btn_col, judge_col, select_col, like_col, badge_col = card.columns([2, 2, 5, 4, 1])
     else:
-        btn_col, like_col, badge_col = card.columns([1, 2.5, 3])
+        if show_avp_checkbox:
+            chk_col, btn_col, like_col, badge_col = card.columns([1, 1, 2.5, 3])
+        else:
+            chk_col = None
+            btn_col, like_col, badge_col = card.columns([1, 2.5, 3])
         judge_col = None
         select_col = None
+
+    # AVPチェックボックス
+    if show_avp_checkbox and chk_col is not None:
+        cb_key = f"{key_base}avp_cb_{video.id}"
+        with chk_col:
+            st.checkbox(
+                "AVP",
+                key=cb_key,
+                value=is_avp_checked,
+                label_visibility="collapsed",
+                help="AVP再生リストに追加",
+                on_change=_toggle_avp_selected,
+                args=(video.id, cb_key),
+            )
 
     # 再生ボタン
     with btn_col:
@@ -317,6 +351,8 @@ def render_search_video_card(
     view_count: int = 0,
     like_count: int = 0,
     last_modified: Optional[datetime | str] = None,
+    show_avp_checkbox: bool = False,
+    is_avp_checked: bool = False,
     on_play_callback: Optional[Callable[[Video], None]] = None,
     on_judge_callback: Optional[Callable[[Video, int], None]] = None,
     on_like_callback: Optional[Callable[[Video], None]] = None,
@@ -372,7 +408,21 @@ def render_search_video_card(
         current_level = -1
 
     with right_col:
-        rc1, rc2, rc3, rc4 = st.columns([1, 1, 1.5, 1], gap="small")
+        if show_avp_checkbox:
+            rc0, rc1, rc2, rc3, rc4 = st.columns([0.8, 1, 1, 1.5, 1], gap="small")
+            cb_key = f"{key_base}savp_cb_{video.id}"
+            with rc0:
+                st.checkbox(
+                    "AVP",
+                    key=cb_key,
+                    value=is_avp_checked,
+                    label_visibility="collapsed",
+                    help="AVP再生リストに追加",
+                    on_change=_toggle_avp_selected,
+                    args=(video.id, cb_key),
+                )
+        else:
+            rc1, rc2, rc3, rc4 = st.columns([1, 1, 1.5, 1], gap="small")
         with rc1:
             if st.button(
                 "▶️",

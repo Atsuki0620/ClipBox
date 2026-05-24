@@ -18,6 +18,7 @@ from ui.extra_tabs import render_settings_tab
 from ui.selection_tab import render_selection_tab
 from ui.search_tab import render_search_tab
 from ui.ranking_tab import render_ranking_tab
+from ui.avp_tab import render_avp_tab
 
 # ページ設定
 st.set_page_config(
@@ -178,6 +179,13 @@ def init_session_state():
         st.session_state.title_max_length = 40
     if 'search_keyword' not in st.session_state:
         st.session_state.search_keyword = ""
+    # AVP再生タブ用：タブ横断チェック済みIDと再生中IDを管理
+    if "avp_selected_ids" not in st.session_state:
+        st.session_state.avp_selected_ids = set()
+    if "avp_playing_ids" not in st.session_state:
+        st.session_state.avp_playing_ids = []
+    if "avp_launch_selected" not in st.session_state:
+        st.session_state.avp_launch_selected = set()
     # 起動時に自動でファイルアクセスを検知（初回のみ）
     # 要望により起動時の自動検知は無効化（誤検知防止）
     st.session_state.auto_detection_done = True
@@ -221,9 +229,11 @@ def render_sidebar() -> str:
         unsafe_allow_html=True,
     )
 
+    avp_count = len(st.session_state.get("avp_selected_ids", set()))
+    avp_label = f"AVP再生 ({avp_count})" if avp_count > 0 else "AVP再生"
     nav_selection = st.sidebar.radio(
         "画面を選択",
-        ["ライブラリ", "未判定ランダム", "セレクション", "ランキング", "分析ダッシュボード", "分析ダッシュボード v2", "検索", "設定"],
+        ["ライブラリ", "未判定ランダム", "セレクション", "ランキング", "分析ダッシュボード", "分析ダッシュボード v2", "検索", avp_label, "設定"],
         index=0,
     )
 
@@ -296,6 +306,8 @@ def main():
         render_analysis_tab_v2()
     elif selected_view == "検索":
         render_search_tab(play_handler, _handle_judgment)
+    elif selected_view.startswith("AVP再生"):
+        render_avp_tab(_handle_judgment)
     elif selected_view == "設定":
         render_settings_tab(scan_files_for_settings)
     else:
