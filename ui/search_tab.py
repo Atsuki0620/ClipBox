@@ -123,6 +123,8 @@ def render_search_tab(on_play, on_judge):
             view_count=view_counts.get(current_video.id, 0),
             like_count=like_counts.get(current_video.id, 0),
             last_modified=current_video.last_file_modified,
+            show_avp_checkbox=True,
+            is_avp_checked=current_video.id in st.session_state.get("avp_selected_ids", set()),
             on_play_callback=make_play_handler(current_video),
             on_judge_callback=make_judge_handler(current_video),
             on_like_callback=make_like_handler(current_video),

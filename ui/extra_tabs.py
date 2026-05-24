@@ -31,6 +31,11 @@ def render_settings_tab(scan_files_for_settings):
         else:
             st.error(result["message"])
     default_player = st.text_input("既定プレイヤー", value=cfg.get("default_player", "vlc"))
+    avp_exe_path = st.text_input(
+        "AVP実行ファイルパス",
+        value=cfg.get("avp_exe_path", r"C:\Program Files (x86)\Awesome Video Player\AVPlayer.exe"),
+        help="Awesome Video PlayerのAVPlayer.exeのフルパス",
+    )
 
     if st.button("設定を保存", use_container_width=True):
         new_roots = [line.strip() for line in library_roots_text.splitlines() if line.strip()]
@@ -38,6 +43,7 @@ def render_settings_tab(scan_files_for_settings):
             "library_roots": new_roots,
             "selection_folder": selection_folder.strip(),
             "default_player": default_player,
+            "avp_exe_path": avp_exe_path.strip(),
         })
         app_service.save_user_config(cfg)
         st.success("設定を保存しました")

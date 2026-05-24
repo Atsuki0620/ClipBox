@@ -363,6 +363,8 @@ def render_library_tab(on_play, on_judge):
                     last_modified=current_video.last_file_modified,
                     show_judgment_ui=True,
                     is_selected=is_selected,
+                    show_avp_checkbox=True,
+                    is_avp_checked=current_video.id in st.session_state.get("avp_selected_ids", set()),
                     on_play_callback=make_play_handler(current_video),
                     on_judge_callback=make_judge_handler(current_video),
                     on_like_callback=make_like_handler(current_video),
