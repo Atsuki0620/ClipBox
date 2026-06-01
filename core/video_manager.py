@@ -281,6 +281,11 @@ class VideoManager:
                     break
         return result
 
+    def get_unrated_fate_video(self) -> Optional[Video]:
+        """未判定動画から純粋ランダムで1本選出する（未判定ランダムタブの運命の1本用）。"""
+        videos = self.get_unrated_random_videos(1)
+        return videos[0] if videos else None
+
     def play_video(
         self,
         video_id: int,

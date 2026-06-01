@@ -1,6 +1,16 @@
-﻿"""
+"""
 ClipBox - 未判定ランダムタブ
 レベル-1の動画をランダム抽出して表示する。
+
+【設計制約】
+- core/ に import streamlit しない原則に従い、UI処理はこのモジュールに閉じる
+- キャッシュ関数は ui/cache.py 経由で使用する
+
+【依存関係】
+- core/video_manager.py: get_unrated_random_videos / get_unrated_fate_video / get_videos_by_ids
+- core/app_service.py: get_like_counts / add_like
+- ui/cache.py: get_kpi_stats_cached / get_view_counts_and_last_viewed
+- ui/components/: render_video_card / render_display_settings / render_kpi_cards
 """
 
 from __future__ import annotations
@@ -30,6 +40,20 @@ def render_unrated_random_tab(on_play, on_judge):
 
     st.markdown("---")
 
+    if "unrated_fate_video" not in st.session_state:
+        st.session_state.unrated_fate_video = None
+
+    rand_tab, fate_tab = st.tabs(["🔀 ランダム", "🎯 運命の1本"])
+
+    with rand_tab:
+        _render_random_mode(on_play, on_judge)
+
+    with fate_tab:
+        _render_unrated_fate_mode(on_play, on_judge, kpi_stats)
+
+
+def _render_random_mode(on_play, on_judge):
+    """ランダムモードの描画（グリッド表示）"""
     # 横並び配置：カラム数、表示件数、シャッフル
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 2, 1], gap="small")
 
@@ -101,7 +125,6 @@ def render_unrated_random_tab(on_play, on_judge):
             with cols[col_idx]:
                 is_selected = bool(st.session_state.selected_video and st.session_state.selected_video.id == video.id)
 
-                # クロージャ問題を避けるため、ローカルスコープで変数をキャプチャ
                 current_video = video
 
                 def make_play_handler(vid):
@@ -137,3 +160,84 @@ def render_unrated_random_tab(on_play, on_judge):
                     on_like_callback=make_like_handler(current_video),
                     key_prefix="unrated",
                 )
+
+
+def _render_unrated_fate_mode(on_play, on_judge, kpi_stats: dict):
+    """運命の1本モードの描画。未判定動画から純粋ランダムで1本を選出・再生・判定する。"""
+    vm = st.session_state.video_manager
+    has_candidates = kpi_stats["unrated_count"] > 0
+
+    _, btn_col, _ = st.columns([1, 2, 1])
+    with btn_col:
+        draw = st.button(
+            "🎯 運命の1本を引く",
+            use_container_width=True,
+            disabled=not has_candidates,
+            key="unrated_fate_draw",
+        )
+
+    if draw:
+        video = vm.get_unrated_fate_video()
+        if video:
+            st.session_state.unrated_fate_video = video
+            on_play(video, "unrated_fate")
+
+    st.divider()
+
+    fate_video = st.session_state.unrated_fate_video
+
+    if fate_video is None:
+        if has_candidates:
+            st.info("ボタンを押して運命の1本を引いてください。")
+        else:
+            st.info("未判定動画がありません。")
+        return
+
+    # DB同期（判定・いいね反映）
+    synced = vm.get_videos_by_ids([fate_video.id])
+    if not synced:
+        st.session_state.unrated_fate_video = None
+        st.warning("選出した動画が見つかりません。再度引き直してください。")
+        return
+    fate_video = synced[0]
+    st.session_state.unrated_fate_video = fate_video
+
+    like_counts = app_service.get_like_counts([fate_video.id])
+    view_counts, _ = ui_cache.get_view_counts_and_last_viewed()
+
+    settings_fate = render_display_settings(key_prefix="unrated_fate_disp")
+    settings_fate.num_columns = 1
+
+    is_selected = bool(
+        st.session_state.selected_video
+        and st.session_state.selected_video.id == fate_video.id
+    )
+
+    def play_handler(_v):
+        on_play(fate_video, "unrated_fate")
+
+    def judge_handler(_v, level):
+        on_judge(fate_video, level)
+
+    def like_handler(_v):
+        new_count = app_service.add_like(fate_video.id)
+        like_counts[fate_video.id] = new_count
+        st.rerun(scope="fragment")
+
+    _, card_col, _ = st.columns([1, 4, 1])
+    with card_col:
+        render_video_card(
+            video=fate_video,
+            settings=settings_fate,
+            view_count=view_counts.get(fate_video.id, 0),
+            like_count=like_counts.get(fate_video.id, 0),
+            last_modified=fate_video.last_file_modified,
+            show_judgment_ui=True,
+            is_selected=is_selected,
+            show_avp_checkbox=True,
+            is_avp_checked=fate_video.id in st.session_state.get("avp_selected_ids", set()),
+            on_play_callback=play_handler,
+            on_judge_callback=judge_handler,
+            on_like_callback=like_handler,
+            key_prefix="unrated_fate",
+        )
