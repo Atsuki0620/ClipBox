@@ -97,6 +97,8 @@ def _handle_play(video, trigger: str):
             if v.id == video.id:
                 v.is_judging = True
                 break
+    if st.session_state.get("unrated_fate_video") and st.session_state.unrated_fate_video.id == video.id:
+        st.session_state.unrated_fate_video.is_judging = True
     st.session_state.selected_video = video
     # 再生後はキャッシュを無効化して最新の視聴回数・KPIを表示する
     ui_cache.get_view_counts_and_last_viewed.clear()
@@ -130,6 +132,10 @@ def _handle_judgment(video, new_level):
                     v.current_favorite_level = new_level
                     v.is_judging = False
                     break
+        if st.session_state.get("unrated_fate_video") and st.session_state.unrated_fate_video.id == video.id:
+            fate_v = st.session_state.unrated_fate_video
+            fate_v.current_favorite_level = new_level
+            fate_v.is_judging = False
         st.toast(result.get("message"))
         st.rerun(scope="fragment")  # フラグメントのみ再実行（タブ切り替え防止）
     else:

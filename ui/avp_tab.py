@@ -113,9 +113,8 @@ def render_avp_tab(on_judge: Callable) -> None:
                     max_reached = (
                         len(avp_launch_selected) >= _MAX_AVP_WINDOWS and not current_sel
                     )
-                    label = video.essential_filename[:50]
                     st.checkbox(
-                        label,
+                        video.essential_filename,
                         key=cb_key,
                         value=current_sel,
                         disabled=max_reached,
