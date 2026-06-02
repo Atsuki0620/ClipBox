@@ -105,9 +105,9 @@ def _build_badge_list(
         else:
             badges.append(_create_badge("判定済み", "#22c55e"))
 
-    # F4: 判定中バッジ
-    if getattr(video, "is_judging", False):
-        badges.append(_create_badge("判定中", "#f59e0b"))
+    # F4: 判定中バッジ -- archived: Phase 1
+    # if getattr(video, "is_judging", False):
+    #     badges.append(_create_badge("判定中", "#f59e0b"))
 
     # レベルバッジ（判定済みの場合）
     if settings.show_level_badge and is_judged:

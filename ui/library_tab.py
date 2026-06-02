@@ -109,12 +109,8 @@ def _render_filter_controls():
                 selected_avail_codes = ["AVAILABLE"]
             st.session_state.filter_availability = selected_avail_codes
 
-            judging_only = st.checkbox(
-                "判定中のみ表示",
-                value=st.session_state.filter_judging_only,
-                key="library_filter_judging",
-            )
-            st.session_state.filter_judging_only = judging_only
+            # ARCHIVED (Phase 1): 「判定中のみ表示」フィルタ
+            # is_judging は set_judging_state の退避により常に0となり、ONにすると0件になる死にUIのため無効化
 
             hide_selection = st.checkbox(
                 "セレクション関連を除外",
@@ -192,17 +188,6 @@ def render_library_tab(on_play, on_judge):
     if 'library_last_signature' not in st.session_state:
         st.session_state.library_last_signature = None
 
-    # P1: キャッシュ版のKPI統計を使用
-    kpi_stats = ui_cache.get_kpi_stats_cached()
-    render_kpi_cards(
-        unrated_count=kpi_stats["unrated_count"],
-        judged_count=kpi_stats["judged_count"],
-        judged_rate=kpi_stats["judged_rate"],
-        today_judged_count=kpi_stats["today_judged_count"],
-    )
-
-    st.markdown("---")
-
     # 横並び配置：カラム数、未判定フィルタ、ソート、検索、ページサイズ
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4, ctrl_col5 = st.columns([1.2, 1.2, 2, 2, 1.2], gap="small")
 
@@ -271,7 +256,7 @@ def render_library_tab(on_play, on_judge):
         availability=availability,
         show_unavailable=True if availability is None else False,
         show_deleted=False,
-        show_judging_only=st.session_state.filter_judging_only,
+        # show_judging_only=st.session_state.filter_judging_only,  # archived: Phase 1
         exclude_selection=st.session_state.filter_hide_selection,
     )
 
@@ -285,7 +270,7 @@ def render_library_tab(on_play, on_judge):
         tuple(st.session_state.filter_actors),
         tuple(st.session_state.filter_storage),
         tuple(st.session_state.filter_availability),
-        st.session_state.filter_judging_only,
+        # st.session_state.filter_judging_only,  # archived: Phase 1
         st.session_state.filter_hide_selection,
         unrated_filter,
         st.session_state.library_page_size,

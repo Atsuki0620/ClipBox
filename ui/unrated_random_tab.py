@@ -46,13 +46,13 @@ def render_unrated_random_tab(on_play, on_judge):
     rand_tab, fate_tab = st.tabs(["🔀 ランダム", "🎯 運命の1本"])
 
     with rand_tab:
-        _render_random_mode(on_play, on_judge)
+        render_random_mode(on_play, on_judge)
 
     with fate_tab:
-        _render_unrated_fate_mode(on_play, on_judge, kpi_stats)
+        render_unrated_fate_mode(on_play, on_judge, kpi_stats)
 
 
-def _render_random_mode(on_play, on_judge):
+def render_random_mode(on_play, on_judge):
     """ランダムモードの描画（グリッド表示）"""
     # 横並び配置：カラム数、表示件数、シャッフル
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 2, 1], gap="small")
@@ -162,7 +162,7 @@ def _render_random_mode(on_play, on_judge):
                 )
 
 
-def _render_unrated_fate_mode(on_play, on_judge, kpi_stats: dict):
+def render_unrated_fate_mode(on_play, on_judge, kpi_stats: dict):
     """運命の1本モードの描画。未判定動画から純粋ランダムで1本を選出・再生・判定する。"""
     vm = st.session_state.video_manager
     has_candidates = kpi_stats["unrated_count"] > 0

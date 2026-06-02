@@ -4,6 +4,7 @@ ClipBox - VideoManagerのテスト
 
 from pathlib import Path
 
+import pytest
 import config as config_module
 import core.database as database
 from core.video_manager import VideoManager
@@ -61,6 +62,7 @@ def test_set_favorite_level_with_rename_logs_history(tmp_path, tmp_db, monkeypat
         assert history["rename_duration_ms"] >= 0
 
 
+@pytest.mark.skip(reason="set_judging_state archived in Phase 1")
 def test_set_judging_state_start_and_finish(tmp_db):
     """set_judging_state: True→is_judging=1, False→is_judging=0"""
     with database.get_db_connection() as conn:
@@ -120,6 +122,7 @@ def test_set_favorite_level_file_not_found_leaves_db_unchanged(tmp_path, tmp_db)
         assert row["current_favorite_level"] == 2
 
 
+@pytest.mark.skip(reason="show_judging_only filter archived in Phase 1 (is_judging 機能アーカイブ)")
 def test_get_videos_filters_judging_only(tmp_path, tmp_db):
     """show_judging_only=Trueで判定中動画のみ返す"""
 
