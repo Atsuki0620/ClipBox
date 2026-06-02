@@ -11,11 +11,15 @@ ClipBoxは厳格な3層アーキテクチャを採用しています。
 ```
 UI層 (Streamlit)
   streamlit_app.py
+  ui/tier1_tab.py            ← Tier 1（一次判定）画面 @st.fragment
+  ui/tier2_tab.py            ← Tier 2（二次判定）画面 @st.fragment
   ui/library_tab.py
   ui/unrated_random_tab.py
   ui/selection_tab.py
   ui/search_tab.py
   ui/analysis_tab.py
+  ui/ranking_tab.py
+  ui/avp_tab.py
   ui/extra_tabs.py
   ui/cache.py                ← @st.cache_data 関数（UIキャッシュ）
   ui/components/
@@ -29,16 +33,15 @@ Core層 (Python) - UI非依存
   core/scanner.py            ← ファイルスキャナー
   core/database.py           ← DB接続・操作
   core/models.py             ← データモデル
-  core/config_store.py       ← ユーザー設定管理
+  core/config_utils.py       ← ユーザー設定管理（JSON読み書き）
   core/migration.py          ← DBマイグレーション
-  core/snapshot.py           ← スナップショット管理
-  core/counter_service.py    ← カウンターサービス
   core/analysis_service.py   ← 分析サービス
-  core/history_repository.py ← 履歴リポジトリ
-  core/file_ops.py           ← ファイル操作
+  core/file_ops.py           ← ファイル操作（create_file_scanner）
   core/like_service.py       ← いいね機能
   core/selection_service.py  ← セレクション固有ロジック
   core/logger.py             ← RotatingFileHandler ロガー
+  [archived] core/snapshot.py / counter_service.py / config_store.py
+             history_repository.py / settings.py → archive/
 
 Data層 (SQLite)
   data/videos.db
@@ -65,12 +68,16 @@ ClipBox/
 ├── CHANGELOG.md              # 変更履歴
 │
 ├── ui/                       # UI層
-│   ├── library_tab.py        # 動画一覧タブ
-│   ├── unrated_random_tab.py # 未判定ランダムタブ
-│   ├── selection_tab.py      # セレクションタブ
+│   ├── tier1_tab.py          # Tier 1（一次判定）画面 @st.fragment
+│   ├── tier2_tab.py          # Tier 2（二次判定）画面 @st.fragment
+│   ├── library_tab.py        # ライブラリサブタブ（Tier 1 から呼び出し）
+│   ├── unrated_random_tab.py # ランダム/運命の1本サブタブ（Tier 1）
+│   ├── selection_tab.py      # セレクションサブタブ群（Tier 2 から呼び出し）
 │   ├── search_tab.py         # 検索タブ
 │   ├── analysis_tab.py       # 分析タブ
-│   ├── extra_tabs.py         # 設定タブ等
+│   ├── ranking_tab.py        # ランキングタブ
+│   ├── avp_tab.py            # AVP 並列再生タブ
+│   ├── extra_tabs.py         # 設定タブ
 │   ├── cache.py              # @st.cache_data 関数群
 │   ├── _theme.css            # グローバルスタイル
 │   └── components/
@@ -84,15 +91,17 @@ ClipBox/
 │   ├── scanner.py            # ファイルスキャナー
 │   ├── database.py           # DB接続・操作
 │   ├── models.py             # データモデル
-│   ├── config_store.py       # ユーザー設定管理
+│   ├── config_utils.py       # ユーザー設定管理（JSON読み書き）
 │   ├── migration.py          # DBマイグレーション
-│   ├── snapshot.py           # スナップショット管理
-│   ├── counter_service.py    # カウンターサービス
 │   ├── analysis_service.py   # 分析サービス
-│   ├── history_repository.py # 履歴リポジトリ
 │   ├── file_ops.py           # ファイル操作ユーティリティ
 │   ├── like_service.py       # いいね機能
 │   ├── selection_service.py  # セレクション固有ロジック
+│   ├── settings.py           # ※archived → archive/settings.py
+│   ├── config_store.py       # ※archived → archive/config_store.py
+│   ├── snapshot.py           # ※archived → archive/snapshot.py
+│   ├── counter_service.py    # ※archived → archive/counter_service.py
+│   ├── history_repository.py # ※archived → archive/history_repository.py
 │   └── logger.py             # RotatingFileHandler ロガー
 │
 ├── data/                     # データ
@@ -125,13 +134,17 @@ ClipBox/
 
 | ファイル | 責務 |
 |---------|------|
-| `streamlit_app.py` | メインエントリーポイント、セッション状態管理、タブ切り替え |
-| `ui/library_tab.py` | 動画一覧タブのUI |
-| `ui/unrated_random_tab.py` | 未判定ランダムタブのUI |
-| `ui/selection_tab.py` | セレクションタブのUI |
+| `streamlit_app.py` | メインエントリーポイント、セッション状態管理、ナビゲーション分岐 |
+| `ui/tier1_tab.py` | Tier 1（一次判定）画面。KPI固定表示＋3サブタブ（@st.fragment） |
+| `ui/tier2_tab.py` | Tier 2（二次判定）画面。KPI固定表示＋3サブタブ（@st.fragment） |
+| `ui/library_tab.py` | ライブラリサブタブ。全動画一覧・フィルタ・ページネーション |
+| `ui/unrated_random_tab.py` | ランダム/運命の1本サブタブ（Tier 1 内で呼び出し） |
+| `ui/selection_tab.py` | セレクションサブタブ群（Tier 2 内で呼び出し） |
 | `ui/search_tab.py` | 検索タブのUI |
 | `ui/analysis_tab.py` | 分析・統計タブのUI |
-| `ui/extra_tabs.py` | 設定タブ等のUI |
+| `ui/ranking_tab.py` | ランキングタブのUI |
+| `ui/avp_tab.py` | AVP並列再生タブのUI |
+| `ui/extra_tabs.py` | 設定タブのUI |
 | `ui/cache.py` | @st.cache_data デコレータ付きキャッシュ関数群 |
 | `ui/components/video_card.py` | 動画カードコンポーネント（再利用可能） |
 | `ui/components/display_settings.py` | 表示設定UI |
@@ -146,51 +159,64 @@ ClipBox/
 | `core/scanner.py` | ディレクトリスキャン、プレフィックス解析 |
 | `core/database.py` | DB接続（コンテキストマネージャ）、テーブル初期化、バックアップ |
 | `core/models.py` | Video, ViewingHistoryなどのデータクラス |
-| `core/config_store.py` | ユーザー設定のJSON永続化 |
+| `core/config_utils.py` | ユーザー設定のJSON永続化（`data/user_config.json`） |
 | `core/migration.py` | DBスキーマのマイグレーション |
-| `core/snapshot.py` | 統計スナップショット管理 |
-| `core/counter_service.py` | カウンター機能 |
 | `core/analysis_service.py` | 統計分析 |
-| `core/history_repository.py` | 再生履歴リポジトリ |
-| `core/file_ops.py` | ファイル操作ユーティリティ |
+| `core/file_ops.py` | ファイル操作ユーティリティ（FileScanner ラッパー） |
 | `core/like_service.py` | いいね機能（追加・取得） |
 | `core/selection_service.py` | セレクション固有ビジネスロジック |
 | `core/logger.py` | RotatingFileHandler（5MB×3世代、data/clipbox.log） |
+| ~~`core/snapshot.py`~~ | **archived** → `archive/snapshot.py` |
+| ~~`core/counter_service.py`~~ | **archived** → `archive/counter_service.py` |
+| ~~`core/config_store.py`~~ | **archived** → `archive/config_store.py`（`config_utils.py` が実体） |
+| ~~`core/history_repository.py`~~ | **archived** → `archive/history_repository.py` |
+| ~~`core/settings.py`~~ | **archived** → `archive/settings.py`（ファイルアクセス検知と共に退避） |
 
 ---
 
 ## 4. UI構成
 
-### 4.1 タブ構成
+### 4.1 ナビゲーション構成（サイドバー）
 
 ```
+サイドバー radio 選択肢:
+  Tier 1  / Tier 2 / ランキング / 分析ダッシュボード / 検索 / AVP再生 / 設定
+
 streamlit_app.py
-├── 📁 動画一覧        (library_tab.py)
-│   └── フィルタリング可能な動画一覧
-│   └── ソート機能
-│   └── 動画カード表示
+├── 🎬 Tier 1 — 一次判定   (tier1_tab.py)
+│   ├── KPI カード（未判定数・判定済み数・判定率・本日の判定数）
+│   └── サブタブ:
+│       ├── 📚 ライブラリ   (library_tab.py)
+│       │   └── 全動画一覧・フィルタ・ソート・ページネーション
+│       ├── 🔀 ランダム     (unrated_random_tab.render_random_mode)
+│       │   └── 未判定動画のランダム選択・判定
+│       └── 🎯 運命の1本   (unrated_random_tab.render_unrated_fate_mode)
+│           └── 純粋ランダムで1本選出・再生・判定
 │
-├── 🎲 未判定ランダム   (unrated_random_tab.py)
-│   └── 未判定動画のランダム選択
-│   └── シャッフル機能
-│   └── 判定UI
+├── 🎯 Tier 2 — 二次判定   (tier2_tab.py)
+│   ├── KPI カード（未選別数・選別済み数・選別率・本日の選別数）
+│   └── サブタブ:
+│       ├── 📚 ライブラリ   (selection_tab.render_library_mode)
+│       │   └── セレクション動画一覧・選別フィルタ
+│       ├── 🎲 ランダム     (selection_tab.render_random_mode)
+│       │   └── 未選別動画のランダム選択・選別判定
+│       └── 🎯 運命の1本   (selection_tab.render_fate_mode)
+│           └── 経過日数重み付きで1本選出・再生・選別判定
 │
-├── 🔍 セレクション     (selection_tab.py)
-│   └── !プレフィックス動画の管理
-│   └── フォルダスキャン → カード表示 → 再生・判定
+├── 🏆 ランキング           (ranking_tab.py)
+│   └── 視聴回数・視聴日数・いいね数ランキング
 │
-├── 🔎 検索             (search_tab.py)
+├── 📊 分析ダッシュボード   (analysis_tab.py)
+│   └── 視聴推移・判定推移・統計グラフ
+│
+├── 🔎 検索                 (search_tab.py)
 │   └── ファイル名・出演者検索
 │
-├── 📊 分析             (analysis_tab.py)
-│   └── カウンター表示
-│   └── 視聴回数ランキング
-│   └── 統計グラフ
-│   └── セレクション成果分析
+├── 🎬 AVP再生              (avp_tab.py)
+│   └── チェックした動画を最大4本並列再生
 │
-└── ⚙️ 設定             (extra_tabs.py)
-    └── ライブラリ設定
-    └── データベース管理
+└── ⚙️ 設定                 (extra_tabs.py)
+    └── ライブラリパス・セレクションフォルダ・プレイヤー設定
 ```
 
 ### 4.2 キャッシュ管理
@@ -226,7 +252,7 @@ ui_cache.get_kpi_stats_cached.clear()
 |------|---------|------|------|
 | 動画再生 | `core/video_manager.py` | `VideoManager.play_video()` | ✅ |
 | 視聴履歴記録 | `core/database.py` | `insert_play_history()` | ✅ |
-| 判定中フラグ設定 | `core/video_manager.py` | `VideoManager.set_is_judging()` | ✅ |
+| 判定中フラグ設定 | ~~`core/video_manager.py`~~ | ~~`VideoManager.set_judging_state()`~~ | **archived** → `archive/video_manager_methods.py` |
 
 ### 5.3 判定機能
 
@@ -234,15 +260,16 @@ ui_cache.get_kpi_stats_cached.clear()
 |------|---------|------|------|
 | レベル変更 + リネーム | `core/video_manager.py` | `VideoManager.set_favorite_level_with_rename()` | ✅ |
 | 判定履歴記録 | `core/video_manager.py` | 同上（judgment_historyへ挿入） | ✅ |
-| 判定中フラグ解除 | `core/video_manager.py` | 同上 | ✅ |
+| 判定中フラグ解除 | `core/video_manager.py` | 同上（is_judging=0 は DB列として保持） | ✅ |
 
 ### 5.4 統計機能
 
 | 機能 | ファイル | 関数 | 状態 |
 |------|---------|------|------|
-| カウンター取得 | `core/counter_service.py` | `get_counter_values()` | ✅ |
-| カウンターリセット | `core/counter_service.py` | `reset_counter()` | ✅ |
-| 視聴回数ランキング | `core/analysis_service.py` | `get_viewing_ranking()` | ✅ |
+| カウンター機能 | ~~`core/counter_service.py`~~ | ~~`get_counters_with_counts()`~~  | **archived** |
+| 視聴回数ランキング | `core/analysis_service.py` | `get_view_count_ranking()` | ✅ |
+| 視聴日数ランキング | `core/analysis_service.py` | `get_view_days_ranking()` | ✅ |
+| いいね数ランキング | `core/analysis_service.py` | `get_like_count_ranking()` | ✅ |
 
 ### 5.5 いいね機能
 
@@ -281,39 +308,39 @@ User → スキャンボタン → FileScanner.scan_and_update()
 
 ```
 User → 再生ボタン → VideoManager.play_video(video)
-  └─ UPDATE is_judging = 1
   └─ subprocess.Popen() で外部プレイヤー起動
   └─ INSERT play_history
   └─ INSERT viewing_history (APP_PLAYBACK)
   └─ キャッシュクリア（ui_cache.xxx.clear()）
+  └─ st.rerun(scope="fragment")
 ```
+
+※ `is_judging` フラグ更新（`set_judging_state`）は Phase 1 でアーカイブ済み。
 
 ### 6.3 判定フロー
 
 ```
 User → レベル選択 + 判定ボタン → VideoManager.set_favorite_level_with_rename()
   └─ ファイルリネーム（プレフィックス変更）
-  └─ [成功] UPDATE current_favorite_level, is_judging = 0
+  └─ [成功] UPDATE current_favorite_level, needs_selection=0
            INSERT judgment_history
            キャッシュクリア
-           st.rerun()
+           st.rerun(scope="fragment")
   └─ [失敗] エラーメッセージ表示、DB更新なし
 ```
 
 ### 6.4 視聴履歴記録フロー
 
-3つの記録方式があります:
+現在有効な記録方式:
 
 ```
 APP_PLAYBACK:
   再生ボタンクリック → play_video() → viewing_history INSERT
-
-FILE_ACCESS_DETECTED:
-  定期スキャン → アクセス時刻変更検知 → ユーザー確認 → viewing_history INSERT
-
-MANUAL_ENTRY:
-  ユーザーが明示的にマーク → viewing_history INSERT
 ```
+
+archived（Phase 1 で無効化）:
+- `FILE_ACCESS_DETECTED`: ファイルアクセス時刻検知 → `archive/detect_file_access.py`
+- `MANUAL_ENTRY`: 手動マーク → `archive/video_manager_methods.py`
 
 ---
 
@@ -330,12 +357,18 @@ class VideoManager:
     def get_videos(
         favorite_levels, performers, storage_locations,
         availability, show_unavailable, show_deleted,
-        show_judging_only, needs_selection_filter
+        needs_selection_filter, exclude_selection
     ) -> List[Video]
-    def get_random_video(filters) -> Optional[Video]
-    def play_video(video) -> None
-    def set_favorite_level_with_rename(video, level) -> bool
-    def set_is_judging(video_id, is_judging) -> None
+    def get_videos_by_ids(video_ids) -> List[Video]
+    def get_unrated_random_videos(n) -> List[Video]   # Tier 1 ランダム用
+    def get_unrated_fate_video() -> Optional[Video]   # Tier 1 運命の1本用
+    def get_fate_video(folder_path_str) -> Optional[Video]  # Tier 2 運命の1本用
+    def play_video(video_id, *, player, trigger, ...) -> Dict
+    def set_favorite_level_with_rename(video_id, level) -> Dict
+    # archived: get_random_video / get_viewing_stats / get_videos_with_stats
+    #           set_favorite_level（非rename版）/ record_file_access_as_viewing
+    #           set_judging_state / mark_as_viewed
+    #           → archive/video_manager_methods.py 参照
 ```
 
 ### 7.2 FileScanner
@@ -375,14 +408,19 @@ Streamlitのセッション状態で管理されるキー:
 
 | キー | 型 | 用途 | 初期値 |
 |------|-----|------|--------|
-| `user_config` | dict | ユーザー設定 | config_storeから読み込み |
+| `user_config` | dict | ユーザー設定（JSON読み込み） | config_utilsから読み込み |
 | `video_manager` | VideoManager | ビジネスロジックインスタンス | 初期化時に作成 |
-| `selected_video` | Video | 選択中の動画 | None |
+| `selected_video` | Video | 選択中の動画（再生中強調表示） | None |
 | `display_settings` | dict | 表示設定 | デフォルト値 |
 | `filter_levels` | list | レベルフィルタ | [4,3,2,1,0,-1] |
 | `filter_storage` | str | ストレージフィルタ | 'ALL' |
-| `unrated_shuffle_token` | int | シャッフル制御 | 0 |
-| `unrated_sample_ids` | list | サンプルID配列 | None |
+| `filter_hide_selection` | bool | セレクション除外フィルタ | True |
+| `unrated_shuffle_token` | int | Tier 1 ランダムシャッフル制御 | 0 |
+| `unrated_sample_ids` | list | Tier 1 ランダムサンプルID | None |
+| `unrated_fate_video` | Video\|None | Tier 1 運命の1本 選出結果 | None |
+| `selection_fate_video` | Video\|None | Tier 2 運命の1本 選出結果 | None |
+| `avp_selected_ids` | set[int] | AVP タブ横断チェック済みID | set() |
+| `avp_playing_ids` | list[int] | AVP 再生中ID | [] |
 
 ---
 
