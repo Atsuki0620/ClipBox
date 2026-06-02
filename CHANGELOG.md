@@ -4,6 +4,63 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-03 — Phase 1 追加整理: 残存デッドコード削除（調査サマリー実行）
+
+**目的**: 読み取り専用の追加調査で特定した、active tree に残る未使用ヘルパーを削除。直近慣行に合わせ archive/ 退避ではなく直接削除（復旧は git 履歴）。
+
+**関連ファイル**: `core/models.py`, `core/app_service.py`, `docs/reports/CODE_REVIEW_20260224.md`
+
+- `core/models.py` から未使用4つを削除: `Video.display_name`（表示は essential_filename 直接利用に統一）・`Video.get_truncated_title()`・`create_badge()`（UI は `video_card._create_badge` を使用、重複）・`level_to_display()`（表示名は `FAVORITE_LEVEL_NAMES` に一本化）。併せて未使用となった `from config import FAVORITE_LEVEL_NAMES` import を除去
+- `core/app_service.py` から未使用ラッパー `scan_and_update(scanner, conn)`（bare版）を削除。UI は `scan_and_update_with_connection()` のみ使用、テストは `scanner.scan_and_update()` を直接呼ぶため影響なし
+- `CODE_REVIEW_20260224.md`: A-8 / B-3 / C-3 / C-5 を「✅ 解決済み (2026-06-03)」に更新（解決済み 11→15件）
+- **保持**: `Video.is_judged()` は未使用だが今回サマリー対象外のため据え置き（次回検討候補）
+- **検証**: `py_compile` OK、`pytest` 27 passed、Streamlit 起動して全7画面（Tier 1/2・ランキング・分析・検索・AVP・設定）を Playwright でスクショ・例外チェック → すべて例外0件、動画カード描画・ソート・KPI 正常を確認
+
+---
+
+## 2026-06-03 — Phase 1 追加整理: 未接続削除UI・KPI共通化・Streamlit warning対応
+
+**目的**: Phase 1 準備の追加判断に基づき、復旧前提ではなく不要と判断した未接続コードを削除し、Tier 1/2 KPI 表示と用語 docs の一貫性を上げる。
+
+**関連ファイル**: `core/video_manager.py`, `ui/analysis_tab.py`, `ui/components/kpi_display.py`, `ui/tier2_tab.py`, `streamlit_app.py`, `ui/{avp,extra,library,search,selection,unrated_random}_tab.py`, `docs/context/{DATA_MODEL,GLOSSARY}.md`
+
+- `VideoManager.mark_as_deleted()` を削除。削除 UI は当面作らない方針のため、未接続の論理削除操作を active code から外した
+- `ui/analysis_tab.py` の未使用 Matplotlib helper `_annotate_bars()` を削除。現行の分析描画は Plotly 経路に統一されている
+- Streamlit の deprecated `use_container_width=True` を `width="stretch"` に置換
+- KPI 表示を `KpiCard` / `render_metric_cards()` に抽象化し、Tier 2 は `render_selection_kpi_cards()` から共通コンポーネントを利用するよう変更
+- `DATA_MODEL.md` を GLOSSARY 方針へ追従。概念名は「セレクション完了」、画面表示は「選別済み」、「ライブラリ取り込み済み」は使わない方針を明記
+- `viewing_history` は集計用、`play_history` は再生ログ詳細として役割を明確化
+
+---
+
+## 2026-06-02 — Phase 1 追加整理: active 側の旧本体・shim・旧入口を除去
+**目的**: Phase 1 アーカイブ済み機能の実体や後方互換 shim が active tree に残り、docs 上の「退避済み」と実ファイルの状態がずれていたため、復旧元を `archive/` に一本化する。
+**関連ファイル**: `core/scanner.py`, `core/config_store.py`, `core/history_repository.py`, `ui/unrated_random_tab.py`, `ui/selection_tab.py`, `streamlit_app.py`, `core/app_service.py`, `core/video_manager.py`, `core/file_ops.py`, `ui/library_tab.py`, `ui/components/video_card.py`, `config.py`, `core/models.py`, `docs/context/{GLOSSARY,DATA_MODEL,PROJECT_OVERVIEW,IMPLEMENTATION_GUIDE}.md`, `CLAUDE.md`
+
+- ファイルアクセス検知の active 本体 `detect_recently_accessed_files()` を `core/scanner.py` から除去。復旧元は `archive/detect_file_access.py`
+- 後方互換 shim `core/config_store.py` / `core/history_repository.py` を active tree から除去。復旧元は `archive/`
+- 旧トップレベル入口 `render_unrated_random_tab()` / `render_selection_tab()` を除去し、Tier 1/2 から呼ばれる下位モード関数だけを active に残した
+- active ファイル内の commented archived code を削除。互換のための DB カラム・テーブル定義は残す
+- 表示名の正本を `FAVORITE_LEVEL_NAMES` に寄せ、レベル表記を `LvN` に統一
+- session key の `filter_actors` を `filter_performers` に移行し、旧キーは起動時に引き継いで削除
+- 用語整理: `!` は現行の未選別 prefix、`?` は旧表記扱い。概念名は「セレクション完了」、画面表示は「選別済み」、「ライブラリ取り込み済み」は使わない
+- `viewing_history` は集計用、`play_history` は再生ログ詳細として docs に明記
+
+---
+
+## 2026-06-02 — Phase 1 追加整理: archived 本体を archive/ に集約
+
+**目的**: docs 上は archived とされているのに `core/` / `ui/` に tracked な実ファイルが残っていた状態を解消し、復旧元を `archive/` に一本化する。
+
+**関連ファイル**: `core/settings.py`, `core/counter_service.py`, `core/snapshot.py`, `ui/analysis_tab_v2.py`, `archive/{settings,counter_service,snapshot,analysis_tab_v2}.py`, `core/app_service.py`, `core/video_manager.py`, `streamlit_app.py`, `tests/test_video_manager.py`, `docs/context/DATA_MODEL.md`
+
+- `core/settings.py` / `core/counter_service.py` / `core/snapshot.py` / `ui/analysis_tab_v2.py` の active tree 側の重複を除去。実装本体は `archive/` 配下の退避済みコピーを復旧元とする
+- archived 済みモジュールへのコメントアウト import / re-export を active code から除去
+- `DATA_MODEL.md` に `is_judging` / `counters` / archived viewing_method の扱いを追記
+- archived 機能に対する skip テストを削除
+
+---
+
 ## 2026-06-02 — Phase 1 追加整理: デッドコード／死にUI／孤立 shim の退避（壁打ち合意 #1-8）
 
 **目的**: Flask/Next.js 移行前に、Phase 1 アーカイブの波及で死んだコードと未使用要素を整理。方式は Phase 1 と同じ（archive/ 退避＋コメントアウトでコード保持）。

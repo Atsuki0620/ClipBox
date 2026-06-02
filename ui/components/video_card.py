@@ -105,10 +105,6 @@ def _build_badge_list(
         else:
             badges.append(_create_badge("判定済み", "#22c55e"))
 
-    # F4: 判定中バッジ -- archived: Phase 1
-    # if getattr(video, "is_judging", False):
-    #     badges.append(_create_badge("判定中", "#f59e0b"))
-
     # レベルバッジ（判定済みの場合）
     if settings.show_level_badge and is_judged:
         level_colors = {
@@ -284,7 +280,7 @@ def render_video_card(
     # 判定UI
     if show_judgment_ui and select_col and judge_col:
         with select_col:
-            # レベル-1に対応
+            # 未判定の内部値 -1 に対応
             judgment_options = [-1, 0, 1, 2, 3, 4]
             level_labels = {
                 -1: "ー",  # 未判定

@@ -33,7 +33,7 @@ class Migration:
 
     def migrate_level_0_to_minus_1(self, conn: sqlite3.Connection) -> dict:
         """
-        プレフィックスなしのレベル0動画を -1（未判定）に変更する一回限りのマイグレーション。
+        プレフィックスなしのLv0動画を -1（未判定）に変更する一回限りのマイグレーション。
 
         【背景】v2 でレベル体系を変更。プレフィックスなし → -1（未判定）、
                `_` プレフィックス → 0（Lv0）に意味を分離。
@@ -79,6 +79,6 @@ class Migration:
 
         return {
             "status": "completed",
-            "message": f"{updated_count} 件の動画をレベル0からレベル-1に変更しました",
+            "message": f"{updated_count} 件の動画をLv0から未判定に変更しました",
             "updated_count": updated_count,
         }

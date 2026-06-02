@@ -22,7 +22,7 @@ def render_settings_tab(scan_files_for_settings):
         placeholder="例: C:\\Temp\\Review_2026-02",
         help="セレクションタブで使用するフォルダパス。保存すると起動時に自動でセットされます。",
     )
-    if st.button("🔍 セレクションフォルダをスキャン", use_container_width=True):
+    if st.button("🔍 セレクションフォルダをスキャン", width="stretch"):
         folder = Path(selection_folder.strip())
         with st.spinner("スキャン中..."):
             result = app_service.scan_selection_folder(folder)
@@ -37,7 +37,7 @@ def render_settings_tab(scan_files_for_settings):
         help="Awesome Video PlayerのAVPlayer.exeのフルパス",
     )
 
-    if st.button("設定を保存", use_container_width=True):
+    if st.button("設定を保存", width="stretch"):
         new_roots = [line.strip() for line in library_roots_text.splitlines() if line.strip()]
         cfg.update({
             "library_roots": new_roots,
@@ -48,7 +48,7 @@ def render_settings_tab(scan_files_for_settings):
         app_service.save_user_config(cfg)
         st.success("設定を保存しました")
 
-    if st.button("保存先をスキャン", use_container_width=True):
+    if st.button("保存先をスキャン", width="stretch"):
         scan_files_for_settings()
         st.success("ファイルスキャンを完了しました")
         st.rerun()

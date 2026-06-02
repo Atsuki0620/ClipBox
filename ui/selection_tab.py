@@ -30,65 +30,8 @@ SORT_OPTIONS = [
 
 PAGE_SIZE_OPTIONS = [50, 100, 200]
 
-
-def _render_kpi(kpi: dict) -> None:
-    """セレクション KPI カードを横並びで表示"""
-    cols = st.columns(4)
-    with cols[0]:
-        st.metric("📋 未選別", f"{kpi['unselected_count']}本", help="needs_selection=1かつ利用可能・未削除の動画数")
-    with cols[1]:
-        st.metric("✅ 選別済み", f"{kpi['judged_count']}本", help="セレクション判定済み動画数")
-    with cols[2]:
-        st.metric("📊 選別率", f"{kpi['judged_rate']:.1f}%", help="未選別+選別済みに対する選別済みの割合")
-    with cols[3]:
-        st.metric("📅 本日の選別", f"{kpi['today_judged_count']}本", help="今日0:00以降にセレクション判定した動画数")
-
-
 def _reset_selection_page():
     st.session_state.selection_page = 1
-
-
-@st.fragment
-def render_selection_tab(on_play, on_judge):
-    """セレクションタブの描画"""
-    st.header("セレクション")
-
-    # セッション状態の初期化
-    if "selection_page" not in st.session_state:
-        st.session_state.selection_page = 1
-    if "selection_page_size" not in st.session_state:
-        st.session_state.selection_page_size = 100
-    if "selection_last_signature" not in st.session_state:
-        st.session_state.selection_last_signature = None
-    if "selection_random_token" not in st.session_state:
-        st.session_state.selection_random_token = None
-    if "selection_random_videos" not in st.session_state:
-        st.session_state.selection_random_videos = []
-    if "selection_random_prev_n" not in st.session_state:
-        st.session_state.selection_random_prev_n = 10
-    if "selection_fate_video" not in st.session_state:
-        st.session_state.selection_fate_video = None
-
-    # フォルダパスは user_config から取得
-    cfg = st.session_state.get("user_config", {})
-    folder_path_str = cfg.get("selection_folder", "")
-
-    # KPI カード（モードタブの外・上部に表示）
-    kpi = app_service.get_selection_kpi(folder_path_str if folder_path_str else None)
-    _render_kpi(kpi)
-
-    st.markdown("---")
-
-    lib_tab, rand_tab, fate_tab = st.tabs(["📚 ライブラリ", "🎲 ランダム", "🎯 運命の1本"])
-
-    with lib_tab:
-        render_library_mode(on_play, on_judge, folder_path_str)
-
-    with rand_tab:
-        render_random_mode(on_play, on_judge, folder_path_str)
-
-    with fate_tab:
-        render_fate_mode(on_play, on_judge, folder_path_str, kpi)
 
 
 def render_library_mode(on_play, on_judge, folder_path_str: str):
@@ -276,7 +219,7 @@ def render_random_mode(on_play, on_judge, folder_path_str: str):
         )
 
     with ctrl_col3:
-        shuffle = st.button("🔀 シャッフル", use_container_width=True, key="selection_rand_shuffle")
+        shuffle = st.button("🔀 シャッフル", width="stretch", key="selection_rand_shuffle")
 
     prev_n = st.session_state.selection_random_prev_n
     vm = st.session_state.video_manager
@@ -374,7 +317,7 @@ def render_fate_mode(on_play, on_judge, folder_path_str: str, kpi: dict):
     with btn_col:
         draw = st.button(
             "🎯 運命の1本を引く",
-            use_container_width=True,
+            width="stretch",
             disabled=not has_candidates,
             key="selection_fate_draw",
         )
@@ -459,7 +402,7 @@ def _render_pagination(total_pages: int, position: str):
     col_prev, col_info, col_next = st.columns([1, 3, 1], gap="small")
 
     with col_prev:
-        if st.button("◀ 前へ", use_container_width=True, disabled=page <= 1, key=f"selection_prev_{position}"):
+        if st.button("◀ 前へ", width="stretch", disabled=page <= 1, key=f"selection_prev_{position}"):
             st.session_state.selection_page = max(1, page - 1)
 
     with col_info:
@@ -481,5 +424,5 @@ def _render_pagination(total_pages: int, position: str):
         )
 
     with col_next:
-        if st.button("次へ ▶", use_container_width=True, disabled=page >= total_pages, key=f"selection_next_{position}"):
+        if st.button("次へ ▶", width="stretch", disabled=page >= total_pages, key=f"selection_next_{position}"):
             st.session_state.selection_page = min(total_pages, page + 1)

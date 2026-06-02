@@ -9,15 +9,11 @@ import hashlib
 from pathlib import Path
 from core import app_service
 from ui import cache as ui_cache
-from config import SCAN_DIRECTORIES, FAVORITE_LEVEL_NAMES, DATABASE_PATH
+from config import SCAN_DIRECTORIES, DATABASE_PATH
 from ui.analysis_tab import render_analysis_tab
-# from ui.analysis_tab_v2 import render_analysis_tab_v2  # archived: Phase 1
 from ui.tier1_tab import render_tier1_tab
 from ui.tier2_tab import render_tier2_tab
-from ui.library_tab import render_library_tab
-from ui.unrated_random_tab import render_unrated_random_tab
 from ui.extra_tabs import render_settings_tab
-from ui.selection_tab import render_selection_tab
 from ui.search_tab import render_search_tab
 from ui.ranking_tab import render_ranking_tab
 from ui.avp_tab import render_avp_tab
@@ -30,13 +26,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ARCHIVED (Phase 1): detect_and_record_file_access - see archive/detect_file_access.py
-
 def _handle_play(video, trigger: str):
     """
     再生と履歴記録をまとめて実行するヘルパー。
     成功時は st.success、失敗時は st.error を出す。
-    F4: 再生開始時にis_judging=Trueに設定
     """
     player = st.session_state.user_config.get("default_player", "vlc")
     file_path = Path(video.current_full_path)
@@ -53,15 +46,6 @@ def _handle_play(video, trigger: str):
         st.error(result.get("message", "再生に失敗しました"))
         return
 
-    # F4: 判定中フラグをON -- archived: Phase 1
-    # st.session_state.video_manager.set_judging_state(video.id, True)
-    # if "unrated_videos" in st.session_state:
-    #     for v in st.session_state.unrated_videos:
-    #         if v.id == video.id:
-    #             v.is_judging = True
-    #             break
-    # if st.session_state.get("unrated_fate_video") and st.session_state.unrated_fate_video.id == video.id:
-    #     st.session_state.unrated_fate_video.is_judging = True
     st.session_state.selected_video = video
     # 再生後はキャッシュを無効化して最新の視聴回数・KPIを表示する
     ui_cache.get_view_counts_and_last_viewed.clear()
@@ -74,15 +58,12 @@ def _handle_play(video, trigger: str):
 def _handle_judgment(video, new_level):
     """
     お気に入りレベル変更ハンドラー
-    F4: 判定完了時にis_judging=Falseに設定
     Args:
         video: 対象動画
-        new_level: None=未判定, 0=レベル0, 1-4=レベル1-4
+        new_level: None=未判定, 0=Lv0, 1-4=Lv1-Lv4
     """
     result = app_service.set_favorite_level_with_rename(video.id, new_level)
     if result.get("status") == "success":
-        # F4: 判定中フラグをOFF -- archived: Phase 1
-        # st.session_state.video_manager.set_judging_state(video.id, False)
         st.session_state.selected_video = video
         # 判定後はキャッシュを無効化して最新のKPI・フィルタオプションを表示する
         ui_cache.get_kpi_stats_cached.clear()
@@ -127,15 +108,14 @@ def init_session_state():
     # フィルタ初期値（タブ内で利用するため共通管理）
     if 'filter_levels' not in st.session_state:
         st.session_state.filter_levels = [4, 3, 2, 1, 0, -1]
-    if 'filter_actors' not in st.session_state:
-        st.session_state.filter_actors = []
+    if 'filter_performers' not in st.session_state:
+        st.session_state.filter_performers = st.session_state.get('filter_actors', [])
+    if 'filter_actors' in st.session_state:
+        del st.session_state.filter_actors
     if 'filter_storage' not in st.session_state:
         st.session_state.filter_storage = ['C_DRIVE']
     if 'filter_availability' not in st.session_state:
         st.session_state.filter_availability = ['AVAILABLE']
-    # ARCHIVED (Phase 1): filter_judging_only — 判定中フィルタ無効化に伴い初期化も不要
-    # if 'filter_judging_only' not in st.session_state:
-    #     st.session_state.filter_judging_only = False
     if 'filter_hide_selection' not in st.session_state:
         st.session_state.filter_hide_selection = True
     # 集計期間の選択肢変更に対応: 旧値が残っている場合はリセット
@@ -171,7 +151,7 @@ def check_and_init_database():
         st.error(f"データベース初期化に失敗しました: {e}")
         st.stop()
 
-    # マイグレーション実行（レベル-1導入）
+    # マイグレーション実行（未判定の内部値 -1 導入）
     try:
         result = app_service.run_startup_migration()
         if result.get("status") == "completed" and result.get("updated_count", 0) > 0:
@@ -206,7 +186,7 @@ def render_sidebar() -> str:
     )
 
     st.sidebar.markdown("---")
-    if st.sidebar.button('📁 ファイルをスキャン', use_container_width=True):
+    if st.sidebar.button('📁 ファイルをスキャン', width="stretch"):
         scan_files()
 
     return nav_selection

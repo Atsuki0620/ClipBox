@@ -5,11 +5,8 @@ File/OS related operations.
 
 from typing import List
 
-from core.scanner import FileScanner  # detect_recently_accessed_files re-export removed: archived Phase 1
+from core.scanner import FileScanner
 
 
 def create_file_scanner(library_roots: List[str]) -> FileScanner:
     return FileScanner(library_roots)
-
-
-# detect_recently_accessed_files = detect_recently_accessed_files  # archived: Phase 1

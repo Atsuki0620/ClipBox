@@ -1,6 +1,6 @@
 """
 ClipBox - 未判定ランダムタブ
-レベル-1の動画をランダム抽出して表示する。
+未判定（内部値 -1）の動画をランダム抽出して表示する。
 
 【設計制約】
 - core/ に import streamlit しない原則に従い、UI処理はこのモジュールに閉じる
@@ -10,7 +10,7 @@ ClipBox - 未判定ランダムタブ
 - core/video_manager.py: get_unrated_random_videos / get_unrated_fate_video / get_videos_by_ids
 - core/app_service.py: get_like_counts / add_like
 - ui/cache.py: get_kpi_stats_cached / get_view_counts_and_last_viewed
-- ui/components/: render_video_card / render_display_settings / render_kpi_cards
+- ui/components/: render_video_card / render_display_settings
 """
 
 from __future__ import annotations
@@ -19,37 +19,8 @@ import streamlit as st
 
 from core import app_service
 from ui import cache as ui_cache
-from ui.components.kpi_display import render_kpi_cards
 from ui.components.display_settings import render_display_settings, DisplaySettings
 from ui.components.video_card import render_video_card
-
-
-@st.fragment
-def render_unrated_random_tab(on_play, on_judge):
-    """未判定ランダムタブの描画"""
-    st.header("🎲 未判定ランダム")
-
-    # P1: キャッシュ版のKPI統計を使用
-    kpi_stats = ui_cache.get_kpi_stats_cached()
-    render_kpi_cards(
-        unrated_count=kpi_stats["unrated_count"],
-        judged_count=kpi_stats["judged_count"],
-        judged_rate=kpi_stats["judged_rate"],
-        today_judged_count=kpi_stats["today_judged_count"],
-    )
-
-    st.markdown("---")
-
-    if "unrated_fate_video" not in st.session_state:
-        st.session_state.unrated_fate_video = None
-
-    rand_tab, fate_tab = st.tabs(["🔀 ランダム", "🎯 運命の1本"])
-
-    with rand_tab:
-        render_random_mode(on_play, on_judge)
-
-    with fate_tab:
-        render_unrated_fate_mode(on_play, on_judge, kpi_stats)
 
 
 def render_random_mode(on_play, on_judge):
@@ -76,7 +47,7 @@ def render_random_mode(on_play, on_judge):
         )
 
     with ctrl_col3:
-        if st.button("🔄 シャッフル", use_container_width=True, key="unrated_shuffle_btn"):
+        if st.button("🔄 シャッフル", width="stretch", key="unrated_shuffle_btn"):
             st.session_state.unrated_shuffle_token = st.session_state.get("unrated_shuffle_token", 0) + 1
             st.rerun(scope="fragment")
 
@@ -171,7 +142,7 @@ def render_unrated_fate_mode(on_play, on_judge, kpi_stats: dict):
     with btn_col:
         draw = st.button(
             "🎯 運命の1本を引く",
-            use_container_width=True,
+            width="stretch",
             disabled=not has_candidates,
             key="unrated_fate_draw",
         )

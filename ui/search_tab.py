@@ -43,7 +43,7 @@ def render_search_tab(on_play, on_judge):
         with col_hdd:
             ext_hdd = st.checkbox("外付けHDD", value="EXTERNAL_HDD" in st.session_state.search_tab_storage)
         with col_btn:
-            submitted = st.form_submit_button("🔍 検索", use_container_width=True)
+            submitted = st.form_submit_button("🔍 検索", width="stretch")
 
     if submitted:
         storage = []
