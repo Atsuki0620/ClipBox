@@ -40,8 +40,8 @@ Core層 (Python) - UI非依存
   core/like_service.py       ← いいね機能
   core/selection_service.py  ← セレクション固有ロジック
   core/logger.py             ← RotatingFileHandler ロガー
-  [archived] core/snapshot.py / counter_service.py / config_store.py
-             history_repository.py / settings.py → archive/
+Archive層
+  archive/                  ← archived 実装の復旧元
 
 Data層 (SQLite)
   data/videos.db
@@ -97,11 +97,6 @@ ClipBox/
 │   ├── file_ops.py           # ファイル操作ユーティリティ
 │   ├── like_service.py       # いいね機能
 │   ├── selection_service.py  # セレクション固有ロジック
-│   ├── settings.py           # ※archived → archive/settings.py
-│   ├── config_store.py       # ※archived → archive/config_store.py
-│   ├── snapshot.py           # ※archived → archive/snapshot.py
-│   ├── counter_service.py    # ※archived → archive/counter_service.py
-│   ├── history_repository.py # ※archived → archive/history_repository.py
 │   └── logger.py             # RotatingFileHandler ロガー
 │
 ├── data/                     # データ
@@ -251,7 +246,8 @@ ui_cache.get_kpi_stats_cached.clear()
 | 機能 | ファイル | 関数 | 状態 |
 |------|---------|------|------|
 | 動画再生 | `core/video_manager.py` | `VideoManager.play_video()` | ✅ |
-| 視聴履歴記録 | `core/database.py` | `insert_play_history()` | ✅ |
+| 視聴集計記録 | `core/video_manager.py` | `viewing_history` INSERT (`APP_PLAYBACK`) | ✅ |
+| 再生ログ詳細記録 | `core/database.py` | `insert_play_history()` → `play_history` | ✅ |
 | 判定中フラグ設定 | ~~`core/video_manager.py`~~ | ~~`VideoManager.set_judging_state()`~~ | **archived** → `archive/video_manager_methods.py` |
 
 ### 5.3 判定機能
@@ -260,7 +256,7 @@ ui_cache.get_kpi_stats_cached.clear()
 |------|---------|------|------|
 | レベル変更 + リネーム | `core/video_manager.py` | `VideoManager.set_favorite_level_with_rename()` | ✅ |
 | 判定履歴記録 | `core/video_manager.py` | 同上（judgment_historyへ挿入） | ✅ |
-| 判定中フラグ解除 | `core/video_manager.py` | 同上（is_judging=0 は DB列として保持） | ✅ |
+| 判定中フラグ解除 | ~~`core/video_manager.py`~~ | `is_judging` DB列は互換のため保持 | **archived** |
 
 ### 5.4 統計機能
 
@@ -284,7 +280,8 @@ ui_cache.get_kpi_stats_cached.clear()
 | 機能 | ファイル | 関数 | 状態 |
 |------|---------|------|------|
 | !プレフィックス検知 | `core/scanner.py` | `extract_essential_filename()` | ✅ |
-| セレクション動画取得 | `core/selection_service.py` | `get_selection_videos()` | ✅ |
+| セレクションフォルダスキャン | `core/selection_service.py` | `scan_selection_folder()` | ✅ |
+| セレクションKPI取得 | `core/selection_service.py` | `get_selection_kpi()` | ✅ |
 | セレクション判定 | `core/video_manager.py` | `set_favorite_level_with_rename()` | ✅ |
 | セレクション分析 | `core/analysis_service.py` | セレクション分析関数 | ✅ |
 
@@ -338,6 +335,8 @@ APP_PLAYBACK:
   再生ボタンクリック → play_video() → viewing_history INSERT
 ```
 
+`viewing_history` は視聴回数・ランキング・分析の集計用、`play_history` は再生トリガーやプレイヤーなどの詳細ログ用。
+
 archived（Phase 1 で無効化）:
 - `FILE_ACCESS_DETECTED`: ファイルアクセス時刻検知 → `archive/detect_file_access.py`
 - `MANUAL_ENTRY`: 手動マーク → `archive/video_manager_methods.py`
@@ -365,10 +364,6 @@ class VideoManager:
     def get_fate_video(folder_path_str) -> Optional[Video]  # Tier 2 運命の1本用
     def play_video(video_id, *, player, trigger, ...) -> Dict
     def set_favorite_level_with_rename(video_id, level) -> Dict
-    # archived: get_random_video / get_viewing_stats / get_videos_with_stats
-    #           set_favorite_level（非rename版）/ record_file_access_as_viewing
-    #           set_judging_state / mark_as_viewed
-    #           → archive/video_manager_methods.py 参照
 ```
 
 ### 7.2 FileScanner
@@ -413,6 +408,7 @@ Streamlitのセッション状態で管理されるキー:
 | `selected_video` | Video | 選択中の動画（再生中強調表示） | None |
 | `display_settings` | dict | 表示設定 | デフォルト値 |
 | `filter_levels` | list | レベルフィルタ | [4,3,2,1,0,-1] |
+| `filter_performers` | list | 登場人物フィルタ（DB/code の `performer`） | [] |
 | `filter_storage` | str | ストレージフィルタ | 'ALL' |
 | `filter_hide_selection` | bool | セレクション除外フィルタ | True |
 | `unrated_shuffle_token` | int | Tier 1 ランダムシャッフル制御 | 0 |

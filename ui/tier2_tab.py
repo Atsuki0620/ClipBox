@@ -18,6 +18,7 @@ from __future__ import annotations
 import streamlit as st
 
 from core import app_service
+from ui.components.kpi_display import render_selection_kpi_cards
 from ui.selection_tab import render_library_mode, render_random_mode, render_fate_mode
 
 
@@ -31,15 +32,12 @@ def render_tier2_tab(on_play, on_judge) -> None:
 
     # セレクション KPI（タブ最上部）
     kpi = app_service.get_selection_kpi(folder_path_str if folder_path_str else None)
-    cols = st.columns(4)
-    with cols[0]:
-        st.metric("📋 未選別", f"{kpi['unselected_count']}本")
-    with cols[1]:
-        st.metric("✅ 選別済み", f"{kpi['judged_count']}本")
-    with cols[2]:
-        st.metric("📊 選別率", f"{kpi['judged_rate']:.1f}%")
-    with cols[3]:
-        st.metric("📅 本日の選別", f"{kpi['today_judged_count']}本")
+    render_selection_kpi_cards(
+        unselected_count=kpi["unselected_count"],
+        judged_count=kpi["judged_count"],
+        judged_rate=kpi["judged_rate"],
+        today_judged_count=kpi["today_judged_count"],
+    )
 
     st.markdown("---")
 

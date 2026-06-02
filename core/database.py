@@ -267,7 +267,7 @@ def check_database_exists() -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# Play history (moved from history_repository)
+# Play history helpers
 # --------------------------------------------------------------------------- #
 def insert_play_history(
     *,

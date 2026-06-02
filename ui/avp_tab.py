@@ -131,13 +131,13 @@ def render_avp_tab(on_judge: Callable) -> None:
             if st.button(
                 play_label,
                 disabled=n_sel == 0,
-                use_container_width=True,
+                width="stretch",
                 type="primary",
                 key="avp_launch_btn",
             ):
                 _launch_avp(avp_launch_selected, checked_videos)
         with col_clear:
-            if st.button("🗑 リストクリア", use_container_width=True, key="avp_clear_btn"):
+            if st.button("🗑 リストクリア", width="stretch", key="avp_clear_btn"):
                 st.session_state.avp_selected_ids = set()
                 st.session_state.avp_launch_selected = set()
                 st.session_state.avp_playing_ids = []

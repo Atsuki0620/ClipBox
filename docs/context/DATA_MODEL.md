@@ -52,13 +52,14 @@ with get_db_connection() as conn:
 | `file_created_at` | DATETIME | | ファイル作成日時 |
 | `is_available` | BOOLEAN | DEFAULT 1 | ファイル存在フラグ |
 | `is_deleted` | BOOLEAN | DEFAULT 0 | 論理削除フラグ |
-| `is_judging` | BOOLEAN | DEFAULT 0 | 判定中フラグ |
+| `is_judging` | BOOLEAN | DEFAULT 0 | 判定中フラグ（Phase 1 で機能 archived。互換性のためDB列のみ保持） |
 | `needs_selection` | BOOLEAN | DEFAULT 0 | !プレフィックス付き（セレクション未選別） |
-| `is_selection_completed` | BOOLEAN | DEFAULT 0 | +プレフィックス付き（セレクション選別完了・物理的にセレクションフォルダ内） |
+| `is_selection_completed` | BOOLEAN | DEFAULT 0 | +プレフィックス付き。概念名は「セレクション完了」、画面表示は「選別済み」。物理的な取り込み・移動完了を示す「ライブラリ取り込み済み」とは呼ばない |
 
 ### 2.2 viewing_history（視聴履歴）
 
-視聴イベントを記録するテーブル。
+集計用の視聴履歴テーブル。視聴回数・ランキング・分析集計はこのテーブルを基準にする。
+1回の再生操作の詳細は `play_history` に記録し、`viewing_history` は集計で使う粒度に限定する。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -68,13 +69,14 @@ with get_db_connection() as conn:
 | `viewing_method` | TEXT | | 記録方式（下記参照） |
 
 **viewing_method の値**:
-- `APP_PLAYBACK`: アプリ内再生ボタンによる記録
-- `FILE_ACCESS_DETECTED`: ファイルアクセス検知による記録
-- `MANUAL_ENTRY`: 手動エントリー
+- `APP_PLAYBACK`: アプリ内再生ボタンによる記録（現在有効）
+- `FILE_ACCESS_DETECTED`: ファイルアクセス検知による記録（Phase 1 で archived。既存レコード保持）
+- `MANUAL_ENTRY`: 手動エントリー（Phase 1 で archived。既存レコード保持）
 
 ### 2.3 play_history（再生履歴）
 
-詳細な再生ログを記録するテーブル。
+再生ログ詳細テーブル。再生トリガー、プレイヤー、ライブラリルート、内部IDなど、1回の再生操作の詳細を記録する。
+視聴回数・ランキング・分析集計の基準は `viewing_history` とし、`play_history` は再生ログの監査・追跡用として扱う。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -106,7 +108,7 @@ with get_db_connection() as conn:
 
 ### 2.5 counters（カウンター）
 
-視聴カウンターを管理するテーブル。
+視聴カウンターを管理するテーブル。Phase 1 でカウンター機能は archived となり、実行経路からは外れている。既存データと互換性のためテーブルは保持する。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -132,7 +134,7 @@ videos ||--o{ viewing_history
 videos ||--o{ play_history
 videos ||--o{ judgment_history
 videos ||--o{ likes
-counters （独立）
+counters （独立・archived）
 ```
 
 ---
@@ -206,7 +208,7 @@ ORDER BY RANDOM()
 LIMIT ?
 ```
 
-**カウンター値の取得**:
+**カウンター値の取得（archived）**:
 ```sql
 SELECT COUNT(*) FROM viewing_history
 WHERE viewed_at >= (SELECT start_time FROM counters WHERE counter_id = ?)
@@ -263,8 +265,12 @@ class Video:
     file_created_at: Optional[datetime]
     is_available: bool
     is_deleted: bool
-    is_judging: bool
+    is_judging: bool  # archived。DB列互換のためモデル上は保持
     needs_selection: bool  # !プレフィックス付きかどうか
+
+    @property
+    def is_selection_completed(self) -> bool:
+        """+プレフィックス付きかどうか"""
 
     @property
     def display_name(self) -> str:
@@ -280,7 +286,7 @@ class ViewingHistory:
     id: int
     video_id: int
     viewed_at: datetime
-    viewing_method: str
+    viewing_method: str  # 現在有効なのは APP_PLAYBACK
 ```
 
 ---
@@ -294,7 +300,7 @@ class ViewingHistory:
 1. テーブルが存在しない場合は作成（`CREATE TABLE IF NOT EXISTS`）
 2. 新しいカラムがない場合は追加（`ALTER TABLE ADD COLUMN`）
 3. インデックス作成（`CREATE INDEX IF NOT EXISTS`）
-4. 初期データ挿入（countersの初期レコード）
+4. 初期データ挿入（counters の初期レコードは互換性のため保持）
 
 ### 8.2 マイグレーション履歴
 
@@ -302,8 +308,8 @@ class ViewingHistory:
 |------|---------|
 | 初期 | videos, viewing_history, play_history作成 |
 | - | file_created_at, is_available, is_deleted追加 |
-| - | is_judging追加（判定中フラグ） |
-| - | judgment_history, countersテーブル追加 |
+| - | is_judging追加（判定中フラグ。Phase 1 で機能 archived、DB列は保持） |
+| - | judgment_history, countersテーブル追加（counters 機能は Phase 1 で archived、テーブルは保持） |
 | 2026-02-21 | likesテーブル追加（いいね機能） |
 | 2026-02-23 | needs_selection, was_selection_judgmentカラム追加 |
 | 2026-03-03 | is_selection_completedカラム追加（+プレフィックス動画の管理） |
@@ -321,7 +327,7 @@ class ViewingHistory:
 ### 9.2 将来の最適化候補
 
 - viewing_historyが数万件になった場合: viewed_atでパーティション化
-- カウンター計算が遅くなった場合: キャッシュ導入
+- archived 機能を復旧する場合: `archive/` の実装を戻し、現行UI/サービス層との接続を再確認
 
 ---
 

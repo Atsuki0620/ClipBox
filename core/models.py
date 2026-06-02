@@ -31,17 +31,6 @@ class Video:
     needs_selection: bool = False  # セレクション対象フラグ（?プレフィックス）
 
     @property
-    def display_name(self) -> str:
-        """表示用のファイル名（プレフィックス付き）"""
-        if self.current_favorite_level == -1:
-            prefix = ""
-        elif self.current_favorite_level > 0:
-            prefix = "#" * self.current_favorite_level + "_"
-        else:
-            prefix = "_"
-        return f"{prefix}{self.essential_filename}"
-
-    @property
     def is_selection_completed(self) -> bool:
         """ファイル名に+プレフィックスが付いているかどうか（セレクション経由済み）"""
         return Path(self.current_full_path).name.startswith('+')
@@ -50,13 +39,6 @@ class Video:
         """判定済みかどうかを判別（プレフィックスの有無で判定）"""
         filename = Path(self.current_full_path).name
         return filename != self.essential_filename
-
-    def get_truncated_title(self, max_length: int = 40) -> str:
-        """指定長で切り詰めたタイトルを返す"""
-        title = self.essential_filename
-        if len(title) > max_length:
-            return title[:max_length] + "..."
-        return title
 
 
 @dataclass
@@ -107,24 +89,6 @@ def normalize_text(text: str) -> str:
         else:
             result_chars.append(ch)
     return "".join(result_chars)
-
-
-def create_badge(label: str, color: str) -> str:
-    """HTMLバッジを生成"""
-    return (
-        f'<span class="cb-badge" style="background:{color}; '
-        f'padding:4px 4px; margin:0 2px 2px 0; border-radius:6px; '
-        f'font-size:0.85em; box-shadow:0 1px 3px rgba(0,0,0,0.2); '
-        f'display:inline-block; color:white; font-weight:500;">{label}</span>'
-    )
-
-
-def level_to_display(level: int) -> str:
-    """お気に入りレベルを表示用テキストに変換"""
-    if level == -1:
-        return "未判定"
-    level = max(0, min(4, level))
-    return f"Lv{level}"
 
 
 def create_sort_key(video, sort_option: str, view_counts: dict, last_viewed_map: dict):

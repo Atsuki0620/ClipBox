@@ -17,8 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.models import Video
-from core.database import get_db_connection, insert_play_history  # get_last_viewed_map removed: 未使用 (Phase 1整理)
-# from core import counter_service  # archived: Phase 1
+from core.database import get_db_connection, insert_play_history
 from core.logger import get_logger
 from config import FAVORITE_LEVEL_NAMES
 
@@ -58,7 +57,6 @@ class VideoManager:
         availability: Optional[str] = None,
         show_unavailable: bool = False,
         show_deleted: bool = False,
-        # show_judging_only: bool = False,  # archived: Phase 1 (is_judging 機能アーカイブのため死にフィルタ)
         needs_selection_filter: Optional[bool] = None,
         exclude_selection: bool = False,
     ) -> List[Video]:
@@ -72,7 +70,6 @@ class VideoManager:
             availability: 'available'=利用可能のみ / 'unavailable'=利用不可のみ / None=show_unavailable に従う。
             show_unavailable: True のとき is_available=0 も含める（availability が None のときのみ有効）。
             show_deleted: True のとき is_deleted=1 も含める。通常は False。
-            show_judging_only: True のとき is_judging=1 の動画のみ返す。
             needs_selection_filter: True=!プレフィックス動画のみ / False=通常動画のみ / None=全て。
             exclude_selection: True のとき needs_selection=1 と is_selection_completed=1 の動画を除外する。
 
@@ -94,9 +91,6 @@ class VideoManager:
 
             if not show_deleted:
                 query += " AND is_deleted = 0"
-            # archived: Phase 1 — is_judging は set_judging_state アーカイブにより常に0
-            # if show_judging_only:
-            #     query += " AND is_judging = 1"
 
             if needs_selection_filter is not None:
                 query += " AND needs_selection = ?"
@@ -140,10 +134,6 @@ class VideoManager:
         id_to_video = {row["id"]: video_from_row(row) for row in rows}
         return [id_to_video[vid] for vid in video_ids if vid in id_to_video]
 
-    # ARCHIVED (Phase 1): get_videos_with_stats - 未使用。see archive/video_manager_methods.py
-
-    # ARCHIVED (Phase 1): get_random_video - 未使用（get_unrated_random_videos/get_fate_video に置換）。see archive/video_manager_methods.py
-
     def get_fate_video(self, folder_path_str: str = "") -> Optional[Video]:
         """経過日数重み付きで未選別動画を1本選出する（運命の1本用）。
 
@@ -186,7 +176,7 @@ class VideoManager:
         return random.choices(videos, weights=weights, k=1)[0]
 
     def get_unrated_random_videos(self, n: int) -> List[Video]:
-        """レベル-1の動画をランダムに n 件取得して返す。
+        """未判定（内部値 -1）の動画をランダムに n 件取得して返す。
 
         ランダム順序を保ったまま全フィールドの Video リストを返すため、
         UI 側は DB に直接アクセスする必要がない。
@@ -305,22 +295,11 @@ class VideoManager:
                     internal_id=internal_id,
                     conn=conn,
                 )
-            # カウンタを初期化（未使用なら同時開始）。外側の conn を渡してネスト接続を防ぐ
-            # counter_service.auto_start_counters(viewed_at, conn)  # archived: Phase 1
-
             return {'status': 'success', 'message': '再生を開始しました'}
-
-    # ARCHIVED (Phase 1): mark_as_viewed - see archive/video_manager_methods.py
-
-    # ARCHIVED (Phase 1): get_viewing_stats - 未使用（旧統計機能）。see archive/video_manager_methods.py
 
     def _row_to_video(self, row) -> Video:
         """データベースの行を Video オブジェクトに変換（モジュールレベル関数に委譲）"""
         return video_from_row(row)
-
-    # ARCHIVED (Phase 1): set_judging_state - see archive/video_manager_methods.py
-
-    # ARCHIVED (Phase 1): record_file_access_as_viewing - ファイルアクセス検知の唯一の利用者が退避済のため孤立。see archive/video_manager_methods.py
 
     def set_favorite_level_with_rename(self, video_id: int, new_level: Optional[int]) -> Dict[str, str]:
         """
@@ -328,7 +307,7 @@ class VideoManager:
 
         Args:
             video_id: 対象動画のID
-            new_level: None=未判定, 0=レベル0, 1-4=レベル1-4
+            new_level: None=未判定, 0=Lv0, 1-4=Lv1-Lv4
 
         Returns:
             Dict: {'status': 'success'|'error', 'message': '...'}
@@ -437,27 +416,3 @@ class VideoManager:
                     "operation=judgment video_id=%d reason=rename_error error=%s", video_id, str(e)
                 )
                 return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
-
-    # ARCHIVED (Phase 1): set_favorite_level - set_favorite_level_with_rename の重複・未使用。see archive/video_manager_methods.py
-
-    def mark_as_deleted(self, video_id: int) -> Dict[str, str]:
-        """
-        動画を論理削除する（is_deleted=1に設定）
-
-        Args:
-            video_id: 削除する動画のID
-
-        Returns:
-            Dict: 実行結果 {'status': 'success'|'error', 'message': '...'}
-        """
-        with get_db_connection() as conn:
-            row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
-            if not row:
-                return {'status': 'error', 'message': '動画が見つかりません'}
-
-            conn.execute(
-                "UPDATE videos SET is_deleted = 1 WHERE id = ?",
-                (video_id,)
-            )
-
-            return {'status': 'success', 'message': '削除済みに設定しました'}
