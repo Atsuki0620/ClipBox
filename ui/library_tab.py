@@ -77,10 +77,10 @@ def _render_filter_controls():
             selected_performers = st.multiselect(
                 "登場人物",
                 options=performers,
-                default=st.session_state.filter_actors,
+                default=st.session_state.filter_performers,
                 placeholder="名前で検索...",
             )
-            st.session_state.filter_actors = selected_performers
+            st.session_state.filter_performers = selected_performers
             st.caption(
                 f"選択中: {', '.join(selected_performers)} ({len(selected_performers)}名)"
                 if selected_performers else "選択中: なし"
@@ -109,13 +109,6 @@ def _render_filter_controls():
                 selected_avail_codes = ["AVAILABLE"]
             st.session_state.filter_availability = selected_avail_codes
 
-            judging_only = st.checkbox(
-                "判定中のみ表示",
-                value=st.session_state.filter_judging_only,
-                key="library_filter_judging",
-            )
-            st.session_state.filter_judging_only = judging_only
-
             hide_selection = st.checkbox(
                 "セレクション関連を除外",
                 value=st.session_state.filter_hide_selection,
@@ -126,7 +119,7 @@ def _render_filter_controls():
 
         refresh_clicked = st.button(
             "🔄 画面を更新",
-            use_container_width=True,
+            width="stretch",
             help="現在のフィルタ条件で一覧を再描画",
             key="library_refresh_btn",
         )
@@ -152,7 +145,7 @@ def _render_pagination(total_pages: int, position: str):
     col_prev, col_info, col_next = st.columns([1, 3, 1], gap="small")
 
     with col_prev:
-        if st.button("◀ 前へ", use_container_width=True, disabled=page <= 1, key=f"library_prev_{position}"):
+        if st.button("◀ 前へ", width="stretch", disabled=page <= 1, key=f"library_prev_{position}"):
             st.session_state.library_page = max(1, page - 1)
 
     with col_info:
@@ -175,7 +168,7 @@ def _render_pagination(total_pages: int, position: str):
         )
 
     with col_next:
-        if st.button("次へ ▶", use_container_width=True, disabled=page >= total_pages, key=f"library_next_{position}"):
+        if st.button("次へ ▶", width="stretch", disabled=page >= total_pages, key=f"library_next_{position}"):
             st.session_state.library_page = min(total_pages, page + 1)
 
 
@@ -191,17 +184,6 @@ def render_library_tab(on_play, on_judge):
         st.session_state.library_page_size = 100
     if 'library_last_signature' not in st.session_state:
         st.session_state.library_last_signature = None
-
-    # P1: キャッシュ版のKPI統計を使用
-    kpi_stats = ui_cache.get_kpi_stats_cached()
-    render_kpi_cards(
-        unrated_count=kpi_stats["unrated_count"],
-        judged_count=kpi_stats["judged_count"],
-        judged_rate=kpi_stats["judged_rate"],
-        today_judged_count=kpi_stats["today_judged_count"],
-    )
-
-    st.markdown("---")
 
     # 横並び配置：カラム数、未判定フィルタ、ソート、検索、ページサイズ
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4, ctrl_col5 = st.columns([1.2, 1.2, 2, 2, 1.2], gap="small")
@@ -266,12 +248,11 @@ def render_library_tab(on_play, on_judge):
 
     videos = vm.get_videos(
         favorite_levels=filter_levels,
-        performers=st.session_state.filter_actors,
+        performers=st.session_state.filter_performers,
         storage_locations=storage_values,
         availability=availability,
         show_unavailable=True if availability is None else False,
         show_deleted=False,
-        show_judging_only=st.session_state.filter_judging_only,
         exclude_selection=st.session_state.filter_hide_selection,
     )
 
@@ -282,10 +263,9 @@ def render_library_tab(on_play, on_judge):
         sort_option,
         search_keyword,
         tuple(filter_levels),
-        tuple(st.session_state.filter_actors),
+        tuple(st.session_state.filter_performers),
         tuple(st.session_state.filter_storage),
         tuple(st.session_state.filter_availability),
-        st.session_state.filter_judging_only,
         st.session_state.filter_hide_selection,
         unrated_filter,
         st.session_state.library_page_size,

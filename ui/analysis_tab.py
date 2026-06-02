@@ -15,19 +15,6 @@ PALETTE = ["#68d3ff", "#a855f7", "#22d3ee", "#f97316", "#fb7185", "#c7d2fe"]
 TOP_N_OPTIONS = [10, 20, 50, 100]
 
 
-def _annotate_bars(ax):
-    """Barplotに値ラベルを付与"""
-    for p in ax.patches:
-        value = p.get_height()
-        ax.annotate(
-            f"{value:.0f}",
-            (p.get_x() + p.get_width() / 2, value),
-            ha="center",
-            va="bottom",
-            fontsize=10,
-            color="#374151",
-        )
-
 @st.cache_data(ttl=600)
 def _load_cached_analysis_data(include_deleted: bool) -> pd.DataFrame:
     """削除済み有無だけをキーにしたデータ読み込み（10分キャッシュ）。"""
@@ -132,7 +119,7 @@ def _render_level_chart(df_filtered: pd.DataFrame) -> None:
         },
     )
     fig.update_layout(xaxis=dict(dtick=1))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _render_storage_charts(df_filtered: pd.DataFrame) -> None:
@@ -163,7 +150,7 @@ def _render_storage_charts(df_filtered: pd.DataFrame) -> None:
     st.subheader("💿 保存先別 動画数・総容量")
     st.dataframe(
         storage_table,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         height=140,
     )
@@ -221,7 +208,7 @@ def _render_trend_chart(
         xaxis_title="",
     )
     fig.update_xaxes(tickformat="%Y/%m/%d")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _render_judgment_trend(
@@ -279,7 +266,7 @@ def _render_judgment_trend(
         xaxis_title="",
     )
     fig.update_xaxes(tickformat="%Y/%m/%d")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # 視聴済み率の円グラフは削除（保存先別テーブルに統合）
@@ -299,7 +286,7 @@ def _render_size_distribution(df_filtered: pd.DataFrame) -> None:
         color_discrete_sequence=[PALETTE[0]],
         labels={"file_size_gb": "ファイルサイズ (GB)", "count": "本数"},
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _render_view_count_distribution(df_filtered: pd.DataFrame) -> None:
@@ -324,7 +311,7 @@ def _render_view_count_distribution(df_filtered: pd.DataFrame) -> None:
         labels={"value": "視聴回数", "count": "本数"},
     )
     fig.update_xaxes(dtick=1)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _render_ranking(df_filtered: pd.DataFrame) -> None:
@@ -351,7 +338,7 @@ def _render_ranking(df_filtered: pd.DataFrame) -> None:
 
     st.dataframe(
         ranking_df,
-        use_container_width=True,
+        width="stretch",
         height=300,
         hide_index=True,
         column_config={
@@ -400,7 +387,7 @@ def _render_view_days_ranking(
 
     st.dataframe(
         ranking_df,
-        use_container_width=True,
+        width="stretch",
         height=300,
         hide_index=True,
         column_config={
@@ -444,7 +431,7 @@ def _render_like_count_ranking(df_filtered: pd.DataFrame) -> None:
 
     st.dataframe(
         ranking_df,
-        use_container_width=True,
+        width="stretch",
         height=300,
         hide_index=True,
         column_config={
@@ -527,7 +514,7 @@ def _render_response_time_histogram() -> None:
         legend_title="保存場所",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.write("**統計情報**")
     col1, col2, col3, col4 = st.columns(4)
@@ -593,7 +580,7 @@ def _render_selection_analysis(
                 xaxis_title="",
             )
             fig.update_xaxes(tickformat="%Y/%m/%d")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with col_right:
         st.markdown("**選別結果のレベル分布**")
@@ -614,7 +601,7 @@ def _render_selection_analysis(
                 labels={"level_label": "レベル", "count": "選別数"},
             )
             fig.update_layout(height=300, margin=dict(t=20, b=40), showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 
 @st.fragment

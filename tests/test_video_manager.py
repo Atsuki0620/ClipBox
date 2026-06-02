@@ -4,7 +4,6 @@ ClipBox - VideoManagerのテスト
 
 from pathlib import Path
 
-import config as config_module
 import core.database as database
 from core.video_manager import VideoManager
 
@@ -16,7 +15,7 @@ def test_video_manager_initialization():
 
 
 def test_set_favorite_level_with_rename_logs_history(tmp_path, tmp_db, monkeypatch):
-    """set_favorite_level_with_renameが履歴を記録しレベル-1へリネームする"""
+    """set_favorite_level_with_renameが履歴を記録し未判定へリネームする"""
     original_file = tmp_path / "_movie.mp4"
     original_file.write_text("dummy")
 
@@ -61,37 +60,6 @@ def test_set_favorite_level_with_rename_logs_history(tmp_path, tmp_db, monkeypat
         assert history["rename_duration_ms"] >= 0
 
 
-def test_set_judging_state_start_and_finish(tmp_db):
-    """set_judging_state: True→is_judging=1, False→is_judging=0"""
-    with database.get_db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO videos (
-                essential_filename, current_full_path, current_favorite_level,
-                storage_location, is_available, is_deleted
-            ) VALUES (?, ?, ?, ?, 1, 0)
-            """,
-            ("judging_test.mp4", "/tmp/judging_test.mp4", -1, "C_DRIVE"),
-        )
-        video_id = conn.execute(
-            "SELECT id FROM videos WHERE essential_filename = ?", ("judging_test.mp4",)
-        ).fetchone()[0]
-
-    manager = VideoManager()
-
-    result = manager.set_judging_state(video_id, True)
-    assert result["status"] == "success"
-    with database.get_db_connection() as conn:
-        row = conn.execute("SELECT is_judging FROM videos WHERE id = ?", (video_id,)).fetchone()
-        assert row["is_judging"] == 1
-
-    result = manager.set_judging_state(video_id, False)
-    assert result["status"] == "success"
-    with database.get_db_connection() as conn:
-        row = conn.execute("SELECT is_judging FROM videos WHERE id = ?", (video_id,)).fetchone()
-        assert row["is_judging"] == 0
-
-
 def test_set_favorite_level_file_not_found_leaves_db_unchanged(tmp_path, tmp_db):
     """ファイル不在時にDBの current_favorite_level が変更されない"""
     with database.get_db_connection() as conn:
@@ -118,37 +86,6 @@ def test_set_favorite_level_file_not_found_leaves_db_unchanged(tmp_path, tmp_db)
             "SELECT current_favorite_level FROM videos WHERE id = ?", (video_id,)
         ).fetchone()
         assert row["current_favorite_level"] == 2
-
-
-def test_get_videos_filters_judging_only(tmp_path, tmp_db):
-    """show_judging_only=Trueで判定中動画のみ返す"""
-
-    with database.get_db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO videos (
-                essential_filename, current_full_path, current_favorite_level,
-                storage_location, is_available, is_deleted, is_judging
-            ) VALUES (?, ?, ?, ?, 1, 0, 1)
-            """,
-            ("judging.mp4", str(tmp_path / "judging.mp4"), -1, "C_DRIVE"),
-        )
-        conn.execute(
-            """
-            INSERT INTO videos (
-                essential_filename, current_full_path, current_favorite_level,
-                storage_location, is_available, is_deleted, is_judging
-            ) VALUES (?, ?, ?, ?, 1, 0, 0)
-            """,
-            ("normal.mp4", str(tmp_path / "normal.mp4"), -1, "C_DRIVE"),
-        )
-
-    manager = VideoManager()
-    videos = manager.get_videos(show_judging_only=True)
-
-    assert len(videos) == 1
-    assert videos[0].essential_filename == "judging.mp4"
-    assert videos[0].is_judging is True
 
 
 def test_get_unrated_random_videos_excludes_nonexistent_files(tmp_path, tmp_db):

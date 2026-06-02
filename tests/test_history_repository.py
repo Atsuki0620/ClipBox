@@ -9,7 +9,7 @@ import pytest
 
 from core import database
 from core.database import init_database, get_db_connection
-from core.history_repository import insert_play_history
+from core.database import insert_play_history
 
 
 def test_insert_play_history(monkeypatch):
