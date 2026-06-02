@@ -10,11 +10,13 @@ from typing import Iterable, List, Optional, Dict
 from pathlib import Path
 from datetime import datetime
 
-from core import database, snapshot, counter_service
+from core import database
+# from core import snapshot  # archived: Phase 1
+# from core import counter_service  # archived: Phase 1
 from core import config_utils
-from core.file_ops import create_file_scanner, detect_recently_accessed_files
+from core.file_ops import create_file_scanner  # detect_recently_accessed_files removed: archived Phase 1
 from core.database import init_database, check_database_exists, get_db_connection
-from core.settings import get_last_access_check_time, update_last_access_check_time
+# from core.settings import get_last_access_check_time, update_last_access_check_time  # archived: Phase 1 (孤立)
 from core import analysis_service
 from core.video_manager import VideoManager
 from core import like_service
@@ -32,8 +34,9 @@ def create_video_manager() -> VideoManager:
     return VideoManager()
 
 
-def record_file_access_as_viewing(video_manager: VideoManager, accessed_files: Iterable[dict]) -> int:
-    return video_manager.record_file_access_as_viewing(accessed_files)
+# ARCHIVED (Phase 1): record_file_access_as_viewing ファサード（ファイルアクセス検知の退避により孤立）
+# def record_file_access_as_viewing(video_manager: VideoManager, accessed_files: Iterable[dict]) -> int:
+#     return video_manager.record_file_access_as_viewing(accessed_files)
 
 
 def set_favorite_level_with_rename(video_id: int, new_level: Optional[int]) -> Dict[str, str]:
@@ -54,9 +57,9 @@ def detect_library_root(file_path: Path, active_roots: list) -> str:
     return ""
 
 
-# ファイルスキャン / アクセス検知 ------------------------------------------
+# ファイルスキャン ----------------------------------------------------------
 create_file_scanner = create_file_scanner
-detect_recently_accessed_files = detect_recently_accessed_files
+# detect_recently_accessed_files = detect_recently_accessed_files  # archived: Phase 1
 
 
 def scan_and_update(scanner, conn) -> None:
@@ -68,15 +71,16 @@ def scan_and_update_with_connection(scanner) -> None:
         scanner.scan_and_update(conn)
 
 
-def detect_recently_accessed_files_with_connection(last_check_time):
-    """DB 接続を内部で確立して最近アクセスされたファイルを検知する。"""
-    with get_db_connection() as conn:
-        return detect_recently_accessed_files(last_check_time, conn)
+# ARCHIVED (Phase 1): detect_recently_accessed_files_with_connection（ファイルアクセス検知の退避により孤立）
+# def detect_recently_accessed_files_with_connection(last_check_time):
+#     """DB 接続を内部で確立して最近アクセスされたファイルを検知する。"""
+#     with get_db_connection() as conn:
+#         return detect_recently_accessed_files(last_check_time, conn)
 
 
-# アクセスチェック時刻 ------------------------------------------------------
-get_last_access_check_time = get_last_access_check_time
-update_last_access_check_time = update_last_access_check_time
+# アクセスチェック時刻 ------------------------------------------------------ archived: Phase 1 (settings.py 孤立)
+# get_last_access_check_time = get_last_access_check_time
+# update_last_access_check_time = update_last_access_check_time
 
 
 # 設定 ----------------------------------------------------------------------
@@ -85,30 +89,31 @@ save_user_config = config_utils.save_user_config
 
 
 # 再生履歴 ------------------------------------------------------------------
-def insert_play_history(*, file_path: str, title: str, player: str, library_root: str,
-                        trigger: str, video_id: Optional[int] = None, internal_id: Optional[str] = None,
-                        conn=None) -> None:
-    database.insert_play_history(
-        file_path=file_path,
-        title=title,
-        player=player,
-        library_root=library_root,
-        trigger=trigger,
-        video_id=video_id,
-        internal_id=internal_id,
-        conn=conn,
-    )
+# ARCHIVED (Phase 1): insert_play_history ファサード（未使用。video_manager は core.database を直接利用）
+# def insert_play_history(*, file_path: str, title: str, player: str, library_root: str,
+#                         trigger: str, video_id: Optional[int] = None, internal_id: Optional[str] = None,
+#                         conn=None) -> None:
+#     database.insert_play_history(
+#         file_path=file_path,
+#         title=title,
+#         player=player,
+#         library_root=library_root,
+#         trigger=trigger,
+#         video_id=video_id,
+#         internal_id=internal_id,
+#         conn=conn,
+#     )
 
 
-# スナップショット ----------------------------------------------------------
-list_snapshots = snapshot.list_snapshots
-create_snapshot = snapshot.create_snapshot
-compare_snapshots = snapshot.compare_snapshots
+# スナップショット ---------------------------------------------------------- archived: Phase 1
+# list_snapshots = snapshot.list_snapshots
+# create_snapshot = snapshot.create_snapshot
+# compare_snapshots = snapshot.compare_snapshots
 
 
-# カウンター ----------------------------------------------------------------
-get_counters_with_counts = counter_service.get_counters_with_counts
-reset_counter = counter_service.reset_counter
+# カウンター ---------------------------------------------------------------- archived: Phase 1
+# get_counters_with_counts = counter_service.get_counters_with_counts
+# reset_counter = counter_service.reset_counter
 
 # 分析タブ ---------------------------------------------------------------
 load_analysis_data = analysis_service.load_analysis_data

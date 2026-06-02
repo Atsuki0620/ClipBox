@@ -82,16 +82,16 @@ def render_selection_tab(on_play, on_judge):
     lib_tab, rand_tab, fate_tab = st.tabs(["📚 ライブラリ", "🎲 ランダム", "🎯 運命の1本"])
 
     with lib_tab:
-        _render_library_mode(on_play, on_judge, folder_path_str)
+        render_library_mode(on_play, on_judge, folder_path_str)
 
     with rand_tab:
-        _render_random_mode(on_play, on_judge, folder_path_str)
+        render_random_mode(on_play, on_judge, folder_path_str)
 
     with fate_tab:
-        _render_fate_mode(on_play, on_judge, folder_path_str, kpi)
+        render_fate_mode(on_play, on_judge, folder_path_str, kpi)
 
 
-def _render_library_mode(on_play, on_judge, folder_path_str: str):
+def render_library_mode(on_play, on_judge, folder_path_str: str):
     """ライブラリモードの描画"""
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4, ctrl_col5 = st.columns(
         [1.2, 1.5, 2, 2, 1.2], gap="small"
@@ -253,7 +253,7 @@ def _render_library_mode(on_play, on_judge, folder_path_str: str):
     _render_pagination(total_pages, "bottom")
 
 
-def _render_random_mode(on_play, on_judge, folder_path_str: str):
+def render_random_mode(on_play, on_judge, folder_path_str: str):
     """ランダムモードの描画"""
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1.5, 1.5, 2], gap="small")
 
@@ -363,7 +363,7 @@ def _render_random_mode(on_play, on_judge, folder_path_str: str):
                 )
 
 
-def _render_fate_mode(on_play, on_judge, folder_path_str: str, kpi: dict):
+def render_fate_mode(on_play, on_judge, folder_path_str: str, kpi: dict):
     """運命の1本モードの描画。経過日数重み付きで未選別動画を1本選出・再生・評価する。"""
     vm = st.session_state.video_manager
 

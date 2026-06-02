@@ -227,6 +227,8 @@ data/user_config.json
 video_analysis.ipynb
 # Playwright MCP（テスト用スクリーンショットなど）
 .playwright-mcp/
+# スクリーンショット専用フォルダ（git管理外）
+screenshots/
 
 # Temporary/untracked local files
 _ul
