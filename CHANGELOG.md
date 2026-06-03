@@ -4,6 +4,45 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-03 — Phase 3-A: FastAPI 基盤構築（最小・read-only）
+
+**目的**: MIGRATION_PLAN の Phase 3-A を実装。FastAPI が `core/` を共有して `videos.db` から実データを read-only で配信できることを最小構成で実証する。Streamlit(8501) と並走しても DB へ書き込まない。`core/`・`ui/`・`streamlit_app.py`・`data/` は一切変更せず、新規ファイルのみ。
+
+**関連ファイル**: `api_app.py`（新規）, `api/__init__.py`・`api/schemas.py`・`api/videos.py`（新規）, `tests/api/`（新規）, `run_api.bat`（新規）, `requirements.txt`（fastapi/uvicorn/httpx 追加）
+
+- `api_app.py`: FastAPI エントリーポイント（既定 `127.0.0.1:8000`）。CORS で `localhost:3000` を許可。`GET /api/health` を提供。**lifespan は read-only**（起動時 `check_database_exists()` の確認のみ。`init_database`/`run_startup_migration` は実行せず DB 初期化は Streamlit に委ねる＝並走中の SQLite 同時書き込み回避）
+- `api/schemas.py`: Pydantic モデル `VideoOut`（snake_case、派生 `is_selection_completed`/`is_judged` を含む。日時は ISO8601 文字列で素通し）, `VideosResponse`, `HealthResponse`。`VideoOut.from_video()` で dataclass → モデル変換
+- `api/videos.py`: `GET /api/videos`。フィルタ（levels/performers/storage/availability/show_unavailable/show_deleted/needs_selection_filter/exclude_selection）を `app_service.create_video_manager().get_videos()` にマップ。サーバー側ソート（level/modified/created/title）+ ページング（page/page_size, 上限200）。ファサード経由のみ（core 変更不要）
+- **設計**: `api/` は `core.app_service` のみを呼ぶ（ファサード一本化）。`streamlit` 非 import。view_count/last_viewed ソート・filter-options・mutation・wrapper は Phase 3-B 送り
+- **検証**: `pytest tests/` 32 passed（既存27 + 新規API5）。uvicorn 起動で `/api/health`→`{status:ok, db_exists:true}`、`/api/videos?page_size=3`→実データ total=214、`/docs`(OpenAPI) 200 を確認。`git status` で `core/`・`ui/`・`streamlit_app.py`・`data/videos.db` に差分なし
+
+---
+
+## 2026-06-03 — Phase 3 準備: FastAPI/Next.js 移行計画の立案（ドキュメントのみ）
+
+**目的**: Phase 2 の移行仕様書を土台に、FastAPI（バックエンド API）+ Next.js（フロントエンド）への移行を「Streamlit を動かしたまま安全に進める」ための実装計画を立案。コードは一切変更しない。
+
+**関連ファイル**: `docs/context/MIGRATION_PLAN.md`（新規）
+
+- バックエンドは **FastAPI** を採用（`analysis_service` の pandas DataFrame を Pydantic/JSON 直列化・自動 OpenAPI で扱える点、Next.js 側の型生成が容易な点が理由）。既存 docs の「Flask」表記は FastAPI 実装への読み替え（REST パス・スキーマは不変）と冒頭で明示
+- `MIGRATION_PLAN.md`: 6タスクを報告フォーマット（結論・推奨/詳細/注意点・リスク）で記述 — (1)技術選定（FastAPI+uvicorn / Next.js App Router+TS / shadcn/ui、ポート8000推奨、`next build && next start`）、(2)ディレクトリ構成（`api_app.py`+`api/`、`frontend/`、`ui`と`api`を物理分離）、(3)FastAPI 実装計画（read系→中核mutation→統計→分析→スキャンの順、Pydantic response model + DataFrame→dict/list + datetime ISO8601、`TestClient`+既存`tmp_db`再利用）、(4)Next.js 実装計画（画面実装順、`VideoCard`等の再利用部品、TanStack Query=サーバー状態 / Zustand=クライアント横断状態、AVPはPhase4対象外）、(5)5フェーズ分割（各Phaseに**DB書き込み主体**を明記）、(6)リスク（SQLite同時書き込み・起動時migration競合・subprocess再生・CORS等）
+- **検証**: `git status` で `core/`・`ui/`・`streamlit_app.py`・`data/` に差分なし（変更は docs/ と本ファイルのみ）。`pytest tests/` 全件グリーン（コード未変更の回帰なし確認）
+
+---
+
+## 2026-06-03 — Phase 2: Flask/Next.js 移行のための仕様書化（ドキュメントのみ）
+
+**目的**: Flask（バックエンド API）+ Next.js（フロントエンド）への移行を「迷わず実行できる」状態にするための設計文書を新規作成。コードは一切変更しない。
+
+**関連ファイル**: `docs/context/API_SPEC.md`（新規）, `docs/context/ACCEPTANCE_CRITERIA.md`（新規）, `docs/context/MIGRATION_MAP.md`（新規）
+
+- `API_SPEC.md`: `core/app_service.py` を起点に Flask エンドポイントを6グループ（動画一覧・検索 / 再生・判定 / いいね / 統計・分析 / スキャン・設定 / DBバックアップ）で定義。共通事項に API 境界方針（app_service wrapper 一本化）・ローカル専用実行環境前提・Video レスポンススキーマ（snake_case、派生 `is_selection_completed` 含む）・論理削除ポリシー（一覧系のみ既定除外、単体取得は削除済みも返す）・ソート/ページング方針を明記。ファイル不在時の副作用（`is_available=0` 更新）を再生・判定エンドポイントに明記。分析画面は個別エンドポイントに分割。AVP は HTTP API 対象外として独立節に明記
+- `ACCEPTANCE_CRITERIA.md`: Tier1/Tier2（各 ライブラリ/ランダム/運命の1本）・ランキング・分析・検索・AVP・設定の合否基準を日本語チェックリストで記述。異常系はファイル不在時の実挙動（履歴・レベル不変、可用性のみ更新）に整合
+- `MIGRATION_MAP.md`: 現行 Streamlit UI 関数（`ui/*.py`, `streamlit_app.py`, `ui/cache.py`）と将来の Flask API の対応を画面単位の表で列挙
+- **検証**: `git status` で `core/`・`ui/`・`streamlit_app.py` に差分なし（変更は docs/ と本ファイルのみ）。`pytest tests/` 全件グリーン（コード未変更の回帰なし確認）
+
+---
+
 ## 2026-06-03 — Phase 1 追加整理: 残存デッドコード削除（調査サマリー実行）
 
 **目的**: 読み取り専用の追加調査で特定した、active tree に残る未使用ヘルパーを削除。直近慣行に合わせ archive/ 退避ではなく直接削除（復旧は git 履歴）。
