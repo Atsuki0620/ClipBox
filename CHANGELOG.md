@@ -4,6 +4,19 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-03 — Phase 2: Flask/Next.js 移行のための仕様書化（ドキュメントのみ）
+
+**目的**: Flask（バックエンド API）+ Next.js（フロントエンド）への移行を「迷わず実行できる」状態にするための設計文書を新規作成。コードは一切変更しない。
+
+**関連ファイル**: `docs/context/API_SPEC.md`（新規）, `docs/context/ACCEPTANCE_CRITERIA.md`（新規）, `docs/context/MIGRATION_MAP.md`（新規）
+
+- `API_SPEC.md`: `core/app_service.py` を起点に Flask エンドポイントを6グループ（動画一覧・検索 / 再生・判定 / いいね / 統計・分析 / スキャン・設定 / DBバックアップ）で定義。共通事項に API 境界方針（app_service wrapper 一本化）・ローカル専用実行環境前提・Video レスポンススキーマ（snake_case、派生 `is_selection_completed` 含む）・論理削除ポリシー（一覧系のみ既定除外、単体取得は削除済みも返す）・ソート/ページング方針を明記。ファイル不在時の副作用（`is_available=0` 更新）を再生・判定エンドポイントに明記。分析画面は個別エンドポイントに分割。AVP は HTTP API 対象外として独立節に明記
+- `ACCEPTANCE_CRITERIA.md`: Tier1/Tier2（各 ライブラリ/ランダム/運命の1本）・ランキング・分析・検索・AVP・設定の合否基準を日本語チェックリストで記述。異常系はファイル不在時の実挙動（履歴・レベル不変、可用性のみ更新）に整合
+- `MIGRATION_MAP.md`: 現行 Streamlit UI 関数（`ui/*.py`, `streamlit_app.py`, `ui/cache.py`）と将来の Flask API の対応を画面単位の表で列挙
+- **検証**: `git status` で `core/`・`ui/`・`streamlit_app.py` に差分なし（変更は docs/ と本ファイルのみ）。`pytest tests/` 全件グリーン（コード未変更の回帰なし確認）
+
+---
+
 ## 2026-06-03 — Phase 1 追加整理: 残存デッドコード削除（調査サマリー実行）
 
 **目的**: 読み取り専用の追加調査で特定した、active tree に残る未使用ヘルパーを削除。直近慣行に合わせ archive/ 退避ではなく直接削除（復旧は git 履歴）。
