@@ -16,7 +16,7 @@ from typing import List, Optional, Dict
 from datetime import datetime
 from pathlib import Path
 
-from core.models import Video
+from core.models import Video, is_path_within
 from core.database import get_db_connection, insert_play_history
 from core.logger import get_logger
 from config import FAVORITE_LEVEL_NAMES
@@ -147,8 +147,7 @@ class VideoManager:
         if not videos:
             return None
         if folder_path_str:
-            norm = folder_path_str.rstrip("/\\").lower()
-            videos = [v for v in videos if v.current_full_path.lower().startswith(norm)]
+            videos = [v for v in videos if is_path_within(v.current_full_path, folder_path_str)]
         if not videos:
             return None
 

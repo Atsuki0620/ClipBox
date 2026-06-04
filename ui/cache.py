@@ -47,7 +47,6 @@ def get_metrics() -> tuple[int, int]:
 
 @st.cache_data(ttl=10)
 def get_kpi_stats_cached() -> dict:
-    """KPI統計を取得（10秒間キャッシュ）"""
-    from ui.components.kpi_display import get_kpi_stats
-    with get_db_connection() as conn:
-        return get_kpi_stats(conn)
+    """KPI統計を取得（10秒間キャッシュ）。集計ロジックは core 側に移設済み。"""
+    from core import app_service
+    return app_service.get_kpi_stats()

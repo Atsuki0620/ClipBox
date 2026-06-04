@@ -17,9 +17,9 @@ core.models.Video → api.schemas.VideoOut（変換は VideoOut.from_video）
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.models import Video
 
@@ -86,6 +86,180 @@ class VideosResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FilterOptionsResponse(BaseModel):
+    """フィルタ UI 用の選択肢（使用中のレベル・登場人物・保存場所）。"""
+
+    favorite_levels: List[int]
+    performers: List[str]
+    storage_locations: List[str]
+
+
+class KpiResponse(BaseModel):
+    """Tier1 KPI（未判定数・判定済み数・判定率・本日の判定数）。"""
+
+    unrated_count: int
+    judged_count: int
+    judged_rate: float
+    today_judged_count: int
+
+
+class SelectionKpiResponse(BaseModel):
+    """Tier2 セレクション KPI（未選別数・判定済み数・判定率・本日の判定数）。"""
+
+    unselected_count: int
+    judged_count: int
+    judged_rate: float
+    today_judged_count: int
+
+
+class RankingItem(BaseModel):
+    """ランキング1件（順位 + 動画 + スコア）。"""
+
+    rank: int
+    video: VideoOut
+    score: int
+
+
+class RankingResponse(BaseModel):
+    """ランキング一覧（カード系 /api/ranking 用：動画をネストする）。"""
+
+    items: List[RankingItem]
+
+
+# --- mutation / 管理系 --------------------------------------------------------
+
+class StatusMessageResponse(BaseModel):
+    """status / message のみの汎用レスポンス（play / level / config 保存等）。"""
+
+    status: str
+    message: str
+
+
+class PlayRequest(BaseModel):
+    """再生リクエスト（すべて任意）。"""
+
+    player: Optional[str] = None
+    trigger: Optional[str] = None
+    library_root: Optional[str] = None
+    internal_id: Optional[str] = None
+
+
+class LevelRequest(BaseModel):
+    """お気に入りレベル変更リクエスト。level=null は未判定。許容は null / -1..4。"""
+
+    level: Optional[int] = Field(default=None, ge=-1, le=4)
+
+
+class LikeResponse(BaseModel):
+    """いいね追加後のレスポンス。"""
+
+    video_id: int
+    like_count: int
+
+
+class ScanLibraryResponse(BaseModel):
+    """ライブラリスキャン結果。"""
+
+    status: str
+    message: str
+
+
+class ScanSelectionRequest(BaseModel):
+    """セレクションフォルダスキャンのリクエスト（folder 省略時は config）。"""
+
+    folder: Optional[str] = None
+
+
+class ScanSelectionResponse(BaseModel):
+    """セレクションフォルダスキャン結果。"""
+
+    status: str
+    message: str
+    found_count: int
+
+
+class BackupResponse(BaseModel):
+    """DB バックアップ結果。"""
+
+    status: str
+    message: str
+    filename: str
+    size_bytes: int
+
+
+class ConfigModel(BaseModel):
+    """ユーザー設定（GET/PUT /api/config）。"""
+
+    library_roots: List[str] = []
+    default_player: str = "vlc"
+    avp_exe_path: Optional[str] = None
+    db_path: Optional[str] = None
+    selection_folder: Optional[str] = None
+
+
+# --- 分析 --------------------------------------------------------------------
+
+class AnalysisDataResponse(BaseModel):
+    """分析ダッシュボードの基礎データ（動画ごとの集計レコード配列）。"""
+
+    items: List[Dict[str, Any]]
+    total: int
+
+
+class ViewingHistoryItem(BaseModel):
+    """視聴履歴1件。"""
+
+    video_id: int
+    viewed_at: Optional[str] = None
+
+
+class JudgmentHistoryItem(BaseModel):
+    """判定履歴1件。"""
+
+    video_id: int
+    judged_at: Optional[str] = None
+
+
+class ResponseTimeItem(BaseModel):
+    """判定応答時間1件（ヒストグラム用）。"""
+
+    duration_ms: int
+    storage: Optional[str] = None
+
+
+class SelectionTrendItem(BaseModel):
+    """セレクション判定の日次件数。"""
+
+    date: str
+    count: int
+
+
+class SelectionDistributionItem(BaseModel):
+    """セレクション判定結果のレベル分布。"""
+
+    level: Optional[int] = None
+    count: int
+
+
+class AnalysisRankingItem(BaseModel):
+    """分析ダッシュボードのランキング1件（フラット snake_case・型付き）。"""
+
+    rank: int
+    filename: str
+    is_available: Optional[bool] = None
+    storage_location: Optional[str] = None
+    file_created_at: Optional[str] = None
+    favorite_level: int
+    score: int
+
+
+class AnalysisRankingResponse(BaseModel):
+    """分析ランキング一覧（kind に応じた score 列）。"""
+
+    kind: str
+    items: List[AnalysisRankingItem]
 
 
 def _as_str(value) -> Optional[str]:
