@@ -3,11 +3,12 @@ ClipBox - モデル定義
 動画メタ情報のデータクラスと共通ユーティリティを提供
 """
 
+import os
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-import unicodedata
 
 
 @dataclass
@@ -89,6 +90,20 @@ def normalize_text(text: str) -> str:
         else:
             result_chars.append(ch)
     return "".join(result_chars)
+
+
+def is_path_within(path: str, folder: str) -> bool:
+    """path が folder 配下（または folder 自身）かを、区切り文字境界を尊重して判定する。
+
+    単純な前方一致だと `C:\\sel` が `C:\\selection2\\...` に誤マッチするため、
+    os.path.normcase/normpath で正規化し、完全一致または `folder + os.sep` 始まりのみ True とする。
+    ファイルシステムには触れない（存在しないパスでも判定可）。
+    """
+    if not path or not folder:
+        return False
+    p = os.path.normcase(os.path.normpath(path))
+    f = os.path.normcase(os.path.normpath(folder))
+    return p == f or p.startswith(f + os.sep)
 
 
 def create_sort_key(video, sort_option: str, view_counts: dict, last_viewed_map: dict):

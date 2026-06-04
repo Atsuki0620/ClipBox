@@ -4,6 +4,52 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-05 — Phase 3-B: FastAPI 全エンドポイント実装
+
+**目的**: API_SPEC の残り 28 エンドポイント（計 29 − Phase 3-A の `GET /api/videos`）を実装し、`core/` を
+共有したまま read + mutation + 分析の全機能を FastAPI で提供する。Next.js 着手（Phase 4-A）の前提を満たす。
+設計判断はユーザー合意で「過去文書整合より品質・安全・全体最適を優先」。
+
+**関連ファイル**: `api/videos.py`(拡張), `api/stats.py`・`api/actions.py`・`api/likes.py`・`api/admin.py`・
+`api/analysis.py`・`api/_params.py`・`api/_serialization.py`（新規）, `api/schemas.py`(拡張), `api_app.py`(配線),
+`core/app_service.py`（wrapper 13本追加）, `core/analysis_service.py`（`get_kpi_stats` 移設・`get_like_count_ranking`
+期間対応）, `ui/components/kpi_display.py`・`ui/cache.py`（KPI 移設に伴う参照更新）, `tests/api/`（conftest + 5本）,
+`tests/test_analysis_service.py`（KPI/likes 期間テスト追加）, `docs/context/API_SPEC.md`（FastAPI 表記・契約更新）
+
+- **Stage 1（core 整理）**: `get_kpi_stats(conn)` を `ui/components/kpi_display.py` → `core/analysis_service.py`
+  へ移設（純 SQL・streamlit 非依存）。`ui/cache.py:get_kpi_stats_cached()` は `app_service.get_kpi_stats()` に委譲。
+  `app_service` に薄い wrapper を追加（`get_videos`/`get_videos_by_ids`/`play_video`/`get_fate_video`/
+  `get_unrated_random_videos`/`get_unrated_fate_video`/`search_videos`/`get_view_counts_map`/`get_last_viewed_map`/
+  `get_filter_options`/`create_backup`/`get_kpi_stats`/`scan_library`）。`get_like_count_ranking` に任意
+  `period_start/end` を追加（`liked_at` 絞り込み・既定 None で後方互換）。
+- **Stage 2（read）**: 一覧 `GET /api/videos` に `sort`（`favorite_level`/`creation_date`/`view_count`/
+  `last_viewed`/`title`/`modified`）+ `order` を追加。`/videos/{id}`・`/videos/search`・`/videos/unrated/{random,fate}`・
+  `/videos/selection{,/fate}`・`/filter-options`・`/stats/{kpi,selection-kpi,view-counts,last-viewed}`・`/ranking`。
+  **ルートは固定パス→`{id}` の順で定義**（FastAPI のパス解決順）。
+- **Stage 3（mutation）**: `/videos/{id}/play`・`/level`・`/like`・`/likes`・`/scan/{library,selection}`・
+  `GET/PUT /config`・`/backup`。HTTP マッピングは **404（事前存在チェック）/ 409（実行後 is_available==0）/ 500**
+  を core 非改変・メッセージ非依存で実装。`scan_library` は config roots を **Path 化**して構築。
+- **Stage 4（分析）**: `df_records()`（NaN→None / Timestamp→ISO / numpy→Python）で DataFrame を JSON 安全化。
+  `/analysis/{data,viewing-history,judgment-history,response-time,rankings,selection-trend,selection-distribution}`。
+  **rankings はフラット snake_case・型付き**（`is_available: bool|null` / `file_created_at: ISO|null` / `score: int`）。
+- **契約整備**: 配列クエリは**カンマ区切り + repeated 両対応**（`api/_params.py`、不正整数は 422）。列挙パラメータ
+  （sort/order/status/kind/type/period/availability）は `Literal` で 422。`config` に `selection_folder` を追加し、
+  `/scan/selection` は folder 未設定時 400、`/stats/selection-kpi` は未設定時に全体 KPI。
+- **テスト隔離**: `tests/api/conftest.py` で `core.config_utils.{CONFIG_PATH,SCAN_DIRECTORIES,DATABASE_PATH}` と
+  `config.BACKUP_DIR` を tmp に monkeypatch（config_utils は import 時に定数束縛するため `config` だけでは不足）。
+  play テストは `subprocess.Popen` を monkeypatch。
+- **レビュー修正（同日・追加）**: (1) `PUT /level` の `level` を `Field(ge=-1, le=4)` 化し範囲外（-2/5/999）を 422、
+  (2) セレクション folder 絞り込みを `core.models.is_path_within`（区切り境界尊重）へ置換し `C:\sel`/`C:\selection2`
+  の誤マッチを解消（API `_folder_filter` + core `get_fate_video` 双方＝Streamlit にも波及）、
+  (3) `/scan/library`・`/scan/selection` を error→500・folder 不在→404 に統一（backup と整合）、
+  (4) `API_SPEC.md` の `/analysis/{data,rankings}` レスポンス形を実装一致（`{items,total}` / フラット型付き+`kind`）へ。
+- **検証**: `pytest tests/` **83 passed**（既存 32 + 新規 51）。TestClient スモーク（実データ）で
+  `/api/health`・`/stats/kpi`・`/videos`（total=214）・`/ranking`・`/analysis/data`（total=4056）・
+  `/analysis/rankings` が 200、OpenAPI に 29 パス。`core/` 変更は KPI 移設＋wrapper＋likes 期間に限定、`ui/` は
+  `kpi_display.py`/`cache.py` のみ、`data/` に差分なし。
+
+---
+
 ## 2026-06-03 — Phase 3-A: FastAPI 基盤構築（最小・read-only）
 
 **目的**: MIGRATION_PLAN の Phase 3-A を実装。FastAPI が `core/` を共有して `videos.db` から実データを read-only で配信できることを最小構成で実証する。Streamlit(8501) と並走しても DB へ書き込まない。`core/`・`ui/`・`streamlit_app.py`・`data/` は一切変更せず、新規ファイルのみ。

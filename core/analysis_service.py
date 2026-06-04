@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Literal, Optional, Sequence, Tuple
+from sqlite3 import Connection
+from typing import Dict, Iterable, Literal, Optional, Sequence, Tuple
 
 import pandas as pd
 
@@ -48,6 +49,63 @@ def _run_chunked_query(
 
 AvailabilityFilter = Literal["利用可能のみ", "利用不可のみ", "すべて"]
 PeriodPreset = Literal["全期間", "直近7日", "直近30日", "直近90日", "直近180日", "カスタム"]
+
+
+def get_kpi_stats(conn: Connection) -> Dict[str, float]:
+    """
+    Tier1 KPI 統計を取得する（未判定数・判定済み数・判定率・本日の判定数）。
+
+    UI 非依存の純 SQL 集計。FastAPI からは app_service.get_kpi_stats() 経由で呼ぶ。
+    （旧 ui/components/kpi_display.py から移設。表示用 render_* は UI 層に残す）
+    """
+    # 未判定数（内部値 -1、利用可能、未削除、セレクションフォルダを除く）
+    unrated_count = conn.execute(
+        """
+        SELECT COUNT(*)
+          FROM videos
+         WHERE current_favorite_level = -1
+           AND is_available = 1
+           AND is_deleted = 0
+           AND needs_selection = 0
+           AND is_selection_completed = 0
+        """
+    ).fetchone()[0]
+
+    # 判定済み数（Lv0以上、利用可能、未削除、セレクションフォルダを除く）
+    judged_count = conn.execute(
+        """
+        SELECT COUNT(*)
+          FROM videos
+         WHERE current_favorite_level >= 0
+           AND is_available = 1
+           AND is_deleted = 0
+           AND needs_selection = 0
+           AND is_selection_completed = 0
+        """
+    ).fetchone()[0]
+
+    total = unrated_count + judged_count
+    judged_rate = (judged_count / total * 100) if total else 0.0
+
+    # 本日の判定数（judgment_history が無い場合は 0 とする）
+    try:
+        today_judged_count = conn.execute(
+            """
+            SELECT COUNT(DISTINCT video_id)
+              FROM judgment_history
+             WHERE DATE(judged_at) = DATE('now','localtime')
+               AND was_selection_judgment = 0
+            """
+        ).fetchone()[0]
+    except Exception:
+        today_judged_count = 0
+
+    return {
+        "unrated_count": int(unrated_count),
+        "judged_count": int(judged_count),
+        "judged_rate": float(judged_rate),
+        "today_judged_count": int(today_judged_count),
+    }
 
 
 def load_analysis_data(is_deleted_filter: Optional[int]) -> pd.DataFrame:
@@ -280,8 +338,17 @@ def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
     ]
 
 
-def get_like_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
-    """いいね数ランキング DataFrame を返す（全期間累計）。"""
+def get_like_count_ranking(
+    df_filtered: pd.DataFrame,
+    period_start: Optional[datetime] = None,
+    period_end: Optional[datetime] = None,
+    top_n: int = 50,
+) -> pd.DataFrame:
+    """いいね数ランキング DataFrame を返す。
+
+    period_start / period_end を渡すと likes.liked_at をその期間で絞る。
+    いずれも None（既定）なら全期間累計（後方互換）。
+    """
     if df_filtered.empty:
         return pd.DataFrame(
             columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
@@ -293,15 +360,26 @@ def get_like_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.Dat
             columns=["順位", "ファイル名", "利用可否", "保存場所", "ファイル作成日", "お気に入りレベル", "いいね数"]
         )
 
-    # likesテーブルから動画別いいね数を集計
-    base_query = """
+    # likesテーブルから動画別いいね数を集計（任意で liked_at の期間で絞る）
+    # NOTE: _run_chunked_query は extra_params を IN 句のチャンクより前に渡すため、
+    #       期間条件は SQL 上 IN 句より前に置く。
+    period_conditions: list = []
+    extra_params: list = []
+    if period_start is not None:
+        period_conditions.append("liked_at >= ?")
+        extra_params.append(period_start)
+    if period_end is not None:
+        period_conditions.append("liked_at <= ?")
+        extra_params.append(period_end)
+    where_period = (" AND ".join(period_conditions) + " AND ") if period_conditions else ""
+    base_query = f"""
         SELECT video_id, COUNT(*) AS like_count
           FROM likes
-         WHERE video_id IN ({placeholders})
+         WHERE {where_period}video_id IN ({{placeholders}})
          GROUP BY video_id
     """
     with get_db_connection() as conn:
-        rows = _run_chunked_query(conn, base_query, video_ids)
+        rows = _run_chunked_query(conn, base_query, video_ids, extra_params)
     df_likes = (
         pd.DataFrame(rows)
         if rows
