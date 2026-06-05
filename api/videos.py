@@ -25,7 +25,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from core import app_service
-from core.models import Video, is_path_within
+from core.models import Video, is_path_within, normalize_text
 from api.schemas import FilterOptionsResponse, VideoOut, VideosResponse
 from api._params import csv_int_list, csv_str_list
 
@@ -92,6 +92,7 @@ def list_videos(
     show_deleted: bool = Query(default=False, description="論理削除済みも含める"),
     needs_selection_filter: Optional[bool] = Query(default=None, description="True=未選別のみ / False=通常のみ / 省略=全て"),
     exclude_selection: bool = Query(default=False, description="セレクション対象・完了を除外"),
+    keyword: Optional[str] = Query(default=None, description="本質的ファイル名の部分一致検索（normalize_text 正規化）"),
     sort: Optional[SortField] = Query(default=None, description="favorite_level / creation_date / view_count / last_viewed / title / modified"),
     order: Optional[Order] = Query(default=None, description="asc / desc（既定: title は asc、他は desc）"),
     page: int = Query(default=1, ge=1),
@@ -108,6 +109,9 @@ def list_videos(
         needs_selection_filter=needs_selection_filter,
         exclude_selection=exclude_selection,
     )
+    if keyword:
+        kw_norm = normalize_text(keyword)
+        videos = [v for v in videos if kw_norm in normalize_text(v.essential_filename)]
     videos = _apply_sort(videos, sort, order)
     return _paginate(videos, page, page_size)
 

@@ -72,8 +72,15 @@ def get_config() -> ConfigModel:
 
 @router.put("/config", response_model=StatusMessageResponse)
 def put_config(body: ConfigModel) -> StatusMessageResponse:
-    """ユーザー設定を保存する。"""
-    app_service.save_user_config(body.model_dump(exclude_none=True))
+    """ユーザー設定を保存する。
+
+    全上書きではなく既存設定へマージする。`ConfigModel` に定義のないキー
+    （`show_unavailable` / `show_deleted` 等の正本ファイル側キー）を PUT で消さないため。
+    モデル化されたキーは送信値で置換される（全置換セマンティクスは維持）。
+    """
+    config = app_service.load_user_config()
+    config.update(body.model_dump(exclude_none=True))
+    app_service.save_user_config(config)
     return StatusMessageResponse(status="success", message="設定を保存しました")
 
 

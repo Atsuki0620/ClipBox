@@ -57,6 +57,43 @@ def test_list_videos_levels_filter(tmp_db, tmp_path):
     assert body["items"][0]["essential_filename"] == "alpha.mp4"
 
 
+def test_list_videos_keyword_filters_by_essential_filename(tmp_db, tmp_path):
+    """keyword で本質的ファイル名に部分一致する動画のみ返る（フィルタと合成可能）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+
+    body = client.get("/api/videos", params={"keyword": "alph"}).json()
+
+    assert body["total"] == 1
+    assert body["items"][0]["essential_filename"] == "alpha.mp4"
+
+
+def test_list_videos_keyword_combines_with_filters_and_paging(tmp_db, tmp_path):
+    """keyword + levels + ページングが整合する（検索後にソート→ページング）。"""
+    _insert_video("report1.mp4", str(tmp_path / "###_report1.mp4"), 3, "P1")
+    _insert_video("report2.mp4", str(tmp_path / "###_report2.mp4"), 3, "P1")
+    _insert_video("memo.mp4", str(tmp_path / "###_memo.mp4"), 3, "P1")
+    client = TestClient(app)
+
+    body = client.get("/api/videos", params={"keyword": "report", "levels": [3], "page_size": 1, "page": 1}).json()
+
+    assert body["total"] == 2          # report* のみが検索対象
+    assert len(body["items"]) == 1     # page_size=1 で1件
+    assert body["items"][0]["essential_filename"].startswith("report")
+
+
+def test_list_videos_keyword_normalizes_fullwidth_and_case(tmp_db, tmp_path):
+    """keyword は NFKC・小文字化・カナ寄せで正規化一致する。"""
+    _insert_video("ABCもも.mp4", str(tmp_path / "ABCもも.mp4"), 0, "P1")
+    client = TestClient(app)
+
+    # 全角・大文字で検索しても一致（normalize_text）
+    body = client.get("/api/videos", params={"keyword": "ＡＢＣ"}).json()
+
+    assert body["total"] == 1
+    assert body["items"][0]["essential_filename"] == "ABCもも.mp4"
+
+
 def test_list_videos_pagination(tmp_db, tmp_path):
     """page_size / page でページングされ、total は全件数を返す。"""
     _seed(tmp_path)
