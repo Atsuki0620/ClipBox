@@ -29,6 +29,40 @@ def test_put_then_get_config_roundtrips(client):
     assert cfg["library_roots"] == ["C:/videos"]
 
 
+def test_put_config_preserves_unmodeled_keys(client, tmp_path):
+    """PUT /config は ConfigModel 未定義のキー（show_unavailable 等）を消さない（マージ保存）。"""
+    import json
+
+    cfg_path = tmp_path / "user_config.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "library_roots": ["C:/old"],
+                "default_player": "vlc",
+                "show_unavailable": True,
+                "show_deleted": False,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "library_roots": ["C:/new"],
+        "default_player": "mpv",
+        "selection_folder": "C:/sel",
+    }
+    assert client.put("/api/config", json=payload).status_code == 200
+
+    saved = json.loads(cfg_path.read_text(encoding="utf-8"))
+    # モデル化キーは送信値で置換される
+    assert saved["default_player"] == "mpv"
+    assert saved["library_roots"] == ["C:/new"]
+    # モデル外キーは保全される
+    assert saved["show_unavailable"] is True
+    assert saved["show_deleted"] is False
+
+
 def test_backup_creates_file(client, tmp_path):
     """POST /backup は tmp の BACKUP_DIR に .db を作る。"""
     body = client.post("/api/backup").json()

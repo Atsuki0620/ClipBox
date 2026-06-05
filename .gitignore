@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# ルート限定（frontend/src/lib/ を巻き込まないよう先頭スラッシュで固定）
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -221,6 +222,7 @@ data/app_settings.json
 data/user_config.json
 # Claude Code ローカル設定（環境固有の設定）
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 # Streamlit設定
 .streamlit/
 # 分析ノートブック（個人の動画情報が含まれるため）
@@ -229,6 +231,13 @@ video_analysis.ipynb
 .playwright-mcp/
 # スクリーンショット専用フォルダ（git管理外）
 screenshots/
+
+# Next.js frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*
+frontend/next-env.d.ts
 
 # Temporary/untracked local files
 _ul
