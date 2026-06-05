@@ -4,6 +4,105 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-06 — ドキュメント整備: README 新規作成・MIGRATION_PLAN 進捗更新
+
+**目的**: 残作業の可視化とアプリ起動手順の明文化。
+
+**関連ファイル**: `README.md`（新規）, `docs/context/MIGRATION_PLAN.md`（Phase 4-A を完了・4-B 残作業を明記）
+
+- `README.md` を新規作成。Streamlit / FastAPI / Next.js の個別・一括起動手順、前提環境、移行期間中の注意事項、残作業一覧（分析・設定が未実装）を記載
+- `MIGRATION_PLAN.md` の Phase 表を更新: 4-A を ✅完了、4-B に「実装済み: /tier2・/ranking、残: /analysis・/settings」を明記
+
+---
+
+## 2026-06-06 — Phase 4-B-1: ルーティング基盤 + Tier1 ランダム/運命 + 検索
+
+**目的**: Phase 4-A の Next.js 基盤を拡張し、App Router の実ルーティング、Tier1 ランダム/運命の1本、
+検索画面を追加する。`VideoCard` と API 通信基盤を再利用し、後続画面追加のパターンを固める。
+
+**関連ファイル**: `frontend/src/components/{SidebarNav,VideoGrid,VideoCard}.tsx`,
+`frontend/src/app/{random,search}/page.tsx`, `frontend/src/components/ui/tabs.tsx`,
+`frontend/src/lib/api.ts`, `frontend/src/app/page.tsx`, `docs/context/{IMPLEMENTATION_GUIDE,MIGRATION_PLAN}.md`
+
+- **ルーティング基盤**: `SidebarNav` を `next/link` + `usePathname()` に変更し、`/`・`/random`・`/search` を活線化。
+  Tier2 / ranking / analysis / settings はプレースホルダとしてクリック不可のまま維持。
+- **共通グリッド**: `VideoGrid` を追加し、表示中の動画だけを対象に `GET /likes` と `GET /stats/view-counts` を取得。
+  ライブラリ画面も `VideoGrid` 利用へ変更。検索はクライアントページング後の表示ページ分だけを渡し、URL 長を抑制。
+- **VideoCard 更新**: 画面別の `invalidateKeys` を受け取る方式へ変更。共通の KPI / likes / view-counts は更新しつつ、
+  ランダム/運命画面では操作後に勝手な再抽選が起きないようリスト query の invalidate を抑制。利用不可動画の再生・判定は
+  disabled、いいねは現行どおり許可。
+- **Tier1 ランダム/運命**: `/random` を追加。Base UI tabs でランダムと運命の1本を切替。ランダムは本数選択 +
+  シャッフルで再選出、運命の1本は初期自動取得せずボタン押下で取得。`204 No Content` は `null` として対象なし表示。
+- **検索**: `/search` を追加。キーワード + 保存場所フィルタで `GET /api/videos/search` を呼び、正規化一致・利用不可込みの
+  検索結果を表示。unpaged API のため、画面側でページングする。
+- **検証**: `frontend` で `npm run build`（`/`, `/random`, `/search` 生成）+ `npm run lint` が通過。dev server で
+  `/`・`/random`・`/search` は 200。API スモークで `/videos/unrated/random?n=10` は10件、`/videos/unrated/fate` は200、
+  全角 `ＳＴＡＲ` + `storage=C_DRIVE` 検索は29件を確認。
+
+---
+
+## 2026-06-05 — Phase 4-A: Next.js 基盤 + Tier1 ライブラリ画面
+
+**目的**: MIGRATION_PLAN Phase 4-A。`frontend/` に Next.js フロントエンド基盤を新設し、Tier1 ライブラリ画面
+（一覧・フィルタ・検索・ソート・ページング・KPI・再生/判定/いいね）を最初の縦串として動かす。`VideoCard` と
+API 通信の共通基盤（`lib/api.ts` + TanStack Query + Zustand）を確立する。
+
+**関連ファイル**: `frontend/`（新規・Next.js 16 + React 19 + Tailwind v4 + shadcn/ui[base-nova/Base UI]）,
+`frontend/src/lib/{api,types,store,levels}.ts`, `frontend/src/app/{layout,page,providers}.tsx`,
+`frontend/src/components/{VideoCard,KpiCard,FilterPanel,MultiSelect,Pagination,SidebarNav}.tsx`,
+`api/videos.py`（keyword 追加）, `tests/api/test_videos.py`（keyword テスト×3）, `docs/context/API_SPEC.md`,
+`run_dev.bat`（新規）, `.gitignore`（frontend 節）
+
+- **バックエンド拡張（作業0）**: `GET /api/videos` に `keyword` を追加（`normalize_text` でフィルタ適用後・ソート前に
+  本質的ファイル名へ正規化部分一致）。検索 + フィルタ + ソート + ページングを1エンドポイントで合成可能にした
+  （`/videos/search` は単独 `Video[]` のままで合成不可だったため）。`pytest tests/` **87 passed**（84→+3）。
+- **フロント基盤**: `create-next-app`（TS / App Router / Tailwind v4 / src / `@/*`）+ `@tanstack/react-query` + `zustand`。
+  shadcn/ui は `init -d`（preset base-nova = **Base UI** ベース。Radix ではない）。Base UI の Trigger は `asChild` ではなく
+  **`render` プロップ**で合成する点に注意（Popover/Tooltip で適用）。
+- **通信基盤**: `lib/api.ts`（fetch 薄ラッパ・`ApiError`・配列はカンマ区切り・`NEXT_PUBLIC_API_BASE` 既定
+  `http://localhost:8000/api`）、`lib/types.ts`（snake_case 維持）、`lib/store.ts`（Zustand フィルタ状態、既定は
+  exclude_selection=ON）、`app/providers.tsx`（QueryClientProvider + TooltipProvider）。
+- **Tier1 画面**: KPI 4枚 + FilterPanel（レベル/登場人物/保存場所の複数選択=popover+command+checkbox、キーワード、
+  セレクション除外/利用不可表示の switch、ソート select）+ VideoCard グリッド + Pagination。いいね数は `GET /likes`、
+  視聴回数は `GET /stats/view-counts` を併用。**mutation は `onSettled` で invalidate**（成功時だけでなく 409
+  ＝ファイル不在で is_available=0 更新済みでも一覧/KPI を再取得して反映）。再生はサーバー機で開く旨を tooltip 注記。
+- **書き込み主体は当面 Streamlit**（並走制約）。Next.js からの write 検証は Streamlit 停止 + DB バックアップ前提
+  （`run_dev.bat` に注意書き）。
+- **レビュー修正（同日・追加）**: (1) `.gitignore` の `lib/`（Python 用）が `frontend/src/lib/` を巻き込み
+  clean checkout でビルド不能になる問題を、`/lib/`・`/lib64/`（ルート限定）へ修正。(2) gitignore 済みなのに追跡され続けていた
+  `data/user_config.json`・`.claude/settings.local.json` を `git rm --cached` で追跡解除（ローカルは残す）。
+  `.claude/scheduled_tasks.lock` を gitignore 追加。(3) 利用不可動画は再生・判定を `disabled`（いいねは現行同様許可）。
+  (4) 利用可否フィルタを3択（利用可能のみ/利用不可のみ/すべて表示）に整理し `availability`/`show_unavailable` へ写像。
+- **検証**: `frontend` で `npm run build`（型/ビルド通過）+ `npm run lint`（0 error）。実機で利用可否「利用不可のみ」=93件
+  （API と一致）・利用不可カードの再生/判定 disabled・キーワード検索（七沢みあ=99件）・ページング・コンソールエラー0件を確認。
+
+---
+
+## 2026-06-05 — Phase 3 仕上げ: 回帰検証・api レビュー・docs 整合
+
+**目的**: Phase 4-A（Next.js 着手）の前に、committed 済みの FastAPI バックエンドが健全かを再確認し、
+`api/` 層レビューで粗を取り、計画書と実装の乖離を docs に反映して Phase 3 を正式に締める。
+
+**関連ファイル**: `api/admin.py`（`PUT /config` をマージ保存に修正）, `tests/api/test_admin.py`（回帰テスト追加）,
+`docs/context/IMPLEMENTATION_GUIDE.md`（API層を追記）, `docs/context/MIGRATION_PLAN.md`（確定構成の注記・Phase 完了印）
+
+- **回帰検証**: `pytest tests/` を再実行し **83 passed** を再現。uvicorn 起動で実 DB に read スモーク
+  （`/api/health`・`/api/videos`(total=214)・`/stats/kpi`・`/ranking?type=composite`・`/analysis/data`・
+  `/analysis/rankings?kind=view_count` が 200、OpenAPI 29 パス）。`/ranking`・`/analysis/rankings` の素の 422 は
+  必須パラメータ（`type`/`kind`）未指定による正しい挙動と確認。
+- **api/ レビュー指摘と修正**: `PUT /config` が **全上書き + `ConfigModel` 未定義キーの脱落**で、GET→PUT
+  ラウンドトリップ時に正本ファイルの `show_unavailable`/`show_deleted` 等を消す不具合を発見。`api/admin.py:put_config`
+  を **`load_user_config()` へマージ保存**に変更（モデル化キーは送信値で置換＝全置換セマンティクス維持、未モデル化
+  キーは保全）。回帰テスト `test_put_config_preserves_unmodeled_keys` を追加（**84 passed**）。
+  - 据え置き（意図的設計と判断）: `admin.py` の `status!=success→500` 個別記述（3 箇所・可読性優先）、`actions.py` の
+    存在確認 + 失敗時 re-query（404/409/500 を core 非依存で堅牢に判定するため）、`analysis._AVAIL_TO_BOOL` の
+    `利用可`/`利用不可` キーは df 実値（`利用可`/`利用不可`/`不明`）と一致を確認し問題なし。
+- **docs 整合**: `IMPLEMENTATION_GUIDE.md` に API層（`api_app.py` + `api/`）の構成・責務・read-only lifespan を追記。
+  `MIGRATION_PLAN.md` タスク2 に「実装時の確定構成」（`scan.py`/`config.py`→`admin.py` 統合、`deps.py` 未作成、
+  `_params.py`/`_serialization.py` 新設）を注記し、タスク5 の Phase 表で 3-A/3-B に ✅完了 を付与。
+
+---
+
 ## 2026-06-05 — Phase 3-B: FastAPI 全エンドポイント実装
 
 **目的**: API_SPEC の残り 28 エンドポイント（計 29 − Phase 3-A の `GET /api/videos`）を実装し、`core/` を
