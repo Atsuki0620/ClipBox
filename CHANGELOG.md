@@ -4,6 +4,35 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-06 — Next.js: Tier1 を1画面3サブタブに統合（Streamlit構成へ整合）+ 細部パリティ
+
+**目的**: Next.js 版の画面構成が Streamlit と乖離していた点を是正。最大の差は Tier1 が `/`（ライブラリ）と
+`/random`（ランダム/運命）の2ルートに分裂していたこと。Streamlit は Tier1 を1画面3サブタブで提供しており、
+これに整合させる。あわせて Streamlit の古い/異なる仕様を反映していた細部も修正する。
+
+**関連ファイル**: `frontend/src/app/page.tsx`（全面改修）, `frontend/src/app/random/`（削除）,
+`frontend/src/components/SidebarNav.tsx`, `frontend/src/app/tier2/page.tsx`, `frontend/src/components/Pagination.tsx`,
+`README.md`, `docs/context/MIGRATION_PLAN.md`
+
+- **Tier1 統合**: `/` を `/tier2` と同方式の「共有KPI4枚 + `<Tabs>`（📚ライブラリ/🔀ランダム/🎯運命の1本）」に
+  再構成。`/random` ルートを廃止。ランダムは本数選択+シャッフル、運命の1本はボタン押下で1本取得
+  （再生/判定/いいねで再抽選しない `invalidateKeys=[]` を維持）。見出しを「Tier 1 — 一次判定」に。
+- **サイドバー**: 「Tier 1 ライブラリ」「Tier 1 ランダム/運命」の2項目を単一「Tier 1」へ統合し、Streamlit 順
+  （Tier1→Tier2→ランキング→分析→検索→設定）に整列。AVP再生は本フェーズ対象外のため非掲載。未使用 `Shuffle` import 削除。
+- **細部パリティ**: ランダム/運命の本数候補 `5/10/20/30`→`5/10/15/20`（Tier1・Tier2）。`Pagination` の
+  `page_size` 候補 `20/50/100/200`→`50/100/200`。Tier1 KPI 判定率を `toFixed(1)`（Streamlit `:.1f` 準拠。
+  `77.717…%`→`77.7%`）。
+- **対象外**: 分析/設定/AVP の新規実装（README 残作業のまま）。`api/stats.py` の `top_n` 既定=10 と
+  `API_SPEC.md` の表記は据え置き（フロントは 20 を送るため UI 影響なし・既知の軽微ドリフト）。
+- **検証**: `npm run build`（生成ルート `/`・`/ranking`・`/search`・`/tier2`、`/random` 消失）+ `npm run lint` 通過。
+  Streamlit(8501) と Next.js(3000)/FastAPI(8000) を起動し Playwright で画面構成を突合: Tier1 が単一サイドバー項目・
+  3サブタブ・共有KPI4枚（820/2860/77.7%/0）で Streamlit と一致。タブ切替・シャッフル再抽選・運命の1本取得・
+  検索（七沢みあ117件）・ページング（50件/頁）・ランキング（総合/全期間/20件）を確認。書き込みは Streamlit 停止 +
+  `POST /api/backup`（`videos_20260606_083850.db`）後に Next.js からいいね1件 → `POST /videos/4066/like` 200・
+  カウント 0→1 を確認。
+
+---
+
 ## 2026-06-06 — ドキュメント整備: README 新規作成・MIGRATION_PLAN 進捗更新
 
 **目的**: 残作業の可視化とアプリ起動手順の明文化。

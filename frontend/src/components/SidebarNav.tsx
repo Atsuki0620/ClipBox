@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Film,
-  Shuffle,
   Search,
   Layers,
   BarChart3,
@@ -21,13 +20,13 @@ type Item = {
   enabled: boolean;
 };
 
+// Streamlit のサイドバー順に合わせる（AVP再生は本フェーズ対象外のため非掲載）。
 const ITEMS: Item[] = [
-  { href: "/", label: "Tier 1 ライブラリ", icon: Film, enabled: true },
-  { href: "/random", label: "Tier 1 ランダム/運命", icon: Shuffle, enabled: true },
-  { href: "/search", label: "検索", icon: Search, enabled: true },
+  { href: "/", label: "Tier 1", icon: Film, enabled: true },
   { href: "/tier2", label: "Tier 2 セレクション", icon: Layers, enabled: true },
   { href: "/ranking", label: "ランキング", icon: BarChart3, enabled: true },
   { href: "/analysis", label: "分析", icon: LineChart, enabled: false },
+  { href: "/search", label: "検索", icon: Search, enabled: true },
   { href: "/settings", label: "設定", icon: Settings, enabled: false },
 ];
 

@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, Dices, Library, RefreshCcw, Shuffle } from "lucide-react";
 
-const RANDOM_COUNTS = [5, 10, 20, 30];
+const RANDOM_COUNTS = [5, 10, 15, 20];
 const MAX_FETCH_PAGE_SIZE = 200;
 
 const SORT_LABELS: Record<SortField, string> = {
