@@ -5,8 +5,7 @@ ClipBox - KPI表示コンポーネント
 from __future__ import annotations
 
 from dataclasses import dataclass
-from sqlite3 import Connection
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 
 import streamlit as st
 
@@ -106,57 +105,3 @@ def render_selection_kpi_cards(
             ),
         ]
     )
-
-
-def get_kpi_stats(conn: Connection) -> Dict[str, float]:
-    """
-    KPI統計を取得する。
-    """
-    # 未判定数（内部値 -1、利用可能、未削除、セレクションフォルダを除く）
-    unrated_count = conn.execute(
-        """
-        SELECT COUNT(*)
-          FROM videos
-         WHERE current_favorite_level = -1
-           AND is_available = 1
-           AND is_deleted = 0
-           AND needs_selection = 0
-           AND is_selection_completed = 0
-        """
-    ).fetchone()[0]
-
-    # 判定済み数（Lv0以上、利用可能、未削除、セレクションフォルダを除く）
-    judged_count = conn.execute(
-        """
-        SELECT COUNT(*)
-          FROM videos
-         WHERE current_favorite_level >= 0
-           AND is_available = 1
-           AND is_deleted = 0
-           AND needs_selection = 0
-           AND is_selection_completed = 0
-        """
-    ).fetchone()[0]
-
-    total = unrated_count + judged_count
-    judged_rate = (judged_count / total * 100) if total else 0.0
-
-    # 本日の判定数（judgment_history が無い場合は 0 とする）
-    try:
-        today_judged_count = conn.execute(
-            """
-            SELECT COUNT(DISTINCT video_id)
-              FROM judgment_history
-             WHERE DATE(judged_at) = DATE('now','localtime')
-               AND was_selection_judgment = 0
-            """
-        ).fetchone()[0]
-    except Exception:
-        today_judged_count = 0
-
-    return {
-        "unrated_count": int(unrated_count),
-        "judged_count": int(judged_count),
-        "judged_rate": float(judged_rate),
-        "today_judged_count": int(today_judged_count),
-    }

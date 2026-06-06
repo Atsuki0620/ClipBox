@@ -1,19 +1,20 @@
 """
-ClipBox - FastAPI エントリーポイント（Phase 3-A 基盤）。
+ClipBox - FastAPI エントリーポイント（Phase 3-B：全エンドポイント）。
 
 役割:
     Streamlit(8501) と並走する HTTP API（既定 8000）を起動する。`core/` を共有し、
-    動画データを read-only で配信する。将来 Next.js のバックエンドとなる。
+    API_SPEC の全 29 エンドポイント（read + mutation）を提供する。将来 Next.js のバックエンドとなる。
 
 【設計制約】
 - ルーターは `core.app_service` のファサード経由でのみ DB にアクセスする。
 - `streamlit` を import しない。
-- Phase 3-A は read-only。起動時に DB の存在確認（read）のみ行い、
+- **起動時 lifespan は read-only を維持する**。DB の存在確認（read）のみ行い、
   `init_database` / `run_startup_migration`（書き込み）は実行しない
   （並走中の SQLite 同時書き込みを避けるため。DB 初期化・移行は Streamlit 側が担う）。
+- mutation（play/level/like/scan/config/backup）は並走中の同時書き込みを避ける運用前提。
 
 【依存関係】
-api_app → api.videos.router → core.app_service
+api_app → api.{videos,stats,actions,likes,admin,analysis}.router → core.app_service
 起動: `uvicorn api_app:app --host 127.0.0.1 --port 8000`（run_api.bat 参照）
 """
 
@@ -24,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core import app_service
 from core.logger import get_logger
-from api import videos
+from api import videos, stats, actions, likes, admin, analysis
 from api.schemas import HealthResponse
 
 logger = get_logger(__name__)
@@ -58,6 +59,11 @@ app.add_middleware(
 )
 
 app.include_router(videos.router, prefix="/api")
+app.include_router(stats.router, prefix="/api")
+app.include_router(actions.router, prefix="/api")
+app.include_router(likes.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+app.include_router(analysis.router, prefix="/api")
 
 
 @app.get("/api/health", response_model=HealthResponse)

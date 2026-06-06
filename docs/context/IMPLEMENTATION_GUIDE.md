@@ -27,6 +27,18 @@ UI層 (Streamlit)
     display_settings.py
     kpi_display.py
 
+API層 (FastAPI) - Streamlit と並走・core を共有（Phase 3 完了）
+  api_app.py                 ← エントリーポイント（CORS・ルーター登録・read-only lifespan）
+  api/videos.py              ← 一覧・単体・検索・ランダム・セレクション・filter-options
+  api/stats.py               ← KPI・selection-kpi・view-counts・last-viewed・ranking
+  api/actions.py             ← play / level（mutation・404/409/500 マッピング）
+  api/likes.py               ← like 追加 / likes 一括取得
+  api/admin.py               ← scan/library・scan/selection・config(GET/PUT)・backup
+  api/analysis.py            ← 分析データ・履歴・応答時間・ランキング・トレンド/分布
+  api/schemas.py             ← Pydantic レスポンス/リクエストモデル（snake_case）
+  api/_params.py             ← 配列クエリ（カンマ区切り/repeated 両対応）
+  api/_serialization.py      ← pandas DataFrame → JSON 安全 list[dict]
+
 Core層 (Python) - UI非依存
   core/app_service.py        ← UIファサード
   core/video_manager.py      ← ビジネスロジック
@@ -49,6 +61,24 @@ Data層 (SQLite)
 
 **重要**: Core層では`st`（Streamlit）をインポートしない。`ui/cache.py`に`@st.cache_data`関数を集約済み。
 
+**API層（FastAPI）**: UI層と同じく core に一方向依存する。各ルーターは `core.app_service` のファサード経由でのみ
+DB にアクセスし、`streamlit` を import しない。Streamlit(8501) と並走（既定 8000）し、起動時 lifespan は read-only
+（`init_database`/`run_startup_migration` は実行せず DB 初期化は Streamlit に委ねる＝SQLite 同時書き込み回避）。
+全 29 エンドポイントは API_SPEC に準拠（実装は Phase 3-A/3-B で完了）。詳細は `docs/context/API_SPEC.md`。
+
+**フロントエンド（Next.js / Phase 4-A〜）**: `frontend/` の Next.js(App Router)+TypeScript+Tailwind v4+shadcn/ui。
+FastAPI を `http://localhost:8000/api` 経由で叩く（`lib/api.ts`）。サーバー状態は TanStack Query、フィルタ等の
+クライアント横断状態は Zustand（`lib/store.ts`）。Phase 4-A で **Tier1 ライブラリ画面**、Phase 4-B-1 で
+App Router の実ルーティングと **Tier1 ランダム/運命の1本**・**検索**を実装。
+**並走期間の DB 書き込み主体は当面 Streamlit**であり、Next.js からの再生/判定/いいねは Streamlit 停止 +
+DB バックアップ前提で検証する（SQLite 同時書き込み回避）。再生はサーバー機でプレイヤーが開く。
+
+**Next.js ルート（Phase 4-B-1 時点）**:
+- `/`: Tier1 ライブラリ（一覧・フィルタ・検索・ソート・ページング・KPI）
+- `/random`: Tier1 ランダム / 運命の1本
+- `/search`: 横断検索（キーワード + 保存場所、結果はクライアントページング）
+- `/tier2` / `/ranking` / `/analysis` / `/settings`: SidebarNav ではプレースホルダ（未実装・クリック不可）
+
 ### 1.2 設計原則
 
 1. **レイヤー分離**: UI層とCore層の依存は一方向のみ（UI → Core）
@@ -62,10 +92,31 @@ Data層 (SQLite)
 
 ```
 ClipBox/
-├── streamlit_app.py          # メインエントリーポイント
+├── streamlit_app.py          # メインエントリーポイント（Streamlit）
+├── api_app.py                # FastAPI エントリーポイント（Streamlit と並走）
+├── run_api.bat               # uvicorn 起動スクリプト
 ├── config.py                 # 設定定数
 ├── CLAUDE.md                 # AIガイダンス（約60行）
 ├── CHANGELOG.md              # 変更履歴
+│
+├── api/                      # API層（FastAPI ルーター。core.app_service のみ呼ぶ）
+│   ├── videos.py             # 動画 read 系
+│   ├── stats.py              # KPI・ランキング
+│   ├── actions.py            # play / level（mutation）
+│   ├── likes.py              # いいね
+│   ├── admin.py              # scan・config・backup
+│   ├── analysis.py           # 分析（DataFrame→JSON）
+│   ├── schemas.py            # Pydantic モデル
+│   ├── _params.py            # 配列クエリパース
+│   └── _serialization.py     # DataFrame 直列化
+│
+├── run_dev.bat               # uvicorn + next dev 一括起動（Phase 4-A）
+│
+├── frontend/                 # Next.js フロントエンド（Phase 4-A〜。API 経由で core に依存）
+│   └── src/
+│       ├── app/              # App Router（layout/page/providers、random/search）
+│       ├── components/       # VideoCard・VideoGrid・KpiCard・FilterPanel・MultiSelect・Pagination・SidebarNav・ui/
+│       └── lib/              # api.ts（fetch ラッパ）・types.ts・store.ts(zustand)・levels.ts
 │
 ├── ui/                       # UI層
 │   ├── tier1_tab.py          # Tier 1（一次判定）画面 @st.fragment
@@ -111,6 +162,9 @@ ClipBox/
 │   ├── test_video_manager.py
 │   ├── test_analysis_service.py
 │   ├── test_backup.py
+│   ├── api/                  # FastAPI テスト（TestClient + tmp 隔離 conftest）
+│   │   ├── conftest.py       # api_isolation（config/backup/scan を tmp へ）
+│   │   └── test_*.py
 │   └── ...
 │
 ├── docs/                     # ドキュメント

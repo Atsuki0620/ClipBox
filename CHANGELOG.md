@@ -4,6 +4,180 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-06 — Next.js: Tier1 を1画面3サブタブに統合（Streamlit構成へ整合）+ 細部パリティ
+
+**目的**: Next.js 版の画面構成が Streamlit と乖離していた点を是正。最大の差は Tier1 が `/`（ライブラリ）と
+`/random`（ランダム/運命）の2ルートに分裂していたこと。Streamlit は Tier1 を1画面3サブタブで提供しており、
+これに整合させる。あわせて Streamlit の古い/異なる仕様を反映していた細部も修正する。
+
+**関連ファイル**: `frontend/src/app/page.tsx`（全面改修）, `frontend/src/app/random/`（削除）,
+`frontend/src/components/SidebarNav.tsx`, `frontend/src/app/tier2/page.tsx`, `frontend/src/components/Pagination.tsx`,
+`README.md`, `docs/context/MIGRATION_PLAN.md`
+
+- **Tier1 統合**: `/` を `/tier2` と同方式の「共有KPI4枚 + `<Tabs>`（📚ライブラリ/🔀ランダム/🎯運命の1本）」に
+  再構成。`/random` ルートを廃止。ランダムは本数選択+シャッフル、運命の1本はボタン押下で1本取得
+  （再生/判定/いいねで再抽選しない `invalidateKeys=[]` を維持）。見出しを「Tier 1 — 一次判定」に。
+- **サイドバー**: 「Tier 1 ライブラリ」「Tier 1 ランダム/運命」の2項目を単一「Tier 1」へ統合し、Streamlit 順
+  （Tier1→Tier2→ランキング→分析→検索→設定）に整列。AVP再生は本フェーズ対象外のため非掲載。未使用 `Shuffle` import 削除。
+- **細部パリティ**: ランダム/運命の本数候補 `5/10/20/30`→`5/10/15/20`（Tier1・Tier2）。`Pagination` の
+  `page_size` 候補 `20/50/100/200`→`50/100/200`。Tier1 KPI 判定率を `toFixed(1)`（Streamlit `:.1f` 準拠。
+  `77.717…%`→`77.7%`）。
+- **対象外**: 分析/設定/AVP の新規実装（README 残作業のまま）。`api/stats.py` の `top_n` 既定=10 と
+  `API_SPEC.md` の表記は据え置き（フロントは 20 を送るため UI 影響なし・既知の軽微ドリフト）。
+- **検証**: `npm run build`（生成ルート `/`・`/ranking`・`/search`・`/tier2`、`/random` 消失）+ `npm run lint` 通過。
+  Streamlit(8501) と Next.js(3000)/FastAPI(8000) を起動し Playwright で画面構成を突合: Tier1 が単一サイドバー項目・
+  3サブタブ・共有KPI4枚（820/2860/77.7%/0）で Streamlit と一致。タブ切替・シャッフル再抽選・運命の1本取得・
+  検索（****117件）・ページング（50件/頁）・ランキング（総合/全期間/20件）を確認。書き込みは Streamlit 停止 +
+  `POST /api/backup`（`videos_20260606_083850.db`）後に Next.js からいいね1件 → `POST /videos/4066/like` 200・
+  カウント 0→1 を確認。
+
+---
+
+## 2026-06-06 — ドキュメント整備: README 新規作成・MIGRATION_PLAN 進捗更新
+
+**目的**: 残作業の可視化とアプリ起動手順の明文化。
+
+**関連ファイル**: `README.md`（新規）, `docs/context/MIGRATION_PLAN.md`（Phase 4-A を完了・4-B 残作業を明記）
+
+- `README.md` を新規作成。Streamlit / FastAPI / Next.js の個別・一括起動手順、前提環境、移行期間中の注意事項、残作業一覧（分析・設定が未実装）を記載
+- `MIGRATION_PLAN.md` の Phase 表を更新: 4-A を ✅完了、4-B に「実装済み: /tier2・/ranking、残: /analysis・/settings」を明記
+
+---
+
+## 2026-06-06 — Phase 4-B-1: ルーティング基盤 + Tier1 ランダム/運命 + 検索
+
+**目的**: Phase 4-A の Next.js 基盤を拡張し、App Router の実ルーティング、Tier1 ランダム/運命の1本、
+検索画面を追加する。`VideoCard` と API 通信基盤を再利用し、後続画面追加のパターンを固める。
+
+**関連ファイル**: `frontend/src/components/{SidebarNav,VideoGrid,VideoCard}.tsx`,
+`frontend/src/app/{random,search}/page.tsx`, `frontend/src/components/ui/tabs.tsx`,
+`frontend/src/lib/api.ts`, `frontend/src/app/page.tsx`, `docs/context/{IMPLEMENTATION_GUIDE,MIGRATION_PLAN}.md`
+
+- **ルーティング基盤**: `SidebarNav` を `next/link` + `usePathname()` に変更し、`/`・`/random`・`/search` を活線化。
+  Tier2 / ranking / analysis / settings はプレースホルダとしてクリック不可のまま維持。
+- **共通グリッド**: `VideoGrid` を追加し、表示中の動画だけを対象に `GET /likes` と `GET /stats/view-counts` を取得。
+  ライブラリ画面も `VideoGrid` 利用へ変更。検索はクライアントページング後の表示ページ分だけを渡し、URL 長を抑制。
+- **VideoCard 更新**: 画面別の `invalidateKeys` を受け取る方式へ変更。共通の KPI / likes / view-counts は更新しつつ、
+  ランダム/運命画面では操作後に勝手な再抽選が起きないようリスト query の invalidate を抑制。利用不可動画の再生・判定は
+  disabled、いいねは現行どおり許可。
+- **Tier1 ランダム/運命**: `/random` を追加。Base UI tabs でランダムと運命の1本を切替。ランダムは本数選択 +
+  シャッフルで再選出、運命の1本は初期自動取得せずボタン押下で取得。`204 No Content` は `null` として対象なし表示。
+- **検索**: `/search` を追加。キーワード + 保存場所フィルタで `GET /api/videos/search` を呼び、正規化一致・利用不可込みの
+  検索結果を表示。unpaged API のため、画面側でページングする。
+- **検証**: `frontend` で `npm run build`（`/`, `/random`, `/search` 生成）+ `npm run lint` が通過。dev server で
+  `/`・`/random`・`/search` は 200。API スモークで `/videos/unrated/random?n=10` は10件、`/videos/unrated/fate` は200、
+  全角 `ＳＴＡＲ` + `storage=C_DRIVE` 検索は29件を確認。
+
+---
+
+## 2026-06-05 — Phase 4-A: Next.js 基盤 + Tier1 ライブラリ画面
+
+**目的**: MIGRATION_PLAN Phase 4-A。`frontend/` に Next.js フロントエンド基盤を新設し、Tier1 ライブラリ画面
+（一覧・フィルタ・検索・ソート・ページング・KPI・再生/判定/いいね）を最初の縦串として動かす。`VideoCard` と
+API 通信の共通基盤（`lib/api.ts` + TanStack Query + Zustand）を確立する。
+
+**関連ファイル**: `frontend/`（新規・Next.js 16 + React 19 + Tailwind v4 + shadcn/ui[base-nova/Base UI]）,
+`frontend/src/lib/{api,types,store,levels}.ts`, `frontend/src/app/{layout,page,providers}.tsx`,
+`frontend/src/components/{VideoCard,KpiCard,FilterPanel,MultiSelect,Pagination,SidebarNav}.tsx`,
+`api/videos.py`（keyword 追加）, `tests/api/test_videos.py`（keyword テスト×3）, `docs/context/API_SPEC.md`,
+`run_dev.bat`（新規）, `.gitignore`（frontend 節）
+
+- **バックエンド拡張（作業0）**: `GET /api/videos` に `keyword` を追加（`normalize_text` でフィルタ適用後・ソート前に
+  本質的ファイル名へ正規化部分一致）。検索 + フィルタ + ソート + ページングを1エンドポイントで合成可能にした
+  （`/videos/search` は単独 `Video[]` のままで合成不可だったため）。`pytest tests/` **87 passed**（84→+3）。
+- **フロント基盤**: `create-next-app`（TS / App Router / Tailwind v4 / src / `@/*`）+ `@tanstack/react-query` + `zustand`。
+  shadcn/ui は `init -d`（preset base-nova = **Base UI** ベース。Radix ではない）。Base UI の Trigger は `asChild` ではなく
+  **`render` プロップ**で合成する点に注意（Popover/Tooltip で適用）。
+- **通信基盤**: `lib/api.ts`（fetch 薄ラッパ・`ApiError`・配列はカンマ区切り・`NEXT_PUBLIC_API_BASE` 既定
+  `http://localhost:8000/api`）、`lib/types.ts`（snake_case 維持）、`lib/store.ts`（Zustand フィルタ状態、既定は
+  exclude_selection=ON）、`app/providers.tsx`（QueryClientProvider + TooltipProvider）。
+- **Tier1 画面**: KPI 4枚 + FilterPanel（レベル/登場人物/保存場所の複数選択=popover+command+checkbox、キーワード、
+  セレクション除外/利用不可表示の switch、ソート select）+ VideoCard グリッド + Pagination。いいね数は `GET /likes`、
+  視聴回数は `GET /stats/view-counts` を併用。**mutation は `onSettled` で invalidate**（成功時だけでなく 409
+  ＝ファイル不在で is_available=0 更新済みでも一覧/KPI を再取得して反映）。再生はサーバー機で開く旨を tooltip 注記。
+- **書き込み主体は当面 Streamlit**（並走制約）。Next.js からの write 検証は Streamlit 停止 + DB バックアップ前提
+  （`run_dev.bat` に注意書き）。
+- **レビュー修正（同日・追加）**: (1) `.gitignore` の `lib/`（Python 用）が `frontend/src/lib/` を巻き込み
+  clean checkout でビルド不能になる問題を、`/lib/`・`/lib64/`（ルート限定）へ修正。(2) gitignore 済みなのに追跡され続けていた
+  `data/user_config.json`・`.claude/settings.local.json` を `git rm --cached` で追跡解除（ローカルは残す）。
+  `.claude/scheduled_tasks.lock` を gitignore 追加。(3) 利用不可動画は再生・判定を `disabled`（いいねは現行同様許可）。
+  (4) 利用可否フィルタを3択（利用可能のみ/利用不可のみ/すべて表示）に整理し `availability`/`show_unavailable` へ写像。
+- **検証**: `frontend` で `npm run build`（型/ビルド通過）+ `npm run lint`（0 error）。実機で利用可否「利用不可のみ」=93件
+  （API と一致）・利用不可カードの再生/判定 disabled・キーワード検索（****=99件）・ページング・コンソールエラー0件を確認。
+
+---
+
+## 2026-06-05 — Phase 3 仕上げ: 回帰検証・api レビュー・docs 整合
+
+**目的**: Phase 4-A（Next.js 着手）の前に、committed 済みの FastAPI バックエンドが健全かを再確認し、
+`api/` 層レビューで粗を取り、計画書と実装の乖離を docs に反映して Phase 3 を正式に締める。
+
+**関連ファイル**: `api/admin.py`（`PUT /config` をマージ保存に修正）, `tests/api/test_admin.py`（回帰テスト追加）,
+`docs/context/IMPLEMENTATION_GUIDE.md`（API層を追記）, `docs/context/MIGRATION_PLAN.md`（確定構成の注記・Phase 完了印）
+
+- **回帰検証**: `pytest tests/` を再実行し **83 passed** を再現。uvicorn 起動で実 DB に read スモーク
+  （`/api/health`・`/api/videos`(total=214)・`/stats/kpi`・`/ranking?type=composite`・`/analysis/data`・
+  `/analysis/rankings?kind=view_count` が 200、OpenAPI 29 パス）。`/ranking`・`/analysis/rankings` の素の 422 は
+  必須パラメータ（`type`/`kind`）未指定による正しい挙動と確認。
+- **api/ レビュー指摘と修正**: `PUT /config` が **全上書き + `ConfigModel` 未定義キーの脱落**で、GET→PUT
+  ラウンドトリップ時に正本ファイルの `show_unavailable`/`show_deleted` 等を消す不具合を発見。`api/admin.py:put_config`
+  を **`load_user_config()` へマージ保存**に変更（モデル化キーは送信値で置換＝全置換セマンティクス維持、未モデル化
+  キーは保全）。回帰テスト `test_put_config_preserves_unmodeled_keys` を追加（**84 passed**）。
+  - 据え置き（意図的設計と判断）: `admin.py` の `status!=success→500` 個別記述（3 箇所・可読性優先）、`actions.py` の
+    存在確認 + 失敗時 re-query（404/409/500 を core 非依存で堅牢に判定するため）、`analysis._AVAIL_TO_BOOL` の
+    `利用可`/`利用不可` キーは df 実値（`利用可`/`利用不可`/`不明`）と一致を確認し問題なし。
+- **docs 整合**: `IMPLEMENTATION_GUIDE.md` に API層（`api_app.py` + `api/`）の構成・責務・read-only lifespan を追記。
+  `MIGRATION_PLAN.md` タスク2 に「実装時の確定構成」（`scan.py`/`config.py`→`admin.py` 統合、`deps.py` 未作成、
+  `_params.py`/`_serialization.py` 新設）を注記し、タスク5 の Phase 表で 3-A/3-B に ✅完了 を付与。
+
+---
+
+## 2026-06-05 — Phase 3-B: FastAPI 全エンドポイント実装
+
+**目的**: API_SPEC の残り 28 エンドポイント（計 29 − Phase 3-A の `GET /api/videos`）を実装し、`core/` を
+共有したまま read + mutation + 分析の全機能を FastAPI で提供する。Next.js 着手（Phase 4-A）の前提を満たす。
+設計判断はユーザー合意で「過去文書整合より品質・安全・全体最適を優先」。
+
+**関連ファイル**: `api/videos.py`(拡張), `api/stats.py`・`api/actions.py`・`api/likes.py`・`api/admin.py`・
+`api/analysis.py`・`api/_params.py`・`api/_serialization.py`（新規）, `api/schemas.py`(拡張), `api_app.py`(配線),
+`core/app_service.py`（wrapper 13本追加）, `core/analysis_service.py`（`get_kpi_stats` 移設・`get_like_count_ranking`
+期間対応）, `ui/components/kpi_display.py`・`ui/cache.py`（KPI 移設に伴う参照更新）, `tests/api/`（conftest + 5本）,
+`tests/test_analysis_service.py`（KPI/likes 期間テスト追加）, `docs/context/API_SPEC.md`（FastAPI 表記・契約更新）
+
+- **Stage 1（core 整理）**: `get_kpi_stats(conn)` を `ui/components/kpi_display.py` → `core/analysis_service.py`
+  へ移設（純 SQL・streamlit 非依存）。`ui/cache.py:get_kpi_stats_cached()` は `app_service.get_kpi_stats()` に委譲。
+  `app_service` に薄い wrapper を追加（`get_videos`/`get_videos_by_ids`/`play_video`/`get_fate_video`/
+  `get_unrated_random_videos`/`get_unrated_fate_video`/`search_videos`/`get_view_counts_map`/`get_last_viewed_map`/
+  `get_filter_options`/`create_backup`/`get_kpi_stats`/`scan_library`）。`get_like_count_ranking` に任意
+  `period_start/end` を追加（`liked_at` 絞り込み・既定 None で後方互換）。
+- **Stage 2（read）**: 一覧 `GET /api/videos` に `sort`（`favorite_level`/`creation_date`/`view_count`/
+  `last_viewed`/`title`/`modified`）+ `order` を追加。`/videos/{id}`・`/videos/search`・`/videos/unrated/{random,fate}`・
+  `/videos/selection{,/fate}`・`/filter-options`・`/stats/{kpi,selection-kpi,view-counts,last-viewed}`・`/ranking`。
+  **ルートは固定パス→`{id}` の順で定義**（FastAPI のパス解決順）。
+- **Stage 3（mutation）**: `/videos/{id}/play`・`/level`・`/like`・`/likes`・`/scan/{library,selection}`・
+  `GET/PUT /config`・`/backup`。HTTP マッピングは **404（事前存在チェック）/ 409（実行後 is_available==0）/ 500**
+  を core 非改変・メッセージ非依存で実装。`scan_library` は config roots を **Path 化**して構築。
+- **Stage 4（分析）**: `df_records()`（NaN→None / Timestamp→ISO / numpy→Python）で DataFrame を JSON 安全化。
+  `/analysis/{data,viewing-history,judgment-history,response-time,rankings,selection-trend,selection-distribution}`。
+  **rankings はフラット snake_case・型付き**（`is_available: bool|null` / `file_created_at: ISO|null` / `score: int`）。
+- **契約整備**: 配列クエリは**カンマ区切り + repeated 両対応**（`api/_params.py`、不正整数は 422）。列挙パラメータ
+  （sort/order/status/kind/type/period/availability）は `Literal` で 422。`config` に `selection_folder` を追加し、
+  `/scan/selection` は folder 未設定時 400、`/stats/selection-kpi` は未設定時に全体 KPI。
+- **テスト隔離**: `tests/api/conftest.py` で `core.config_utils.{CONFIG_PATH,SCAN_DIRECTORIES,DATABASE_PATH}` と
+  `config.BACKUP_DIR` を tmp に monkeypatch（config_utils は import 時に定数束縛するため `config` だけでは不足）。
+  play テストは `subprocess.Popen` を monkeypatch。
+- **レビュー修正（同日・追加）**: (1) `PUT /level` の `level` を `Field(ge=-1, le=4)` 化し範囲外（-2/5/999）を 422、
+  (2) セレクション folder 絞り込みを `core.models.is_path_within`（区切り境界尊重）へ置換し `C:\sel`/`C:\selection2`
+  の誤マッチを解消（API `_folder_filter` + core `get_fate_video` 双方＝Streamlit にも波及）、
+  (3) `/scan/library`・`/scan/selection` を error→500・folder 不在→404 に統一（backup と整合）、
+  (4) `API_SPEC.md` の `/analysis/{data,rankings}` レスポンス形を実装一致（`{items,total}` / フラット型付き+`kind`）へ。
+- **検証**: `pytest tests/` **83 passed**（既存 32 + 新規 51）。TestClient スモーク（実データ）で
+  `/api/health`・`/stats/kpi`・`/videos`（total=214）・`/ranking`・`/analysis/data`（total=4056）・
+  `/analysis/rankings` が 200、OpenAPI に 29 パス。`core/` 変更は KPI 移設＋wrapper＋likes 期間に限定、`ui/` は
+  `kpi_display.py`/`cache.py` のみ、`data/` に差分なし。
+
+---
+
 ## 2026-06-03 — Phase 3-A: FastAPI 基盤構築（最小・read-only）
 
 **目的**: MIGRATION_PLAN の Phase 3-A を実装。FastAPI が `core/` を共有して `videos.db` から実データを read-only で配信できることを最小構成で実証する。Streamlit(8501) と並走しても DB へ書き込まない。`core/`・`ui/`・`streamlit_app.py`・`data/` は一切変更せず、新規ファイルのみ。
