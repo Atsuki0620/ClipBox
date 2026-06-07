@@ -31,7 +31,6 @@ export interface VideosResponse {
 
 export interface FilterOptions {
   favorite_levels: number[];
-  performers: string[];
   storage_locations: string[];
 }
 
@@ -60,6 +59,21 @@ export interface Config {
 export interface StatusMessage {
   status: string;
   message: string;
+}
+
+export type RuntimeServiceName = "streamlit" | "fastapi" | "nextjs";
+export type RuntimeServiceStatus = "running" | "stopped" | "unknown";
+
+export interface RuntimeService {
+  name: RuntimeServiceName;
+  label: string;
+  port: number;
+  status: RuntimeServiceStatus;
+  pid: number | null;
+}
+
+export interface RuntimeStatusResponse {
+  services: RuntimeService[];
 }
 
 export interface LikeResponse {
@@ -101,10 +115,12 @@ export type SortOrder = "asc" | "desc";
 export type Availability = "available" | "unavailable";
 export type SelectionStatus = "all" | "unselected" | "completed";
 
+// Tier1 の判定状態フィルタ（UI 用。levels への写像は page.tsx）。
+export type JudgmentStatus = "all" | "unrated" | "judged";
+
 // 一覧クエリ（GET /api/videos）のパラメータ。
 export interface VideoListParams {
   levels?: number[];
-  performers?: string[];
   storage?: string[];
   availability?: Availability;
   show_unavailable?: boolean;
@@ -120,8 +136,120 @@ export interface VideoListParams {
 export interface SelectionVideoListParams {
   folder: string;
   status?: SelectionStatus;
+  levels?: number[];
+  storage?: string[];
+  keyword?: string;
+  show_unavailable?: boolean;
   sort?: SortField;
   order?: SortOrder;
   page?: number;
   page_size?: number;
+}
+
+export type AnalysisPeriodPreset =
+  | "全期間"
+  | "直近7日"
+  | "直近30日"
+  | "直近90日"
+  | "直近180日"
+  | "カスタム";
+
+export type AnalysisAvailability = "利用可能のみ" | "利用不可のみ" | "すべて";
+
+export interface AnalysisQuery {
+  period: AnalysisPeriodPreset;
+  start?: string;
+  end?: string;
+  availability: AnalysisAvailability;
+  include_deleted: boolean;
+}
+
+export interface AnalysisVideoRecord {
+  id: number | null;
+  essential_filename?: string | null;
+  current_full_path?: string | null;
+  current_favorite_level?: number | null;
+  file_size?: number | null;
+  performer?: string | null;
+  storage_location?: string | null;
+  file_created_at?: string | null;
+  is_available?: boolean | number | null;
+  is_deleted?: boolean | number | null;
+  total_view_count?: number | null;
+  last_viewed_at?: string | null;
+  period_view_count?: number | null;
+  [key: string]: unknown;
+}
+
+export interface AnalysisDataResponse {
+  items: AnalysisVideoRecord[];
+  total: number;
+}
+
+export type AnalysisBucket = "day" | "week" | "month";
+
+// 視聴/判定トレンド（サーバー集計）のクエリ。video_ids は送らない。
+export interface AnalysisTrendQuery extends AnalysisQuery {
+  bucket: AnalysisBucket;
+}
+
+// バケット別件数（label=日/週(月曜開始日)/月）。
+export interface TrendItem {
+  label: string;
+  count: number;
+}
+
+export interface ResponseTimeItem {
+  duration_ms: number;
+  storage: string | null;
+}
+
+export type AnalysisRankingKind = "view_count" | "view_days" | "likes";
+
+export interface AnalysisRankingParams extends AnalysisQuery {
+  kind: AnalysisRankingKind;
+  top_n: number;
+}
+
+export interface AnalysisRankingItem {
+  rank: number;
+  filename: string;
+  is_available: boolean | null;
+  storage_location: string | null;
+  file_created_at: string | null;
+  favorite_level: number;
+  score: number;
+}
+
+export interface AnalysisRankingResponse {
+  kind: AnalysisRankingKind;
+  items: AnalysisRankingItem[];
+}
+
+export interface SelectionTrendItem {
+  date: string;
+  count: number;
+}
+
+export interface SelectionDistributionItem {
+  level: number | null;
+  count: number;
+}
+
+export interface ScanLibraryResponse {
+  status: string;
+  message: string;
+}
+
+export interface ScanSelectionResponse {
+  status: string;
+  message: string;
+  found_count: number;
+}
+
+export interface BackupResponse {
+  status: string;
+  message: string;
+  filename: string;
+  size_bytes: number;
 }

@@ -3,15 +3,29 @@
 // 非 2xx は detail を含む ApiError を throw し、TanStack Query 側でエラー集約する。
 
 import type {
+  AnalysisDataResponse,
+  AnalysisQuery,
+  AnalysisRankingParams,
+  AnalysisRankingResponse,
+  AnalysisTrendQuery,
+  BackupResponse,
   Config,
   FilterOptions,
   Kpi,
   LikeResponse,
   RankingParams,
   RankingResponse,
+  ResponseTimeItem,
+  RuntimeServiceName,
+  RuntimeStatusResponse,
+  ScanLibraryResponse,
+  ScanSelectionResponse,
+  SelectionDistributionItem,
   SelectionKpi,
+  SelectionTrendItem,
   SelectionVideoListParams,
   StatusMessage,
+  TrendItem,
   Video,
   VideoListParams,
   VideosResponse,
@@ -30,8 +44,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body != null) {
+    headers.set("Content-Type", "application/json");
+  } else {
+    headers.delete("Content-Type");
+  }
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...init,
   });
   if (!res.ok) {
@@ -81,6 +101,10 @@ export function getConfig(): Promise<Config> {
   return request<Config>(`/config`);
 }
 
+export function getVideo(id: number): Promise<Video> {
+  return request<Video>(`/videos/${id}`);
+}
+
 export function getSelectionKpi(folder?: string): Promise<SelectionKpi> {
   return request<SelectionKpi>(`/stats/selection-kpi${toQuery({ folder })}`);
 }
@@ -102,6 +126,52 @@ export function getViewCounts(): Promise<Record<number, number>> {
 
 export function getLastViewed(): Promise<Record<number, string>> {
   return request<Record<number, string>>(`/stats/last-viewed`);
+}
+
+export function getAnalysisData(
+  params: AnalysisQuery,
+): Promise<AnalysisDataResponse> {
+  return request<AnalysisDataResponse>(`/analysis/data${toQuery({ ...params })}`);
+}
+
+// 視聴/判定トレンドはサーバー側で bucket 集計済み。video_ids は送らない
+// （旧 chunked history 方式の URL 長超過・リクエスト爆発を回避）。
+export function getViewingTrend(
+  params: AnalysisTrendQuery,
+): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/viewing-trend${toQuery({ ...params })}`);
+}
+
+export function getJudgmentTrend(
+  params: AnalysisTrendQuery,
+): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/judgment-trend${toQuery({ ...params })}`);
+}
+
+export function getResponseTime(): Promise<ResponseTimeItem[]> {
+  return request<ResponseTimeItem[]>(`/analysis/response-time`);
+}
+
+export function getAnalysisRankings(
+  params: AnalysisRankingParams,
+): Promise<AnalysisRankingResponse> {
+  return request<AnalysisRankingResponse>(
+    `/analysis/rankings${toQuery({ ...params })}`,
+  );
+}
+
+export function getSelectionTrend(
+  params: Pick<AnalysisQuery, "start" | "end">,
+): Promise<SelectionTrendItem[]> {
+  return request<SelectionTrendItem[]>(
+    `/analysis/selection-trend${toQuery({ ...params })}`,
+  );
+}
+
+export function getSelectionDistribution(): Promise<
+  SelectionDistributionItem[]
+> {
+  return request<SelectionDistributionItem[]>(`/analysis/selection-distribution`);
 }
 
 // Tier1 ランダム: 未判定動画を n 本（ファイル存在チェック済み）。
@@ -138,6 +208,13 @@ export function playVideo(id: number): Promise<StatusMessage> {
   return request<StatusMessage>(`/videos/${id}/play`, { method: "POST" });
 }
 
+export function playAvp(videoIds: number[]): Promise<StatusMessage> {
+  return request<StatusMessage>(`/avp/play`, {
+    method: "POST",
+    body: JSON.stringify({ video_ids: videoIds }),
+  });
+}
+
 export function setLevel(id: number, level: number | null): Promise<StatusMessage> {
   return request<StatusMessage>(`/videos/${id}/level`, {
     method: "PUT",
@@ -147,4 +224,45 @@ export function setLevel(id: number, level: number | null): Promise<StatusMessag
 
 export function likeVideo(id: number): Promise<LikeResponse> {
   return request<LikeResponse>(`/videos/${id}/like`, { method: "POST" });
+}
+
+export function updateConfig(config: Config): Promise<StatusMessage> {
+  return request<StatusMessage>(`/config`, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+}
+
+export function scanLibrary(): Promise<ScanLibraryResponse> {
+  return request<ScanLibraryResponse>(`/scan/library`, { method: "POST" });
+}
+
+export function scanSelection(folder?: string): Promise<ScanSelectionResponse> {
+  return request<ScanSelectionResponse>(`/scan/selection`, {
+    method: "POST",
+    body: JSON.stringify({ folder: folder || undefined }),
+  });
+}
+
+export function createBackup(): Promise<BackupResponse> {
+  return request<BackupResponse>(`/backup`, { method: "POST" });
+}
+
+export function getRuntimeStatus(): Promise<RuntimeStatusResponse> {
+  return request<RuntimeStatusResponse>(`/runtime`);
+}
+
+export function stopRuntimeService(
+  service: RuntimeServiceName,
+): Promise<StatusMessage> {
+  return request<StatusMessage>(`/runtime/${service}/stop`, {
+    method: "POST",
+  });
+}
+
+// Web スタック（Next.js → FastAPI）一括停止。FastAPI 自身が落ちるため応答は届かない前提。
+export function stopWebStack(): Promise<StatusMessage> {
+  return request<StatusMessage>(`/runtime/web-stack/stop`, {
+    method: "POST",
+  });
 }

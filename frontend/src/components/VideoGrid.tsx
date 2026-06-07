@@ -14,10 +14,12 @@ export function VideoGrid({
   videos,
   emptyMessage = "条件に一致する動画がありません。",
   invalidateKeys = [],
+  gridClassName,
 }: {
   videos: Video[];
   emptyMessage?: string;
   invalidateKeys?: QueryKey[];
+  gridClassName?: string;
 }) {
   const ids = useMemo(
     () => videos.map((v) => v.id as number).filter(Boolean),
@@ -43,7 +45,7 @@ export function VideoGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className={gridClassName ?? "grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"}>
       {videos.map((v) => (
         <VideoCard
           key={v.id}

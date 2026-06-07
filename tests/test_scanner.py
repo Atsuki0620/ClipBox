@@ -97,6 +97,102 @@ def test_scan_updates_all_not_found_videos_is_available(tmp_path, tmp_db):
     assert h_row["is_available"] == 0  # スキャン対象外 → is_available=0
 
 
+def test_scan_keeps_protected_root_records_available(tmp_path, tmp_db):
+    library = tmp_path / "library"
+    selection = tmp_path / "selection"
+    library.mkdir()
+    selection.mkdir()
+
+    library_file = library / "library.mp4"
+    selection_file = selection / "!selection.mp4"
+    outside_file = tmp_path / "outside.mp4"
+    library_file.write_bytes(b"dummy")
+    selection_file.write_bytes(b"dummy")
+    outside_file.write_bytes(b"dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted
+            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0)
+            """,
+            ("selection.mp4", str(selection_file)),
+        )
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted
+            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0)
+            """,
+            ("outside.mp4", str(outside_file)),
+        )
+
+    scanner = FileScanner([library], protected_roots=[selection])
+    with database.get_db_connection() as conn:
+        scanner.scan_and_update(conn)
+
+    with database.get_db_connection() as conn:
+        selection_row = conn.execute(
+            "SELECT is_available FROM videos WHERE essential_filename = ?",
+            ("selection.mp4",),
+        ).fetchone()
+        outside_row = conn.execute(
+            "SELECT is_available FROM videos WHERE essential_filename = ?",
+            ("outside.mp4",),
+        ).fetchone()
+
+    assert selection_row["is_available"] == 1
+    assert outside_row["is_available"] == 0
+
+
+def test_scan_single_directory_marks_missing_files_in_that_directory_unavailable(tmp_path, tmp_db):
+    selection = tmp_path / "selection"
+    sibling = tmp_path / "selection2"
+    selection.mkdir()
+    sibling.mkdir()
+
+    existing_file = selection / "!existing.mp4"
+    missing_file = selection / "!missing.mp4"
+    sibling_file = sibling / "!sibling.mp4"
+    existing_file.write_bytes(b"dummy")
+    sibling_file.write_bytes(b"dummy")
+
+    with database.get_db_connection() as conn:
+        for essential, path in (
+            ("existing.mp4", existing_file),
+            ("missing.mp4", missing_file),
+            ("sibling.mp4", sibling_file),
+        ):
+            conn.execute(
+                """
+                INSERT INTO videos (
+                    essential_filename, current_full_path, current_favorite_level,
+                    storage_location, is_available, is_deleted, needs_selection
+                ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0, 1)
+                """,
+                (essential, str(path)),
+            )
+
+    scanner = FileScanner([selection])
+    with database.get_db_connection() as conn:
+        assert scanner.scan_single_directory(selection, conn) == 1
+
+    with database.get_db_connection() as conn:
+        rows = {
+            row["essential_filename"]: row["is_available"]
+            for row in conn.execute(
+                "SELECT essential_filename, is_available FROM videos"
+            ).fetchall()
+        }
+
+    assert rows["existing.mp4"] == 1
+    assert rows["missing.mp4"] == 0
+    assert rows["sibling.mp4"] == 1
+
+
 def test_scan_does_not_change_is_available_when_no_files_found(tmp_path, tmp_db):
     """スキャン対象に存在しないパスを指定しても既存レコードの is_available は変わらない"""
     with database.get_db_connection() as conn:

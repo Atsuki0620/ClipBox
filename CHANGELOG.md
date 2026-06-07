@@ -4,6 +4,266 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-07 — PR #30 レビュー対応（Runtime 安全化 / analysis 集計化 / performers 廃止 ほか）
+
+**目的**: PR #30 への Request changes レビュー（マージ前チェックリスト）を解消する。
+
+**1. Runtime stop を ClipBox プロセスに限定**（`core/runtime_control.py`, `api_app.py`, `api/runtime.py`, `run_dev.bat`,
+`frontend/src/components/SidebarNav.tsx`）
+- 停止対象を **cwd がリポジトリ配下 AND cmdline にサービス固有マーカー**を満たすプロセスに限定（無差別停止を排除）。
+  `uvicorn --reload` 対策として listener PID から祖先を辿り service root を特定しツリー停止。
+- ClipBox と確認できないポート占有は `status="blocked"` → API は **409**。フロントは確認ダイアログで明示。
+- Runtime API は **`create_app()` ファクトリ + `CLIPBOX_ENABLE_RUNTIME_CONTROL=1`** のときのみ公開（既定は無効・404）。
+  `run_dev.bat` が dev 一括起動時に有効化。フロントは 404 を「無効」として lamp/停止パネルを非表示。
+- **UI 統合**: FastAPI は API 実行主体のため、停止ボタンは「Streamlit」「Web/API」の2系統に集約。
+  Web/API は `POST /api/runtime/web-stack/stop`（Next.js→FastAPI 順）。応答を待たず `about:blank` へ遷移。
+
+**2. /analysis をサーバー SQL 集計へ**（`core/analysis_service.py`, `api/analysis.py`, `api/schemas.py`,
+`frontend/src/lib/{api,types}.ts`, `frontend/src/app/analysis/page.tsx`）
+- `GET /api/analysis/{viewing,judgment}-trend?bucket=day|week|month` を追加。viewing/judgment × videos を JOIN した
+  SQL 集計で **video_ids を HTTP に乗せない**（旧 chunked GET による URL 長超過・リクエスト爆発を解消）。
+  判定トレンドはバケットごとに `COUNT(DISTINCT video_id)`。週ラベルは月曜開始日で既存 selection-trend と統一。
+
+**3. performers フィルタ廃止**（`api/videos.py`, `core/{app_service,video_manager}.py`, `api/schemas.py`,
+`frontend/src/lib/types.ts`）
+- フォルダ名由来の暫定抽出でフィルタに使えていなかった performers を API/core/`filter-options`/型から削除。
+  DB カラム `performer` と `extract_performer` はレガシーとして据え置き（migration なし）。
+
+**4. Tier1 のセレクション非表示を全モードへ + 判定状態フィルタ**（`core/video_manager.py`,
+`frontend/src/lib/store.ts`, `frontend/src/components/FilterPanel.tsx`, `frontend/src/app/page.tsx`）
+- `get_unrated_random_videos()` に `needs_selection=0 AND is_selection_completed=0` を追加し、ランダム/運命の1本でも
+  セレクション関連(`!`/`+`)を出さない（Tier1=判定層を仕様化）。
+- Tier1 に「すべて/未判定/判定済み」status を追加（levels へ写像。judged は既存 level 選択と intersection）。
+
+**5. ライブラリスキャン前バックアップを必須化**（`core/app_service.py`, `api/admin.py`,
+`frontend/src/app/settings/page.tsx`）
+- `POST /api/scan/library` は直近24時間以内のバックアップが無ければ **409**（API 直叩き対策。`has_recent_backup()`）。
+- 設定画面は実バックアップ（セッション内作成）のみで実行許可。自己申告チェックは廃止し、ダイアログに「今すぐバックアップ」を配置。
+
+**6. AVP 複数ファイル起動の手動確認**: `docs/context/ACCEPTANCE_CRITERIA.md` に手動マトリクスを追記（実機確認は別途）。
+
+**テスト**: `pytest tests/` **121 passed**（runtime 検証/--reload/web-stack、analysis trend の週 distinct、
+unrated の selection 除外、scan 前バックアップ 409 ほかを追加）。frontend `tsc`/`lint`/`build` 通過。
+
+---
+
+## 2026-06-07 — バグ修正: ライブラリスキャンが selection_folder 動画を is_available=0 にする問題
+
+**原因**: 通常のライブラリスキャン（`scan_and_update`）が自分のスキャン対象外の全動画を
+`is_available=0` に落とす仕様のため、`selection_folder` 配下の動画が library_roots に含まれていない場合に
+Tier2 動画が消えていた。
+
+**対策**（`core/scanner.py`, `core/file_ops.py`, `core/app_service.py`）:
+
+- `FileScanner` に `protected_roots` 引数を追加。`scan_and_update` は保護パス配下のレコードを
+  `is_available=0` 更新の対象外とする（`_is_protected_path` でパス比較、`normcase(normpath(resolve()))` 使用）。
+- `app_service.scan_library()` を2フェーズ構成に変更:
+  - Phase 1: `library_roots` をスキャン（`selection_folder` を `protected_roots` に指定）
+  - Phase 2: `selection_service.scan_selection_folder()` で selection フォルダを個別同期
+- `scan_single_directory()` を `FileScanner` に追加。`selection_folder` 専用スキャン用で、
+  対象ディレクトリ内のレコードのみ `is_available` を変更する。
+
+**テスト追加**（`tests/test_scanner.py`）:
+- `test_scan_keeps_protected_root_records_available`
+- `test_scan_single_directory_marks_missing_files_in_that_directory_unavailable`
+
+**残留リスク（軽微）**:
+- `current_full_path` が stale な場合、Phase 1 直後は一時的に unavailable になりうるが
+  Phase 2 完了時点で正しい状態に収束する。
+- `selection_folder` が `library_roots` 配下にある場合は二重スキャンになるが冪等で実害なし。
+  設定時に「library_roots の外に置くことを推奨」と案内することが望ましい。
+
+---
+
+## 2026-06-07 — ドキュメント: Phase 5 着手前チェックリスト追記
+
+**目的**: Streamlit アーカイブ前に完了すべき事項を `docs/context/MIGRATION_PLAN.md` に整理・記録。
+
+**関連ファイル**: `docs/context/MIGRATION_PLAN.md`
+
+追記した主な項目:
+- **A. コミット積み上げ**: `frontend/src/app/analysis/`, `avp/`, `settings/`、新コンポーネント群、
+  `api/avp.py`, `api/runtime.py`, `core/runtime_control.py` 等が未コミット
+- **B. README.md 整合**: analysis・settings を「未実装」と誤記している行の修正
+- **C. 手動受け入れテスト**: 分析・設定・AVP の write 操作確認（Streamlit 停止 + DB バックアップ必須）
+- **D. テスト補強**: `scan_library()` 統合テスト、API 異常系パス
+- **E. 既知のドリフト**: `top_n` デフォルト差異、`selection_folder` 配置の注意
+- **F. SQLite WAL + busy_timeout**: Streamlit アーカイブ後（Phase 5）に実施
+- **G. 起動スクリプト**: `next build` 確認、本番起動スクリプト整備
+
+---
+
+## 2026-06-07 — Next.js: サイドバー折り畳み + Runtime パネル下部配置
+
+**目的**: サイドバーをアイコン幅に折り畳めるトグルを追加。Runtime パネルを最下部に固定し、展開時にコンテンツが上方向に開くよう変更。
+
+**関連ファイル**: `frontend/src/components/SidebarNav.tsx`
+
+- **サイドバー折り畳み**: `PanelLeftClose`/`PanelLeftOpen` アイコンのトグルボタンを追加。
+  折り畳み時は `w-14`（アイコンのみ）、展開時は `w-72`。ナビ項目はアイコンのみ表示となり `title` 属性でラベルを補完。
+- **Runtime 最下部固定**: `mt-auto` で常にサイドバー最下部に配置。
+- **上方向展開**: `<details>` を廃止し React ステートで制御。コンテンツはトリガー行の上に描画され、展開時に上側に開く。
+
+---
+
+## 2026-06-07 — Next.js: 5項目 UI 改善
+
+**目的**: ①引いて即再生、②5列グリッド、③1列（運命）確認、④カード余白削減、⑤Select 表示修正。
+
+**関連ファイル**: `frontend/src/app/page.tsx`, `frontend/src/app/tier2/page.tsx`,
+`frontend/src/components/VideoGrid.tsx`, `frontend/src/components/VideoCard.tsx`
+
+- **①自動再生**: 運命の1本を引いたとき `useEffect` + `useRef` で `playVideo(id)` を fire-and-forget。
+  前回の id と比較して重複呼び出しを防ぐ。Tier1・Tier2 両方に適用。
+- **②5列グリッド**: `VideoGrid` のデフォルト gridClassName を
+  `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5` に変更。
+  運命タブは呼び出し元の `gridClassName="grid grid-cols-1 gap-3"` が優先されるため影響なし。
+- **③1列（確認）**: Tier1・Tier2 の運命セクションはすでに `gridClassName` を明示渡し済みで変更不要。
+- **④余白削減**: `VideoCard` の `CardContent` を `py-3 gap-2` → `py-1 gap-1` に変更。
+- **⑤Select 表示**: `SelectValue`（raw value 表示）を `<span>{levelName(displayLevel)}</span>` に置換。
+
+---
+
+## 2026-06-07 — Runtime control 機能（lamp 表示 + サービス停止）
+
+**目的**: Streamlit / FastAPI / Next.js の起動状態を Next.js サイドバーに lamp 表示し、各サービスを明示的に停止できる
+開発用コントロールを追加する。ブラウザを閉じてもプロセスは止まらないため、手動停止の導線を用意する。
+
+**関連ファイル**: `core/runtime_control.py`（新規）, `api/runtime.py`（新規）, `api/schemas.py`,
+`api_app.py`, `frontend/src/components/SidebarNav.tsx`, `frontend/src/lib/{api,types}.ts`,
+`docs/runtime-controls.md`（新規）, `requirements.txt`, `tests/test_runtime_control.py`（新規）, `tests/api/test_runtime.py`（新規）
+
+- **core/runtime_control.py**: `psutil` でポート（8501/8000/3000）→ LISTEN プロセスの PID を判定し、状態
+  （`running`/`stopped`/`unknown`）と PID を返す。`stop_service(name)` は対象プロセスを terminate（timeout 後 kill）。
+  `SERVICE_SPECS` に streamlit/fastapi/nextjs を定義。
+- **api/runtime.py**: `GET /api/runtime`（全サービスの lamp 状態）と `POST /api/runtime/{service}/stop`
+  （未知サービスは 404、停止失敗は 500）。`api_app.py` に配線。`requirements.txt` に `psutil>=5.9.0,<7.0.0` を追加。
+- **SidebarNav**: `RuntimeControlPanel` / `RuntimeLamp` / `StopConfirmDialog` を実装。`/api/runtime` を 4 秒間隔で
+  ポーリングし lamp（緑=起動/灰=停止/黄=取得不可）を表示、停止は確認ダイアログ経由。Next.js 停止時は画面も終了する旨を注記。
+- **注記**: 同日の「サイドバー折り畳み + Runtime パネル下部配置」エントリは**レイアウトのみ**。本エントリが Runtime 機能本体
+  （状態取得・停止 API・core ロジック）を記録する。
+- **検証**: `pytest tests/`（`test_runtime_control.py` / `test_runtime.py` 含む全件パス）。
+
+---
+
+## 2026-06-07 — Phase 4-C: AVP 並列再生を Next.js / FastAPI に移植
+
+**目的**: 旧 Streamlit の AVP 並列再生（`ui/avp_tab.py`）を Next.js / FastAPI に移植する。API は AVP 起動のみを担当し、
+横断選択・再生対象・評価待ちの状態は Next.js の Zustand で持つ。
+
+**関連ファイル**: `api/avp.py`（新規）, `api/schemas.py`（`AvpPlayRequest`）, `api_app.py`,
+`frontend/src/app/avp/page.tsx`（新規）, `frontend/src/lib/store.ts`, `frontend/src/components/VideoCard.tsx`,
+`tests/api/test_avp.py`（新規）, `docs/context/{API_SPEC,MIGRATION_MAP,MIGRATION_PLAN,ACCEPTANCE_CRITERIA}.md`
+
+- **POST /api/avp/play**: 最大4本の `video_ids` を受け取り `subprocess.Popen([avp_exe_path, ...paths])` で起動。
+  Streamlit 現行同様、AVP 起動自体では `viewing_history` / `play_history` を記録しない。
+- **エラー契約**: 400（0件 / 5件以上 / 非正ID / 重複ID）、404（動画 or ファイル不在）、409（`is_available=false` を含む）、
+  500（`avp_exe_path` 未設定・実行ファイル不在・起動失敗）。
+- **フロント**: `VideoCard` の AVP チェック（最大4本）、`/avp` で選択済み動画・再生対象・評価待ちカードを表示。
+  状態は `useAvpStore`（`avpSelectedIds` / `avpLaunchSelectedIds` / `avpPlayingIds`）。評価・いいねは既存 API を流用。
+- **検証**: `pytest tests/`（`test_avp.py` 含む全件パス）。
+
+---
+
+## 2026-06-07 — Phase 4-B 完了: 分析・設定画面 + 画面共通ワークスペース化
+
+**目的**: 残作業だった `/analysis`・`/settings` を実装し Phase 4-B を完了。あわせて Tier1 / Tier2 の重複していた
+ライブラリ/ランダム/運命の1本のUIを共通コンポーネントに切り出す。
+
+**関連ファイル**: `frontend/src/app/{analysis,settings}/page.tsx`（新規）,
+`frontend/src/components/{LibraryWorkspace,LibraryFilterBar,VideoActionPanel,VideoState}.tsx`（新規）,
+`frontend/src/components/FilterPanel.tsx`, `frontend/src/app/{page,tier2/page}.tsx`,
+`frontend/src/lib/{api,types}.ts`, `frontend/src/app/layout.tsx`, `frontend/package.json`（`recharts` / `react-is`）,
+`docs/context/{IMPLEMENTATION_GUIDE,MIGRATION_PLAN}.md`
+
+- **分析画面 `/analysis`**: `recharts` でチャート化。`getAnalysisData` / `getViewingHistory` / `getJudgmentHistory` /
+  `getResponseTime` / `getAnalysisRankings` / `getSelectionTrend` / `getSelectionDistribution` を利用。
+- **設定画面 `/settings`**: `getConfig` / `updateConfig`（config 編集）、`scanLibrary` / `scanSelection`（スキャン）、
+  `createBackup`（DB バックアップ）を提供。
+- **共通ワークスペース化**: `LibraryWorkspace`（KPI + 3サブタブの外枠）、`LibraryFilterBar`（フィルタ）、
+  `VideoActionPanel`（`RandomPanel` / `FatePanel`）、`VideoState`（loading/empty/error）に切り出し、Tier1（`page.tsx`）と
+  Tier2（`tier2/page.tsx`）が共通利用。`FilterPanel.tsx` は責務を縮小。
+- **検証**: `frontend` で `npm run build` + `npx tsc --noEmit`。全ルート（`/`・`/tier2`・`/ranking`・`/analysis`・`/search`・
+  `/avp`・`/settings`）が生成されることを確認。
+
+---
+
+## 2026-06-07 — 起動時 DB バックアップ + ランチャー改善
+
+**目的**: 並走運用での事故に備え、起動時に1日1回 DB をバックアップする。あわせて開発ランチャーを疎通確認 + 自動ブラウザ起動に改善。
+
+**関連ファイル**: `scripts/startup_backup.py`（新規）, `run_dev.bat`, `run_clipbox.bat`, `run_api.bat`
+
+- **scripts/startup_backup.py**: `sqlite3` の `.backup`（read-only ソース接続）で `BACKUP_DIR` に
+  `videos_startup_YYYYMMDD_HHMMSS.db` を作成。**当日分が既にあればスキップ**、最新10世代を残し古いものを削除。
+  一時ファイル `.tmp` 経由で原子的に置換。
+- **ランチャー**: `run_clipbox.bat`（Streamlit）・`run_api.bat`（FastAPI）の起動前に `startup_backup.py` を呼ぶ
+  （失敗しても起動は継続）。`run_dev.bat` は全面改修し、起動時バックアップ → FastAPI / Next.js の precheck・既起動検出 →
+  `/api/health` と `http://localhost:3000` の疎通待ち → 成功時に既定ブラウザを自動起動、失敗時はポート使用状況のヒントを表示。
+
+---
+
+## 2026-06-07 — バックエンド: keyword フィルタを core へ移設 + スキャンの保護ルート/単体反映
+
+**目的**: API 層に重複実装されていた keyword 正規化を core に一本化し、ライブラリスキャンがセレクションフォルダ配下の
+動画を誤って利用不可にしないようにする。Tier2 セレクション一覧にもライブラリ同等のフィルタを通す。
+
+**関連ファイル**: `core/video_manager.py`, `core/app_service.py`, `core/scanner.py`, `core/file_ops.py`,
+`api/videos.py`, `tests/test_scanner.py`, `tests/api/{test_videos_read,test_admin}.py`
+
+- **keyword を core へ移設**: `VideoManager.get_videos(keyword=...)` を追加し、フィルタ適用後に
+  `normalize_text` で本質的ファイル名へ正規化部分一致。`app_service.get_videos` も `keyword` を透過。
+  `api/videos.py` 側の二重 normalize 実装を削除し core 委譲に統一（モジュール/関数 docstring も復元）。
+- **scanner の保護ルート**: `FileScanner(scan_directories, protected_roots=...)` を追加。`scan_and_update` は
+  見つからなかった動画でも **protected_roots 配下はスキップ**（is_available を落とさない）。
+  `app_service.scan_library` は selection_folder を protected_root に渡し、ライブラリスキャン後に
+  `scan_selection_folder` で同期する。`core/file_ops.create_file_scanner` も `protected_roots` を受け取る。
+- **単体スキャンの不在反映**: `scan_single_directory` がスキャン後に当該ディレクトリ内で見つからなかった動画を
+  `is_available=0` に更新（`_mark_missing_in_directory_unavailable`）。
+- **/videos/selection 拡充**: `levels` / `storage` / `keyword` / `show_unavailable` を受け付けるようにし、Tier2 でも
+  ライブラリ同等のフィルタが効くようにした。
+- **検証**: `pytest tests/`（scanner / videos_read / admin のテスト追加分含む全件パス）。
+
+---
+
+## 2026-06-06 — Next.js: タブラベル修正・引くボタン大型化・カード全幅対応
+
+**目的**: ユーザー指摘3点を修正。①タブ「選別の1本」→「運命の1本」、②引くボタンを大きくしてクリックしやすく、
+③カードが表示エリアの横幅をフルに使うよう変更。
+
+**関連ファイル**: `frontend/src/components/LibraryWorkspace.tsx`,
+`frontend/src/components/VideoActionPanel.tsx`,
+`frontend/src/components/VideoGrid.tsx`,
+`frontend/src/app/page.tsx`, `frontend/src/app/tier2/page.tsx`
+
+- **タブラベル**: Tier1・Tier2 共通の `LibraryWorkspace` 内「選別の1本」→「運命の1本」に変更
+- **引くボタン大型化**: `FatePanel` のボタンを `size="sm"` → `size="lg"` + `px-8 py-5 text-base`
+- **カード全幅**: `VideoGrid` のグリッドを `grid-cols-1 lg:grid-cols-2`（デフォルト）に変更し、
+  カード幅を2列（~620px@1280px）に。運命/選別タブの1枚表示は `gridClassName="grid grid-cols-1 gap-3"` で
+  フル幅（1280px）表示に対応するため `gridClassName` propsを追加。
+- **検証**: Playwright で ①2列ライブラリ（ファイル名フル表示）、②大きい引くボタン、
+  ③運命カードがフル幅で表示されることを確認 ✓
+
+---
+
+## 2026-06-06 — Next.js: カード横幅改善 + 運命カードの幅修正
+
+**目的**: ライブラリグリッドのカードが狭く（1280px 環境で227px/4列）使いにくい問題と、
+運命の1本タブのカードが `max-w-sm` ラッパーにより極端に狭くなっていた問題（4列グリッド内84px）を修正。
+
+**関連ファイル**: `frontend/src/components/VideoGrid.tsx`,
+`frontend/src/app/page.tsx`, `frontend/src/app/tier2/page.tsx`
+
+- **VideoGrid**: `xl:grid-cols-4` → `2xl:grid-cols-4` に変更。1280px 環境では3列（~317px/枚）、
+  1536px+ 環境で4列に。修正前比 +37% 幅改善。
+- **運命カード幅**: Tier1・Tier2 の fate セクションから `<div className="max-w-sm">` ラッパーを削除。
+  単体カードがグリッドの自然幅（~311px@1600px）を取るようになり可読性が向上。
+- **再生ボタン動作確認**: Playwright で `POST /api/videos/{id}/play` が 200 OK を返すことを確認。
+  UI 側は正常動作しており、動画が再生されない場合はサーバー側（`subprocess.Popen`）の
+  ファイルパスまたはプレイヤー設定を確認すること。
+
+---
+
 ## 2026-06-06 — Next.js: Tier1 を1画面3サブタブに統合（Streamlit構成へ整合）+ 細部パリティ
 
 **目的**: Next.js 版の画面構成が Streamlit と乖離していた点を是正。最大の差は Tier1 が `/`（ライブラリ）と

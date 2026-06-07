@@ -101,6 +101,37 @@ def test_viewing_and_judgment_history(client):
     assert jh[0]["video_id"] == 1
 
 
+def test_viewing_trend_counts(client):
+    """視聴トレンドはサーバー集計で件数を返す（video_ids 不要）。"""
+    _seed()
+    body = client.get("/api/analysis/viewing-trend", params={"period": "全期間", "bucket": "day"}).json()
+    assert sum(item["count"] for item in body) == 4  # a=3 + b=1
+
+
+def test_judgment_trend_week_distinct(client):
+    """同一動画が同一週に複数日判定でも、週バケットの count は distinct=1。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        # 2026-06-08(月) と 2026-06-09(火) は同一週（月曜開始）
+        conn.execute(
+            "INSERT INTO judgment_history (video_id, old_level, new_level, judged_at, was_selection_judgment)"
+            " VALUES (1, -1, 3, '2026-06-08 12:00:00', 0)"
+        )
+        conn.execute(
+            "INSERT INTO judgment_history (video_id, old_level, new_level, judged_at, was_selection_judgment)"
+            " VALUES (1, -1, 3, '2026-06-09 12:00:00', 0)"
+        )
+
+    body = client.get(
+        "/api/analysis/judgment-trend", params={"period": "全期間", "bucket": "week"}
+    ).json()
+    assert len(body) == 1
+    assert body[0]["count"] == 1
+
+
 def test_response_time(client):
     """応答時間データが返る。"""
     _seed()

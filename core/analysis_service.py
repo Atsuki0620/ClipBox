@@ -304,6 +304,102 @@ def get_judgment_history(
     return pd.DataFrame(rows).sort_values("judged_at").reset_index(drop=True)
 
 
+def _bucket_label_expr(col: str, bucket: str) -> str:
+    """日時列 col をバケット単位のラベル文字列に変換する SQL 式を返す。
+
+    既存フロント（selection-trend の client 集計）と表示ラベルを揃える:
+      day=YYYY-MM-DD / week=月曜開始日(YYYY-MM-DD) / month=YYYY-MM。
+    col は内部固定文字列のみ（ユーザー入力を渡さない）。
+    """
+    if bucket == "month":
+        return f"strftime('%Y-%m', {col}, 'localtime')"
+    if bucket == "week":
+        # 月曜開始日。%w は 0=日..6=土。(w+6)%7 日戻すと月曜になる。
+        return (
+            f"date({col}, 'localtime', '-' || "
+            f"((cast(strftime('%w', {col}, 'localtime') as integer) + 6) % 7) || ' days')"
+        )
+    return f"DATE({col}, 'localtime')"  # day
+
+
+def _trend_filters(
+    date_col: str,
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    is_available: Optional[bool],
+    include_deleted: bool,
+) -> Tuple[str, list]:
+    """videos スコープ（可用性/論理削除）+ 期間の WHERE 句と params を組み立てる。"""
+    clause = ""
+    params: list = []
+    if not include_deleted:
+        clause += " AND v.is_deleted = 0"
+    if is_available is not None:
+        clause += " AND v.is_available = ?"
+        params.append(1 if is_available else 0)
+    if period_start is not None:
+        clause += f" AND {date_col} >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        clause += f" AND {date_col} <= ?"
+        params.append(period_end)
+    return clause, params
+
+
+def get_viewing_trend(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    is_available: Optional[bool],
+    include_deleted: bool,
+    bucket: str = "day",
+) -> pd.DataFrame:
+    """視聴回数のバケット別推移を返す（videos と JOIN し scope 済み・SQL 集計）。
+
+    Returns:
+        DataFrame: columns = ["label", "count"]（count = 視聴イベント数）
+    """
+    label = _bucket_label_expr("vh.viewed_at", bucket)
+    where, params = _trend_filters(
+        "vh.viewed_at", period_start, period_end, is_available, include_deleted
+    )
+    query = (
+        f"SELECT {label} AS label, COUNT(*) AS count"
+        f" FROM viewing_history vh JOIN videos v ON v.id = vh.video_id"
+        f" WHERE 1=1{where}"
+        f" GROUP BY label ORDER BY label"
+    )
+    with get_db_connection() as conn:
+        return pd.read_sql_query(query, conn, params=params)
+
+
+def get_judgment_trend(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    is_available: Optional[bool],
+    include_deleted: bool,
+    bucket: str = "day",
+) -> pd.DataFrame:
+    """判定のバケット別推移を返す（バケットごとに COUNT(DISTINCT video_id)・SQL 集計）。
+
+    週/月でも同一動画はバケット内で1カウントになる（client 側合算では過大計上になるため SQL で distinct）。
+
+    Returns:
+        DataFrame: columns = ["label", "count"]
+    """
+    label = _bucket_label_expr("jh.judged_at", bucket)
+    where, params = _trend_filters(
+        "jh.judged_at", period_start, period_end, is_available, include_deleted
+    )
+    query = (
+        f"SELECT {label} AS label, COUNT(DISTINCT jh.video_id) AS count"
+        f" FROM judgment_history jh JOIN videos v ON v.id = jh.video_id"
+        f" WHERE 1=1{where}"
+        f" GROUP BY label ORDER BY label"
+    )
+    with get_db_connection() as conn:
+        return pd.read_sql_query(query, conn, params=params)
+
+
 def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
     """period_view_count を用いたランキング DataFrame を返す。"""
     if df_filtered.empty:

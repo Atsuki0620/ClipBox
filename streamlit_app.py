@@ -196,12 +196,14 @@ def scan_files():
     with st.spinner("ファイルをスキャン中..."):
         try:
             library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
-            scanner = app_service.create_file_scanner(library_roots)
+            selection_folder_str = st.session_state.user_config.get("selection_folder", "")
+            selection_folder = Path(selection_folder_str) if selection_folder_str else None
+            protected_roots = [selection_folder] if selection_folder and selection_folder.exists() and selection_folder.is_dir() else []
+            scanner = app_service.create_file_scanner(library_roots, protected_roots=protected_roots)
             app_service.scan_and_update_with_connection(scanner)
             # セレクションフォルダが設定されていれば一緒にスキャンして is_available を同期する
-            selection_folder_str = st.session_state.user_config.get("selection_folder", "")
-            if selection_folder_str:
-                app_service.scan_selection_folder(Path(selection_folder_str))
+            if selection_folder in protected_roots:
+                app_service.scan_selection_folder(selection_folder)
             # スキャン後はキャッシュを無効化して最新の状態を表示する
             ui_cache.get_filter_options.clear()
             ui_cache.get_metrics.clear()
@@ -217,12 +219,14 @@ def scan_files_for_settings():
     設定タブから呼び出すため、rerun は設定側で制御する。
     """
     library_roots = [Path(p) for p in st.session_state.user_config.get("library_roots", SCAN_DIRECTORIES)]
-    scanner = app_service.create_file_scanner(library_roots)
+    selection_folder_str = st.session_state.user_config.get("selection_folder", "")
+    selection_folder = Path(selection_folder_str) if selection_folder_str else None
+    protected_roots = [selection_folder] if selection_folder and selection_folder.exists() and selection_folder.is_dir() else []
+    scanner = app_service.create_file_scanner(library_roots, protected_roots=protected_roots)
     app_service.scan_and_update_with_connection(scanner)
     # セレクションフォルダが設定されていれば一緒にスキャンして is_available を同期する
-    selection_folder_str = st.session_state.user_config.get("selection_folder", "")
-    if selection_folder_str:
-        app_service.scan_selection_folder(Path(selection_folder_str))
+    if selection_folder in protected_roots:
+        app_service.scan_selection_folder(selection_folder)
 
 def main():
     """エントリーポイント"""

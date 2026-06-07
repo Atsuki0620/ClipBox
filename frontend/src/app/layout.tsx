@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ClipBox",
-  description: "動画ファイル管理システム（Next.js フロントエンド）",
+  description: "ClipBox の Next.js フロントエンド",
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         <Providers>
-          <div className="flex min-h-screen">
+          <div className="flex min-h-screen bg-background">
             <SidebarNav />
             <main className="flex-1 overflow-x-hidden p-4">{children}</main>
           </div>

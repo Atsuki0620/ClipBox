@@ -89,10 +89,65 @@ def test_scan_selection_scans_folder(client, tmp_path):
 
 
 def test_scan_library_succeeds(client, tmp_path):
-    """config の library_roots（tmp）でライブラリスキャンが成功する。"""
+    """config の library_roots（tmp）でライブラリスキャンが成功する（事前バックアップ要件込み）。"""
     (tmp_path / "library" / "vid.mp4").write_text("x")
+    assert client.post("/api/backup").status_code == 200
     body = client.post("/api/scan/library").json()
     assert body["status"] == "success"
+
+
+def test_scan_library_409_without_recent_backup(client, tmp_path):
+    """直近バックアップが無ければライブラリスキャンは 409。"""
+    (tmp_path / "library" / "vid.mp4").write_text("x")
+    r = client.post("/api/scan/library")
+    assert r.status_code == 409
+
+
+def test_scan_library_restores_available_selection_video(client, tmp_path):
+    from core.database import get_db_connection
+
+    library = tmp_path / "library"
+    selection = tmp_path / "selection"
+    selection.mkdir()
+    (library / "vid.mp4").write_text("x")
+    selection_file = selection / "!pick.mp4"
+    selection_file.write_text("x")
+
+    client.put(
+        "/api/config",
+        json={
+            "library_roots": [str(library)],
+            "selection_folder": str(selection),
+        },
+    )
+
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection
+            ) VALUES (?, ?, -1, 'C_DRIVE', 0, 0, 1)
+            """,
+            ("pick.mp4", str(selection_file)),
+        )
+
+    assert client.post("/api/backup").status_code == 200  # scan/library の事前バックアップ要件
+    body = client.post("/api/scan/library").json()
+    assert body["status"] == "success"
+
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT is_available, needs_selection
+              FROM videos
+             WHERE essential_filename = ?
+            """,
+            ("pick.mp4",),
+        ).fetchone()
+
+    assert row["is_available"] == 1
+    assert row["needs_selection"] == 1
 
 
 def test_scan_selection_404_when_folder_missing(client, tmp_path):
@@ -102,8 +157,9 @@ def test_scan_selection_404_when_folder_missing(client, tmp_path):
 
 
 def test_scan_library_error_maps_500(client, monkeypatch):
-    """scan_library が status:error を返したら 500 に寄せる。"""
+    """事前バックアップ要件を満たした上で scan_library が status:error を返したら 500 に寄せる。"""
     from core import app_service
+    monkeypatch.setattr(app_service, "has_recent_backup", lambda hours=24: True)
     monkeypatch.setattr(app_service, "scan_library", lambda: {"status": "error", "message": "boom"})
     r = client.post("/api/scan/library")
     assert r.status_code == 500

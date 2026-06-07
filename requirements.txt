@@ -1,13 +1,11 @@
 # ClipBox - 動画管理システム
-# 必要なPythonパッケージ
+# Python パッケージ
 
 # UI フレームワーク
 streamlit>=1.30.0,<3.0.0
 
-# データ分析・操作
+# データ分析・描画
 pandas>=2.0.0,<3.0.0
-
-# グラフ描画（将来の拡張用）
 matplotlib>=3.7.0,<4.0.0
 plotly>=5.18.0,<7.0.0
 seaborn>=0.12.0,<1.0.0
@@ -16,14 +14,9 @@ japanize-matplotlib>=1.1.3,<2.0.0
 # テスト
 pytest>=7.4.0,<11.0.0
 pytest-cov>=4.1.0,<8.0.0
-httpx>=0.27.0,<1.0.0  # FastAPI TestClient 用
+httpx>=0.27.0,<1.0.0
+psutil>=5.9.0,<7.0.0
 
-# ファイルシステム監視（将来の拡張用）
-# watchdog>=3.0.0
-
-# サムネイル抽出（将来の拡張用）
-# opencv-python>=4.8.0
-
-# Webフレームワーク（Phase 3-A〜: FastAPI バックエンド）
+# Web フレームワーク
 fastapi>=0.110.0,<1.0.0
 uvicorn[standard]>=0.27.0,<1.0.0
