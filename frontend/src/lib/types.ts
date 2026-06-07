@@ -62,6 +62,21 @@ export interface StatusMessage {
   message: string;
 }
 
+export type RuntimeServiceName = "streamlit" | "fastapi" | "nextjs";
+export type RuntimeServiceStatus = "running" | "stopped" | "unknown";
+
+export interface RuntimeService {
+  name: RuntimeServiceName;
+  label: string;
+  port: number;
+  status: RuntimeServiceStatus;
+  pid: number | null;
+}
+
+export interface RuntimeStatusResponse {
+  services: RuntimeService[];
+}
+
 export interface LikeResponse {
   video_id: number;
   like_count: number;
@@ -120,8 +135,123 @@ export interface VideoListParams {
 export interface SelectionVideoListParams {
   folder: string;
   status?: SelectionStatus;
+  levels?: number[];
+  storage?: string[];
+  keyword?: string;
+  show_unavailable?: boolean;
   sort?: SortField;
   order?: SortOrder;
   page?: number;
   page_size?: number;
+}
+
+export type AnalysisPeriodPreset =
+  | "全期間"
+  | "直近7日"
+  | "直近30日"
+  | "直近90日"
+  | "直近180日"
+  | "カスタム";
+
+export type AnalysisAvailability = "利用可能のみ" | "利用不可のみ" | "すべて";
+
+export interface AnalysisQuery {
+  period: AnalysisPeriodPreset;
+  start?: string;
+  end?: string;
+  availability: AnalysisAvailability;
+  include_deleted: boolean;
+}
+
+export interface AnalysisVideoRecord {
+  id: number | null;
+  essential_filename?: string | null;
+  current_full_path?: string | null;
+  current_favorite_level?: number | null;
+  file_size?: number | null;
+  performer?: string | null;
+  storage_location?: string | null;
+  file_created_at?: string | null;
+  is_available?: boolean | number | null;
+  is_deleted?: boolean | number | null;
+  total_view_count?: number | null;
+  last_viewed_at?: string | null;
+  period_view_count?: number | null;
+  [key: string]: unknown;
+}
+
+export interface AnalysisDataResponse {
+  items: AnalysisVideoRecord[];
+  total: number;
+}
+
+export interface AnalysisHistoryQuery {
+  start?: string;
+  end?: string;
+  video_ids: number[];
+}
+
+export interface ViewingHistoryItem {
+  video_id: number;
+  viewed_at: string | null;
+}
+
+export interface JudgmentHistoryItem {
+  video_id: number;
+  judged_at: string | null;
+}
+
+export interface ResponseTimeItem {
+  duration_ms: number;
+  storage: string | null;
+}
+
+export type AnalysisRankingKind = "view_count" | "view_days" | "likes";
+
+export interface AnalysisRankingParams extends AnalysisQuery {
+  kind: AnalysisRankingKind;
+  top_n: number;
+}
+
+export interface AnalysisRankingItem {
+  rank: number;
+  filename: string;
+  is_available: boolean | null;
+  storage_location: string | null;
+  file_created_at: string | null;
+  favorite_level: number;
+  score: number;
+}
+
+export interface AnalysisRankingResponse {
+  kind: AnalysisRankingKind;
+  items: AnalysisRankingItem[];
+}
+
+export interface SelectionTrendItem {
+  date: string;
+  count: number;
+}
+
+export interface SelectionDistributionItem {
+  level: number | null;
+  count: number;
+}
+
+export interface ScanLibraryResponse {
+  status: string;
+  message: string;
+}
+
+export interface ScanSelectionResponse {
+  status: string;
+  message: string;
+  found_count: number;
+}
+
+export interface BackupResponse {
+  status: string;
+  message: string;
+  filename: string;
+  size_bytes: number;
 }

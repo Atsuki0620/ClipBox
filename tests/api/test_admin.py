@@ -95,6 +95,52 @@ def test_scan_library_succeeds(client, tmp_path):
     assert body["status"] == "success"
 
 
+def test_scan_library_restores_available_selection_video(client, tmp_path):
+    from core.database import get_db_connection
+
+    library = tmp_path / "library"
+    selection = tmp_path / "selection"
+    selection.mkdir()
+    (library / "vid.mp4").write_text("x")
+    selection_file = selection / "!pick.mp4"
+    selection_file.write_text("x")
+
+    client.put(
+        "/api/config",
+        json={
+            "library_roots": [str(library)],
+            "selection_folder": str(selection),
+        },
+    )
+
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection
+            ) VALUES (?, ?, -1, 'C_DRIVE', 0, 0, 1)
+            """,
+            ("pick.mp4", str(selection_file)),
+        )
+
+    body = client.post("/api/scan/library").json()
+    assert body["status"] == "success"
+
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT is_available, needs_selection
+              FROM videos
+             WHERE essential_filename = ?
+            """,
+            ("pick.mp4",),
+        ).fetchone()
+
+    assert row["is_available"] == 1
+    assert row["needs_selection"] == 1
+
+
 def test_scan_selection_404_when_folder_missing(client, tmp_path):
     """存在しない folder 指定は 404。"""
     r = client.post("/api/scan/selection", json={"folder": str(tmp_path / "nope")})

@@ -31,6 +31,18 @@ class HealthResponse(BaseModel):
     db_exists: bool
 
 
+class RuntimeServiceResponse(BaseModel):
+    name: str
+    label: str
+    port: int
+    status: str
+    pid: Optional[int] = None
+
+
+class RuntimeStatusResponse(BaseModel):
+    services: List[RuntimeServiceResponse]
+
+
 class VideoOut(BaseModel):
     """動画1件の API レスポンス。`Video` dataclass の全フィールド + 派生値。"""
 
@@ -144,6 +156,12 @@ class PlayRequest(BaseModel):
     trigger: Optional[str] = None
     library_root: Optional[str] = None
     internal_id: Optional[str] = None
+
+
+class AvpPlayRequest(BaseModel):
+    """Awesome Video Player の並列再生リクエスト。"""
+
+    video_ids: List[int]
 
 
 class LevelRequest(BaseModel):

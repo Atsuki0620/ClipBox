@@ -16,7 +16,7 @@ from typing import List, Optional, Dict
 from datetime import datetime
 from pathlib import Path
 
-from core.models import Video, is_path_within
+from core.models import Video, is_path_within, normalize_text
 from core.database import get_db_connection, insert_play_history
 from core.logger import get_logger
 from config import FAVORITE_LEVEL_NAMES
@@ -54,6 +54,7 @@ class VideoManager:
         favorite_levels: Optional[List[int]] = None,
         performers: Optional[List[str]] = None,
         storage_locations: Optional[List[str]] = None,
+        keyword: Optional[str] = None,
         availability: Optional[str] = None,
         show_unavailable: bool = False,
         show_deleted: bool = False,
@@ -119,7 +120,15 @@ class VideoManager:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
 
-            return [self._row_to_video(row) for row in rows]
+            videos = [self._row_to_video(row) for row in rows]
+            if keyword:
+                keyword_norm = normalize_text(keyword)
+                videos = [
+                    video
+                    for video in videos
+                    if keyword_norm in normalize_text(video.essential_filename)
+                ]
+            return videos
 
     def get_videos_by_ids(self, video_ids: List[int]) -> List[Video]:
         """指定IDリストの動画をDBから取得し、IDの順序を保って返す"""

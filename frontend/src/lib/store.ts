@@ -9,11 +9,9 @@ export type AvailabilityMode = "available" | "unavailable" | "all";
 
 export interface LibraryFilters {
   levels: number[];
-  performers: string[];
   storage: string[];
   keyword: string;
   availabilityMode: AvailabilityMode;
-  exclude_selection: boolean;
   sort?: SortField;
   order?: SortOrder;
   page: number;
@@ -27,14 +25,27 @@ interface LibraryStore extends LibraryFilters {
   reset: () => void;
 }
 
+interface AvpStore {
+  avpSelectedIds: number[];
+  avpLaunchSelectedIds: number[];
+  avpPlayingIds: number[];
+  toggleAvpSelectedId: (id: number) => void;
+  removeAvpSelectedId: (id: number) => void;
+  clearAvpSelectedIds: () => void;
+  toggleAvpLaunchSelectedId: (id: number) => void;
+  clearAvpLaunchSelectedIds: () => void;
+  setAvpPlayingIds: (ids: number[]) => void;
+  clearAvpPlayingIds: () => void;
+}
+
+export const MAX_AVP_SELECTION = 4;
+
 // 既定は Streamlit 現行に寄せる（セレクション除外 ON・未判定含む全レベル・利用可能のみ）。
 const DEFAULTS: LibraryFilters = {
   levels: [],
-  performers: [],
   storage: [],
   keyword: "",
   availabilityMode: "available",
-  exclude_selection: true,
   sort: undefined,
   order: undefined,
   page: 1,
@@ -56,4 +67,56 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
       page: "page" in partial ? (partial.page as number) : 1,
     })),
   reset: () => set(DEFAULTS),
+}));
+
+export const useAvpStore = create<AvpStore>((set) => ({
+  avpSelectedIds: [],
+  avpLaunchSelectedIds: [],
+  avpPlayingIds: [],
+  toggleAvpSelectedId: (id) =>
+    set((state) => {
+      const selected = state.avpSelectedIds.includes(id);
+      if (selected) {
+        return {
+          avpSelectedIds: state.avpSelectedIds.filter((value) => value !== id),
+          avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
+            (value) => value !== id,
+          ),
+        };
+      }
+      if (state.avpSelectedIds.length >= MAX_AVP_SELECTION) {
+        return state;
+      }
+      return { avpSelectedIds: [...state.avpSelectedIds, id] };
+    }),
+  removeAvpSelectedId: (id) =>
+    set((state) => ({
+      avpSelectedIds: state.avpSelectedIds.filter((value) => value !== id),
+      avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
+        (value) => value !== id,
+      ),
+    })),
+  clearAvpSelectedIds: () =>
+    set({ avpSelectedIds: [], avpLaunchSelectedIds: [] }),
+  toggleAvpLaunchSelectedId: (id) =>
+    set((state) => {
+      const selected = state.avpLaunchSelectedIds.includes(id);
+      if (selected) {
+        return {
+          avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
+            (value) => value !== id,
+          ),
+        };
+      }
+      if (
+        !state.avpSelectedIds.includes(id) ||
+        state.avpLaunchSelectedIds.length >= MAX_AVP_SELECTION
+      ) {
+        return state;
+      }
+      return { avpLaunchSelectedIds: [...state.avpLaunchSelectedIds, id] };
+    }),
+  clearAvpLaunchSelectedIds: () => set({ avpLaunchSelectedIds: [] }),
+  setAvpPlayingIds: (ids) => set({ avpPlayingIds: ids.slice(0, MAX_AVP_SELECTION) }),
+  clearAvpPlayingIds: () => set({ avpPlayingIds: [] }),
 }));

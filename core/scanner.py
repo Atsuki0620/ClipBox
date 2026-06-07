@@ -3,16 +3,19 @@ ClipBox - ファイルスキャン機能
 動画ファイルのスキャンと識別を行う
 """
 
+import os
 import re
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 from datetime import datetime
 
 from config import VIDEO_EXTENSIONS
 from core.logger import get_logger
 
 logger = get_logger(__name__)
+
+PathLike = Union[str, Path]
 
 
 def extract_essential_filename(filename: str) -> Tuple[int, str, bool, bool]:
@@ -108,13 +111,40 @@ def extract_performer(file_path: Path) -> Optional[str]:
 class FileScanner:
     """ファイルスキャンとデータベース更新"""
 
-    def __init__(self, scan_directories: List[Path]):
+    def __init__(
+        self,
+        scan_directories: Sequence[PathLike],
+        protected_roots: Optional[Sequence[PathLike]] = None,
+    ):
         """
         Args:
             scan_directories: スキャン対象ディレクトリのリスト
         """
-        self.scan_directories = scan_directories
+        self.scan_directories = [Path(p) for p in scan_directories]
+        self.protected_roots = [
+            Path(p).resolve()
+            for p in (protected_roots or [])
+            if Path(p).exists() and Path(p).is_dir()
+        ]
         self.found_files = set()  # スキャン中に見つかったファイルのessential_filenameを記録
+
+    @staticmethod
+    def _is_path_within_root(file_path: str, root: Path) -> bool:
+        if not file_path:
+            return False
+
+        normalized_path = os.path.normcase(os.path.normpath(str(Path(file_path).resolve())))
+        normalized_root = os.path.normcase(os.path.normpath(str(root)))
+        return normalized_path == normalized_root or normalized_path.startswith(normalized_root + os.sep)
+
+    def _is_protected_path(self, file_path: str) -> bool:
+        if not self.protected_roots:
+            return False
+
+        for root in self.protected_roots:
+            if self._is_path_within_root(file_path, root):
+                return True
+        return False
 
     def scan_and_update(self, db_conn):
         """
@@ -147,15 +177,20 @@ class FileScanner:
             return
 
         # スキャンで見つからなかった全動画を is_available=0 に更新
-        cursor = db_conn.execute("SELECT id, essential_filename FROM videos")
+        cursor = db_conn.execute("SELECT id, essential_filename, current_full_path FROM videos")
         all_videos = cursor.fetchall()
 
         unavailable_count = 0
+        protected_count = 0
         for video in all_videos:
             video_id = video[0]
             essential_filename = video[1]
+            current_full_path = video[2]
 
             if essential_filename not in self.found_files:
+                if self._is_protected_path(current_full_path):
+                    protected_count += 1
+                    continue
                 db_conn.execute(
                     "UPDATE videos SET is_available = 0 WHERE id = ?",
                     (video_id,)
@@ -164,10 +199,11 @@ class FileScanner:
 
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
         logger.info(
-            "operation=scan dirs=%d found=%d unavailable=%d elapsed_ms=%d",
+            "operation=scan dirs=%d found=%d unavailable=%d protected=%d elapsed_ms=%d",
             len(scanned_dirs),
             len(self.found_files),
             unavailable_count,
+            protected_count,
             elapsed_ms,
         )
 
@@ -187,8 +223,23 @@ class FileScanner:
         if not directory.exists() or not directory.is_dir():
             return 0
         self.found_files = set()
-        self._scan_directory(directory, db_conn)
+        resolved_directory = directory.resolve()
+        self._scan_directory(resolved_directory, db_conn)
+        self._mark_missing_in_directory_unavailable(resolved_directory, db_conn)
         return len(self.found_files)
+
+    def _mark_missing_in_directory_unavailable(self, directory: Path, db_conn) -> None:
+        rows = db_conn.execute(
+            "SELECT id, essential_filename, current_full_path FROM videos"
+        ).fetchall()
+        for row in rows:
+            if row[1] in self.found_files:
+                continue
+            if self._is_path_within_root(row[2], directory):
+                db_conn.execute(
+                    "UPDATE videos SET is_available = 0 WHERE id = ?",
+                    (row[0],),
+                )
 
     def _scan_directory(self, directory: Path, db_conn):
         """

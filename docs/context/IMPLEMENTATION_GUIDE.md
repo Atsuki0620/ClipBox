@@ -35,6 +35,8 @@ API層 (FastAPI) - Streamlit と並走・core を共有（Phase 3 完了）
   api/likes.py               ← like 追加 / likes 一括取得
   api/admin.py               ← scan/library・scan/selection・config(GET/PUT)・backup
   api/analysis.py            ← 分析データ・履歴・応答時間・ランキング・トレンド/分布
+  api/avp.py                 ← Awesome Video Player 並列再生
+  api/runtime.py             ← runtime lamp 状態 / サービス停止（dev/ops 用）
   api/schemas.py             ← Pydantic レスポンス/リクエストモデル（snake_case）
   api/_params.py             ← 配列クエリ（カンマ区切り/repeated 両対応）
   api/_serialization.py      ← pandas DataFrame → JSON 安全 list[dict]
@@ -42,7 +44,7 @@ API層 (FastAPI) - Streamlit と並走・core を共有（Phase 3 完了）
 Core層 (Python) - UI非依存
   core/app_service.py        ← UIファサード
   core/video_manager.py      ← ビジネスロジック
-  core/scanner.py            ← ファイルスキャナー
+  core/scanner.py            ← ファイルスキャナー（protected_roots 対応）
   core/database.py           ← DB接続・操作
   core/models.py             ← データモデル
   core/config_utils.py       ← ユーザー設定管理（JSON読み書き）
@@ -51,6 +53,7 @@ Core層 (Python) - UI非依存
   core/file_ops.py           ← ファイル操作（create_file_scanner）
   core/like_service.py       ← いいね機能
   core/selection_service.py  ← セレクション固有ロジック
+  core/runtime_control.py    ← サービス状態判定/停止（psutil・dev/ops 用）
   core/logger.py             ← RotatingFileHandler ロガー
 Archive層
   archive/                  ← archived 実装の復旧元
@@ -64,20 +67,24 @@ Data層 (SQLite)
 **API層（FastAPI）**: UI層と同じく core に一方向依存する。各ルーターは `core.app_service` のファサード経由でのみ
 DB にアクセスし、`streamlit` を import しない。Streamlit(8501) と並走（既定 8000）し、起動時 lifespan は read-only
 （`init_database`/`run_startup_migration` は実行せず DB 初期化は Streamlit に委ねる＝SQLite 同時書き込み回避）。
-全 29 エンドポイントは API_SPEC に準拠（実装は Phase 3-A/3-B で完了）。詳細は `docs/context/API_SPEC.md`。
+ドメイン 30 エンドポイント（AVP 起動 API を含む）+ 運用 2 エンドポイント（`/api/runtime` 系）= 計 32 が API_SPEC に
+準拠。詳細は `docs/context/API_SPEC.md`。runtime lamp / 停止は `core/runtime_control.py`（psutil）を介する dev/ops 用で、
+使い方は `docs/runtime-controls.md` を参照。
 
 **フロントエンド（Next.js / Phase 4-A〜）**: `frontend/` の Next.js(App Router)+TypeScript+Tailwind v4+shadcn/ui。
 FastAPI を `http://localhost:8000/api` 経由で叩く（`lib/api.ts`）。サーバー状態は TanStack Query、フィルタ等の
-クライアント横断状態は Zustand（`lib/store.ts`）。Phase 4-A で **Tier1 ライブラリ画面**、Phase 4-B-1 で
-App Router の実ルーティングと **Tier1 ランダム/運命の1本**・**検索**を実装。
+クライアント横断状態は Zustand（`lib/store.ts`）。Tier1 / Tier2 / ランキング / 分析 / 検索 / AVP / 設定を実装済み。
 **並走期間の DB 書き込み主体は当面 Streamlit**であり、Next.js からの再生/判定/いいねは Streamlit 停止 +
 DB バックアップ前提で検証する（SQLite 同時書き込み回避）。再生はサーバー機でプレイヤーが開く。
 
-**Next.js ルート（Phase 4-B-1 時点）**:
-- `/`: Tier1 ライブラリ（一覧・フィルタ・検索・ソート・ページング・KPI）
-- `/random`: Tier1 ランダム / 運命の1本
+**Next.js ルート**:
+- `/`: Tier1（ライブラリ / ランダム / 運命の1本）
+- `/tier2`: Tier2 セレクション（ライブラリ / ランダム / 運命の1本）
+- `/ranking`: ランキング
+- `/analysis`: 分析ダッシュボード
 - `/search`: 横断検索（キーワード + 保存場所、結果はクライアントページング）
-- `/tier2` / `/ranking` / `/analysis` / `/settings`: SidebarNav ではプレースホルダ（未実装・クリック不可）
+- `/avp`: AVP 並列再生（選択済み動画 / 再生対象 / 評価待ち）
+- `/settings`: 設定（config / scan / backup）
 
 ### 1.2 設計原則
 
@@ -106,17 +113,24 @@ ClipBox/
 │   ├── likes.py              # いいね
 │   ├── admin.py              # scan・config・backup
 │   ├── analysis.py           # 分析（DataFrame→JSON）
+│   ├── avp.py                # AVP 起動
+│   ├── runtime.py            # runtime lamp 状態 / サービス停止（dev/ops 用）
 │   ├── schemas.py            # Pydantic モデル
 │   ├── _params.py            # 配列クエリパース
 │   └── _serialization.py     # DataFrame 直列化
 │
-├── run_dev.bat               # uvicorn + next dev 一括起動（Phase 4-A）
+├── scripts/                  # 補助スクリプト
+│   └── startup_backup.py     # 起動時 DB バックアップ（1日1回・最新10世代保持）
+│
+├── run_dev.bat               # uvicorn + next dev 一括起動、疎通確認後にブラウザを開く
+├── run_clipbox.bat           # Streamlit 起動（起動時バックアップ付き）
 │
 ├── frontend/                 # Next.js フロントエンド（Phase 4-A〜。API 経由で core に依存）
 │   └── src/
-│       ├── app/              # App Router（layout/page/providers、random/search）
-│       ├── components/       # VideoCard・VideoGrid・KpiCard・FilterPanel・MultiSelect・Pagination・SidebarNav・ui/
+│       ├── app/              # App Router（/, tier2, ranking, analysis, search, avp, settings）
+│       ├── components/       # VideoCard・VideoGrid・KpiCard・LibraryWorkspace・LibraryFilterBar・VideoActionPanel・SidebarNav・ui/
 │       └── lib/              # api.ts（fetch ラッパ）・types.ts・store.ts(zustand)・levels.ts
+│                             #   分析チャートは recharts を使用
 │
 ├── ui/                       # UI層
 │   ├── tier1_tab.py          # Tier 1（一次判定）画面 @st.fragment
@@ -148,6 +162,7 @@ ClipBox/
 │   ├── file_ops.py           # ファイル操作ユーティリティ
 │   ├── like_service.py       # いいね機能
 │   ├── selection_service.py  # セレクション固有ロジック
+│   ├── runtime_control.py    # サービス状態判定/停止（psutil・dev/ops 用）
 │   └── logger.py             # RotatingFileHandler ロガー
 │
 ├── data/                     # データ
@@ -470,7 +485,12 @@ Streamlitのセッション状態で管理されるキー:
 | `unrated_fate_video` | Video\|None | Tier 1 運命の1本 選出結果 | None |
 | `selection_fate_video` | Video\|None | Tier 2 運命の1本 選出結果 | None |
 | `avp_selected_ids` | set[int] | AVP タブ横断チェック済みID | set() |
+| `avp_launch_selected` | set[int] | AVP タブ内の再生対象ID | set() |
 | `avp_playing_ids` | list[int] | AVP 再生中ID | [] |
+
+Next.js 側では `frontend/src/lib/store.ts` の `useAvpStore` が `avpSelectedIds` / `avpLaunchSelectedIds` /
+`avpPlayingIds` を保持する。動画カードの AVP チェックは最大4本に制限し、`/avp` で再生対象を選んで
+`POST /api/avp/play` を呼ぶ。
 
 ---
 

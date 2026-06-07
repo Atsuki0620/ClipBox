@@ -8,16 +8,17 @@ import {
 } from "@tanstack/react-query";
 import { likeVideo, playVideo, setLevel } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
+import { MAX_AVP_SELECTION, useAvpStore } from "@/lib/store";
 import type { Video } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Tooltip,
@@ -40,6 +41,8 @@ export function VideoCard({
 }) {
   const qc = useQueryClient();
   const id = video.id as number;
+  const avpSelectedIds = useAvpStore((state) => state.avpSelectedIds);
+  const toggleAvpSelectedId = useAvpStore((state) => state.toggleAvpSelectedId);
 
   // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
@@ -75,10 +78,18 @@ export function VideoCard({
   const mutateDisabled = busy || !video.is_available;
   const error = playM.error || levelM.error || likeM.error;
   const isJudged = displayLevel !== -1;
+  const isAvpSelected = avpSelectedIds.includes(id);
+  const avpMaxReached =
+    avpSelectedIds.length >= MAX_AVP_SELECTION && !isAvpSelected;
+  const avpDisabled = !video.is_available || avpMaxReached;
 
   return (
-    <Card className={video.is_available ? "" : "opacity-60"}>
-      <CardContent className="flex flex-col gap-2 py-3">
+    <Card
+      className={`${video.is_available ? "" : "opacity-60"} ${
+        isAvpSelected ? "ring-2 ring-primary" : ""
+      }`}
+    >
+      <CardContent className="flex flex-col gap-1 py-1">
         <div
           className="line-clamp-2 break-all text-sm font-medium"
           title={video.essential_filename}
@@ -97,6 +108,27 @@ export function VideoCard({
           {video.is_selection_completed && <Badge variant="outline">選別済み</Badge>}
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
         </div>
+
+        <label
+          className={`flex w-fit items-center gap-2 text-sm ${
+            avpDisabled ? "text-muted-foreground" : ""
+          }`}
+          title={
+            avpMaxReached
+              ? `AVP 選択は最大${MAX_AVP_SELECTION}本です`
+              : undefined
+          }
+        >
+          <Checkbox
+            checked={isAvpSelected}
+            disabled={avpDisabled}
+            onCheckedChange={() => toggleAvpSelectedId(id)}
+          />
+          <span>AVP選択</span>
+          <span className="text-xs text-muted-foreground">
+            {avpSelectedIds.length}/{MAX_AVP_SELECTION}
+          </span>
+        </label>
 
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -122,7 +154,7 @@ export function VideoCard({
             disabled={mutateDisabled}
           >
             <SelectTrigger className="w-28" size="sm">
-              <SelectValue />
+              <span>{levelName(displayLevel)}</span>
             </SelectTrigger>
             <SelectContent>
               {LEVEL_OPTIONS.map((l) => (

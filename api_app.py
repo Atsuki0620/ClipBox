@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core import app_service
 from core.logger import get_logger
-from api import videos, stats, actions, likes, admin, analysis
+from api import videos, stats, actions, likes, admin, analysis, avp, runtime
 from api.schemas import HealthResponse
 
 logger = get_logger(__name__)
@@ -64,6 +64,8 @@ app.include_router(actions.router, prefix="/api")
 app.include_router(likes.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
+app.include_router(avp.router, prefix="/api")
+app.include_router(runtime.router, prefix="/api")
 
 
 @app.get("/api/health", response_model=HealthResponse)

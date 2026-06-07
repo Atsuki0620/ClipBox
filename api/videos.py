@@ -7,6 +7,8 @@ ClipBox API - 動画 read 系ルーター（一覧・単体・検索・ランダ
 
 【設計制約】
 - `core.app_service` のファサード経由でのみ DB にアクセスする。read-only。
+- キーワード絞り込み（normalize_text 正規化での本質的ファイル名 部分一致）は **core 側**
+  （`app_service.get_videos(keyword=...)`）に委譲する。API 層では二重実装しない。
 - ルートは「固定パスを先、`/videos/{video_id}` を最後」に定義する（FastAPI のパス解決順序。
   さもないと `/videos/search` 等が `{video_id}` に吸われ 422 になる）。
 - 列挙パラメータは `Literal` で 422 に寄せる。配列は `api._params` で両形式対応。
@@ -24,10 +26,10 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
-from core import app_service
-from core.models import Video, is_path_within, normalize_text
-from api.schemas import FilterOptionsResponse, VideoOut, VideosResponse
 from api._params import csv_int_list, csv_str_list
+from api.schemas import FilterOptionsResponse, VideoOut, VideosResponse
+from core import app_service
+from core.models import Video, is_path_within
 
 router = APIRouter()
 
@@ -43,6 +45,7 @@ def _apply_sort(videos: List[Video], sort: Optional[str], order: Optional[str]) 
     """
     if not sort:
         return videos
+
     reverse = (order != "asc") if order else (sort != "title")
 
     if sort == "favorite_level":
@@ -66,7 +69,7 @@ def _paginate(videos: List[Video], page: int, page_size: int) -> VideosResponse:
     """ソート済み Video リストをページングして VideosResponse に詰める。"""
     total = len(videos)
     offset = (page - 1) * page_size
-    page_items = videos[offset:offset + page_size]
+    page_items = videos[offset : offset + page_size]
     return VideosResponse(
         items=[VideoOut.from_video(v) for v in page_items],
         total=total,
@@ -92,26 +95,27 @@ def list_videos(
     show_deleted: bool = Query(default=False, description="論理削除済みも含める"),
     needs_selection_filter: Optional[bool] = Query(default=None, description="True=未選別のみ / False=通常のみ / 省略=全て"),
     exclude_selection: bool = Query(default=False, description="セレクション対象・完了を除外"),
-    keyword: Optional[str] = Query(default=None, description="本質的ファイル名の部分一致検索（normalize_text 正規化）"),
+    keyword: Optional[str] = Query(default=None, description="本質的ファイル名の部分一致検索（core 側で normalize_text 正規化）"),
     sort: Optional[SortField] = Query(default=None, description="favorite_level / creation_date / view_count / last_viewed / title / modified"),
     order: Optional[Order] = Query(default=None, description="asc / desc（既定: title は asc、他は desc）"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=200),
 ) -> VideosResponse:
-    """フィルタ条件に合致する動画一覧を、サーバー側ソート + ページングで返す。"""
+    """フィルタ条件に合致する動画一覧を、サーバー側ソート + ページングで返す。
+
+    keyword は core（`get_videos`）でフィルタ適用後・ソート前に正規化部分一致される。
+    """
     videos = app_service.get_videos(
         favorite_levels=csv_int_list(levels),
         performers=csv_str_list(performers),
         storage_locations=csv_str_list(storage),
+        keyword=keyword,
         availability=availability,
         show_unavailable=show_unavailable,
         show_deleted=show_deleted,
         needs_selection_filter=needs_selection_filter,
         exclude_selection=exclude_selection,
     )
-    if keyword:
-        kw_norm = normalize_text(keyword)
-        videos = [v for v in videos if kw_norm in normalize_text(v.essential_filename)]
     videos = _apply_sort(videos, sort, order)
     return _paginate(videos, page, page_size)
 
@@ -146,16 +150,23 @@ def unrated_fate():
 def list_selection(
     folder: str = Query(..., description="セレクションフォルダパス（必須）"),
     status: Literal["all", "unselected", "completed"] = Query(default="all"),
+    levels: Optional[List[str]] = Query(default=None, description="お気に入りレベル（複数可 / カンマ区切り可）。-1=未判定"),
+    storage: Optional[List[str]] = Query(default=None, description="保存場所 C_DRIVE / EXTERNAL_HDD"),
+    keyword: Optional[str] = Query(default=None, description="本質的ファイル名の部分一致検索（core 側で normalize_text 正規化）"),
+    show_unavailable: bool = Query(default=False, description="利用不可も含める"),
     sort: Optional[SortField] = Query(default=None),
     order: Optional[Order] = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=200),
 ) -> VideosResponse:
-    """指定セレクションフォルダ配下の動画を選別状態でフィルタして返す。"""
+    """指定セレクションフォルダ配下の動画を選別状態 + フィルタで絞り込んで返す。"""
     needs_selection_filter = {"all": None, "unselected": True, "completed": False}[status]
     videos = app_service.get_videos(
+        favorite_levels=csv_int_list(levels),
+        storage_locations=csv_str_list(storage),
+        keyword=keyword,
         needs_selection_filter=needs_selection_filter,
-        show_unavailable=False,
+        show_unavailable=show_unavailable,
         show_deleted=False,
     )
     videos = _folder_filter(videos, folder)

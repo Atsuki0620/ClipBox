@@ -3,18 +3,33 @@
 // 非 2xx は detail を含む ApiError を throw し、TanStack Query 側でエラー集約する。
 
 import type {
+  AnalysisDataResponse,
+  AnalysisHistoryQuery,
+  AnalysisQuery,
+  AnalysisRankingParams,
+  AnalysisRankingResponse,
+  BackupResponse,
   Config,
   FilterOptions,
+  JudgmentHistoryItem,
   Kpi,
   LikeResponse,
   RankingParams,
   RankingResponse,
+  ResponseTimeItem,
+  RuntimeServiceName,
+  RuntimeStatusResponse,
+  ScanLibraryResponse,
+  ScanSelectionResponse,
+  SelectionDistributionItem,
   SelectionKpi,
+  SelectionTrendItem,
   SelectionVideoListParams,
   StatusMessage,
   Video,
   VideoListParams,
   VideosResponse,
+  ViewingHistoryItem,
 } from "./types";
 
 export const API_BASE =
@@ -30,8 +45,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body != null) {
+    headers.set("Content-Type", "application/json");
+  } else {
+    headers.delete("Content-Type");
+  }
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...init,
   });
   if (!res.ok) {
@@ -81,6 +102,10 @@ export function getConfig(): Promise<Config> {
   return request<Config>(`/config`);
 }
 
+export function getVideo(id: number): Promise<Video> {
+  return request<Video>(`/videos/${id}`);
+}
+
 export function getSelectionKpi(folder?: string): Promise<SelectionKpi> {
   return request<SelectionKpi>(`/stats/selection-kpi${toQuery({ folder })}`);
 }
@@ -102,6 +127,77 @@ export function getViewCounts(): Promise<Record<number, number>> {
 
 export function getLastViewed(): Promise<Record<number, string>> {
   return request<Record<number, string>>(`/stats/last-viewed`);
+}
+
+export function getAnalysisData(
+  params: AnalysisQuery,
+): Promise<AnalysisDataResponse> {
+  return request<AnalysisDataResponse>(`/analysis/data${toQuery({ ...params })}`);
+}
+
+const HISTORY_CHUNK_SIZE = 250;
+
+async function getChunkedHistory<T>(
+  path: string,
+  params: AnalysisHistoryQuery,
+): Promise<T[]> {
+  if (params.video_ids.length === 0) return [];
+
+  const chunks: number[][] = [];
+  for (let i = 0; i < params.video_ids.length; i += HISTORY_CHUNK_SIZE) {
+    chunks.push(params.video_ids.slice(i, i + HISTORY_CHUNK_SIZE));
+  }
+
+  const responses = await Promise.all(
+    chunks.map((video_ids) =>
+      request<T[]>(`${path}${toQuery({ ...params, video_ids })}`),
+    ),
+  );
+  return responses.flat();
+}
+
+export function getViewingHistory(
+  params: AnalysisHistoryQuery,
+): Promise<ViewingHistoryItem[]> {
+  return getChunkedHistory<ViewingHistoryItem>(
+    "/analysis/viewing-history",
+    params,
+  );
+}
+
+export function getJudgmentHistory(
+  params: AnalysisHistoryQuery,
+): Promise<JudgmentHistoryItem[]> {
+  return getChunkedHistory<JudgmentHistoryItem>(
+    "/analysis/judgment-history",
+    params,
+  );
+}
+
+export function getResponseTime(): Promise<ResponseTimeItem[]> {
+  return request<ResponseTimeItem[]>(`/analysis/response-time`);
+}
+
+export function getAnalysisRankings(
+  params: AnalysisRankingParams,
+): Promise<AnalysisRankingResponse> {
+  return request<AnalysisRankingResponse>(
+    `/analysis/rankings${toQuery({ ...params })}`,
+  );
+}
+
+export function getSelectionTrend(
+  params: Pick<AnalysisQuery, "start" | "end">,
+): Promise<SelectionTrendItem[]> {
+  return request<SelectionTrendItem[]>(
+    `/analysis/selection-trend${toQuery({ ...params })}`,
+  );
+}
+
+export function getSelectionDistribution(): Promise<
+  SelectionDistributionItem[]
+> {
+  return request<SelectionDistributionItem[]>(`/analysis/selection-distribution`);
 }
 
 // Tier1 ランダム: 未判定動画を n 本（ファイル存在チェック済み）。
@@ -138,6 +234,13 @@ export function playVideo(id: number): Promise<StatusMessage> {
   return request<StatusMessage>(`/videos/${id}/play`, { method: "POST" });
 }
 
+export function playAvp(videoIds: number[]): Promise<StatusMessage> {
+  return request<StatusMessage>(`/avp/play`, {
+    method: "POST",
+    body: JSON.stringify({ video_ids: videoIds }),
+  });
+}
+
 export function setLevel(id: number, level: number | null): Promise<StatusMessage> {
   return request<StatusMessage>(`/videos/${id}/level`, {
     method: "PUT",
@@ -147,4 +250,38 @@ export function setLevel(id: number, level: number | null): Promise<StatusMessag
 
 export function likeVideo(id: number): Promise<LikeResponse> {
   return request<LikeResponse>(`/videos/${id}/like`, { method: "POST" });
+}
+
+export function updateConfig(config: Config): Promise<StatusMessage> {
+  return request<StatusMessage>(`/config`, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+}
+
+export function scanLibrary(): Promise<ScanLibraryResponse> {
+  return request<ScanLibraryResponse>(`/scan/library`, { method: "POST" });
+}
+
+export function scanSelection(folder?: string): Promise<ScanSelectionResponse> {
+  return request<ScanSelectionResponse>(`/scan/selection`, {
+    method: "POST",
+    body: JSON.stringify({ folder: folder || undefined }),
+  });
+}
+
+export function createBackup(): Promise<BackupResponse> {
+  return request<BackupResponse>(`/backup`, { method: "POST" });
+}
+
+export function getRuntimeStatus(): Promise<RuntimeStatusResponse> {
+  return request<RuntimeStatusResponse>(`/runtime`);
+}
+
+export function stopRuntimeService(
+  service: RuntimeServiceName,
+): Promise<StatusMessage> {
+  return request<StatusMessage>(`/runtime/${service}/stop`, {
+    method: "POST",
+  });
 }

@@ -41,6 +41,7 @@ def get_videos(
     favorite_levels: Optional[List[int]] = None,
     performers: Optional[List[str]] = None,
     storage_locations: Optional[List[str]] = None,
+    keyword: Optional[str] = None,
     availability: Optional[str] = None,
     show_unavailable: bool = False,
     show_deleted: bool = False,
@@ -52,6 +53,7 @@ def get_videos(
         favorite_levels=favorite_levels,
         performers=performers,
         storage_locations=storage_locations,
+        keyword=keyword,
         availability=availability,
         show_unavailable=show_unavailable,
         show_deleted=show_deleted,
@@ -114,6 +116,15 @@ def detect_library_root(file_path: Path, active_roots: list) -> str:
 create_file_scanner = create_file_scanner
 
 
+def _get_existing_selection_folder(config: Dict[str, object]) -> Optional[Path]:
+    selection_folder = str(config.get("selection_folder") or "").strip()
+    if not selection_folder:
+        return None
+
+    path = Path(selection_folder)
+    return path if path.exists() and path.is_dir() else None
+
+
 def scan_and_update_with_connection(scanner) -> None:
     """DB 接続を内部で確立してスキャンを実行する。接続を外部から渡さない場合に使用。"""
     with get_db_connection() as conn:
@@ -130,8 +141,12 @@ def scan_library() -> Dict[str, str]:
     try:
         config = config_utils.load_user_config()
         roots = [Path(r) for r in config.get("library_roots", [])]
-        scanner = create_file_scanner(roots)
+        selection_folder = _get_existing_selection_folder(config)
+        protected_roots = [selection_folder] if selection_folder else []
+        scanner = create_file_scanner(roots, protected_roots=protected_roots)
         scan_and_update_with_connection(scanner)
+        if selection_folder:
+            selection_service.scan_selection_folder(selection_folder)
         return {"status": "success", "message": "ライブラリスキャンが完了しました"}
     except Exception as e:
         return {"status": "error", "message": f"スキャンに失敗しました: {e}"}

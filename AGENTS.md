@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## プロジェクト構成と配置
-本リポジトリは Streamlit ベースの動画管理アプリです。エントリーポイントは `streamlit_app.py`。ドメインロジックと DB 操作は `core/` 配下（例: `core/app_service.py`, `core/video_manager.py`）、設定は `config.py` と `data/user_config.json`（生成される場合あり）、テストは `tests/`、設計資料や計画は `docs/` に置かれています。動画や一時ファイルは `data/` 配下で扱う想定です（リポジトリには含めないでください）。
+本リポジトリは Streamlit ベースの動画管理アプリです。エントリーポイントは `streamlit_app.py`。ドメインロジックと DB 操作は `core/` 配下（例: `core/app_service.py`, `core/video_manager.py`）、設定は `config.py` と `data/user_config.json`（生成される場合あり）、テストは `tests/`、設計資料や計画は `docs/` に置かれています。動画や一時ファイルは `data/` 配下で扱う想定です（リポジトリには含めないでください）。言語は日本語でユーザーと対話すること。
 
 ## ビルド・テスト・開発コマンド
 - 依存インストール: `python -m pip install -r requirements.txt`
