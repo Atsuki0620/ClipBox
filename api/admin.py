@@ -39,7 +39,16 @@ router = APIRouter()
 
 @router.post("/scan/library", response_model=ScanLibraryResponse)
 def scan_library() -> ScanLibraryResponse:
-    """保存済み config の library_roots でライブラリ全体をスキャンし DB を更新する。"""
+    """保存済み config の library_roots でライブラリ全体をスキャンし DB を更新する。
+
+    破壊的（不在動画を is_available=0 にする）ため、**直近24時間以内の DB バックアップが無ければ 409**。
+    UI ガードを迂回した API 直叩きでも事故を防ぐ（startup_backup が起動時に当日分を作る前提）。
+    """
+    if not app_service.has_recent_backup(hours=24):
+        raise HTTPException(
+            status_code=409,
+            detail="ライブラリスキャン前にバックアップを作成してください（直近24時間以内のバックアップがありません）",
+        )
     result = app_service.scan_library()
     if result.get("status") != "success":
         raise HTTPException(status_code=500, detail=result.get("message", "スキャンに失敗しました"))

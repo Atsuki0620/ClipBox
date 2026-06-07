@@ -4,14 +4,13 @@
 
 import type {
   AnalysisDataResponse,
-  AnalysisHistoryQuery,
   AnalysisQuery,
   AnalysisRankingParams,
   AnalysisRankingResponse,
+  AnalysisTrendQuery,
   BackupResponse,
   Config,
   FilterOptions,
-  JudgmentHistoryItem,
   Kpi,
   LikeResponse,
   RankingParams,
@@ -26,10 +25,10 @@ import type {
   SelectionTrendItem,
   SelectionVideoListParams,
   StatusMessage,
+  TrendItem,
   Video,
   VideoListParams,
   VideosResponse,
-  ViewingHistoryItem,
 } from "./types";
 
 export const API_BASE =
@@ -135,43 +134,18 @@ export function getAnalysisData(
   return request<AnalysisDataResponse>(`/analysis/data${toQuery({ ...params })}`);
 }
 
-const HISTORY_CHUNK_SIZE = 250;
-
-async function getChunkedHistory<T>(
-  path: string,
-  params: AnalysisHistoryQuery,
-): Promise<T[]> {
-  if (params.video_ids.length === 0) return [];
-
-  const chunks: number[][] = [];
-  for (let i = 0; i < params.video_ids.length; i += HISTORY_CHUNK_SIZE) {
-    chunks.push(params.video_ids.slice(i, i + HISTORY_CHUNK_SIZE));
-  }
-
-  const responses = await Promise.all(
-    chunks.map((video_ids) =>
-      request<T[]>(`${path}${toQuery({ ...params, video_ids })}`),
-    ),
-  );
-  return responses.flat();
+// 視聴/判定トレンドはサーバー側で bucket 集計済み。video_ids は送らない
+// （旧 chunked history 方式の URL 長超過・リクエスト爆発を回避）。
+export function getViewingTrend(
+  params: AnalysisTrendQuery,
+): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/viewing-trend${toQuery({ ...params })}`);
 }
 
-export function getViewingHistory(
-  params: AnalysisHistoryQuery,
-): Promise<ViewingHistoryItem[]> {
-  return getChunkedHistory<ViewingHistoryItem>(
-    "/analysis/viewing-history",
-    params,
-  );
-}
-
-export function getJudgmentHistory(
-  params: AnalysisHistoryQuery,
-): Promise<JudgmentHistoryItem[]> {
-  return getChunkedHistory<JudgmentHistoryItem>(
-    "/analysis/judgment-history",
-    params,
-  );
+export function getJudgmentTrend(
+  params: AnalysisTrendQuery,
+): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/judgment-trend${toQuery({ ...params })}`);
 }
 
 export function getResponseTime(): Promise<ResponseTimeItem[]> {
@@ -282,6 +256,13 @@ export function stopRuntimeService(
   service: RuntimeServiceName,
 ): Promise<StatusMessage> {
   return request<StatusMessage>(`/runtime/${service}/stop`, {
+    method: "POST",
+  });
+}
+
+// Web スタック（Next.js → FastAPI）一括停止。FastAPI 自身が落ちるため応答は届かない前提。
+export function stopWebStack(): Promise<StatusMessage> {
+  return request<StatusMessage>(`/runtime/web-stack/stop`, {
     method: "POST",
   });
 }

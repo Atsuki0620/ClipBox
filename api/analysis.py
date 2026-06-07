@@ -34,6 +34,7 @@ from api.schemas import (
     ResponseTimeItem,
     SelectionDistributionItem,
     SelectionTrendItem,
+    TrendItem,
     ViewingHistoryItem,
 )
 
@@ -42,8 +43,11 @@ router = APIRouter()
 PeriodPreset = Literal["全期間", "直近7日", "直近30日", "直近90日", "直近180日", "カスタム"]
 Availability = Literal["利用可能のみ", "利用不可のみ", "すべて"]
 RankingKind = Literal["view_count", "view_days", "likes"]
+Bucket = Literal["day", "week", "month"]
 
 _AVAIL_TO_BOOL = {"利用可": True, "利用不可": False}
+# availability リテラル → videos.is_available フィルタ（None=すべて）。
+_AVAIL_TO_FILTER = {"利用可能のみ": True, "利用不可のみ": False, "すべて": None}
 _SCORE_COL = {"view_count": "視聴回数", "view_days": "視聴日数", "likes": "いいね数"}
 
 
@@ -125,6 +129,40 @@ def judgment_history(
     """指定期間・動画群の判定履歴を返す。"""
     ids = csv_int_list(video_ids) or []
     return df_records(app_service.get_judgment_history(start, end, ids))
+
+
+@router.get("/analysis/viewing-trend", response_model=List[TrendItem])
+def viewing_trend(
+    period: PeriodPreset = Query(default="全期間"),
+    start: Optional[date] = Query(default=None),
+    end: Optional[date] = Query(default=None),
+    availability: Availability = Query(default="すべて"),
+    include_deleted: bool = Query(default=False),
+    bucket: Bucket = Query(default="day"),
+):
+    """視聴回数のバケット別推移（サーバー側 SQL 集計。video_ids は受け取らない）。"""
+    period_start, period_end = _resolve_period(period, start, end)
+    df = app_service.get_viewing_trend(
+        period_start, period_end, _AVAIL_TO_FILTER[availability], include_deleted, bucket
+    )
+    return df_records(df)
+
+
+@router.get("/analysis/judgment-trend", response_model=List[TrendItem])
+def judgment_trend(
+    period: PeriodPreset = Query(default="全期間"),
+    start: Optional[date] = Query(default=None),
+    end: Optional[date] = Query(default=None),
+    availability: Availability = Query(default="すべて"),
+    include_deleted: bool = Query(default=False),
+    bucket: Bucket = Query(default="day"),
+):
+    """判定のバケット別推移（バケットごとに COUNT(DISTINCT video_id)・サーバー側 SQL 集計）。"""
+    period_start, period_end = _resolve_period(period, start, end)
+    df = app_service.get_judgment_trend(
+        period_start, period_end, _AVAIL_TO_FILTER[availability], include_deleted, bucket
+    )
+    return df_records(df)
 
 
 @router.get("/analysis/response-time", response_model=List[ResponseTimeItem])

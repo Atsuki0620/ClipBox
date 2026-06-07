@@ -16,11 +16,11 @@ import {
 import {
   getAnalysisData,
   getAnalysisRankings,
-  getJudgmentHistory,
+  getJudgmentTrend,
   getResponseTime,
   getSelectionDistribution,
   getSelectionTrend,
-  getViewingHistory,
+  getViewingTrend,
 } from "@/lib/api";
 import { levelName, storageLabel } from "@/lib/levels";
 import type {
@@ -29,12 +29,11 @@ import type {
   AnalysisQuery,
   AnalysisRankingItem,
   AnalysisRankingKind,
+  AnalysisTrendQuery,
   AnalysisVideoRecord,
-  JudgmentHistoryItem,
   ResponseTimeItem,
   SelectionDistributionItem,
   SelectionTrendItem,
-  ViewingHistoryItem,
 } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
 import { Input } from "@/components/ui/input";
@@ -110,24 +109,25 @@ export default function AnalysisPage() {
   });
 
   const records = useMemo(() => analysisQ.data?.items ?? [], [analysisQ.data]);
-  const videoIds = useMemo(
-    () => records.map((record) => record.id).filter(isNumber),
-    [records],
-  );
   const historyRange = useMemo(
     () => getHistoryRange(period, customStart, customEnd),
     [customEnd, customStart, period],
   );
 
-  const viewingQ = useQuery({
-    queryKey: ["analysis", "viewing-history", historyRange, videoIds],
-    queryFn: () => getViewingHistory({ ...historyRange, video_ids: videoIds }),
-    enabled: enabled && videoIds.length > 0,
+  // 視聴/判定トレンドはサーバー側で bucket 集計（video_ids は送らない）。
+  const trendQuery: AnalysisTrendQuery = useMemo(
+    () => ({ ...analysisQuery, bucket }),
+    [analysisQuery, bucket],
+  );
+  const viewingTrendQ = useQuery({
+    queryKey: ["analysis", "viewing-trend", trendQuery],
+    queryFn: () => getViewingTrend(trendQuery),
+    enabled,
   });
-  const judgmentQ = useQuery({
-    queryKey: ["analysis", "judgment-history", historyRange, videoIds],
-    queryFn: () => getJudgmentHistory({ ...historyRange, video_ids: videoIds }),
-    enabled: enabled && videoIds.length > 0,
+  const judgmentTrendQ = useQuery({
+    queryKey: ["analysis", "judgment-trend", trendQuery],
+    queryFn: () => getJudgmentTrend(trendQuery),
+    enabled,
   });
   const responseTimeQ = useQuery({
     queryKey: ["analysis", "response-time"],
@@ -175,13 +175,14 @@ export default function AnalysisPage() {
     () => buildViewCountDistribution(records),
     [records],
   );
-  const viewingTrend = useMemo(
-    () => buildViewingTrend(viewingQ.data ?? [], bucket),
-    [bucket, viewingQ.data],
+  // サーバーが bucket 集計済み（{label,count}）。client 側再集計はしない。
+  const viewingTrend = useMemo<ChartDatum[]>(
+    () => (viewingTrendQ.data ?? []).map((d) => ({ label: d.label, count: d.count })),
+    [viewingTrendQ.data],
   );
-  const judgmentTrend = useMemo(
-    () => buildJudgmentTrend(judgmentQ.data ?? [], bucket),
-    [bucket, judgmentQ.data],
+  const judgmentTrend = useMemo<ChartDatum[]>(
+    () => (judgmentTrendQ.data ?? []).map((d) => ({ label: d.label, count: d.count })),
+    [judgmentTrendQ.data],
   );
   const selectionTrend = useMemo(
     () => buildSelectionTrend(selectionTrendQ.data ?? [], bucket),
@@ -198,8 +199,8 @@ export default function AnalysisPage() {
 
   const isInitialLoading = enabled && analysisQ.isLoading;
   const isFetchingCharts =
-    viewingQ.isFetching ||
-    judgmentQ.isFetching ||
+    viewingTrendQ.isFetching ||
+    judgmentTrendQ.isFetching ||
     responseTimeQ.isFetching ||
     selectionTrendQ.isFetching ||
     selectionDistributionQ.isFetching;
@@ -810,24 +811,6 @@ function buildViewCountDistribution(records: AnalysisVideoRecord[]): ChartDatum[
   return bins.map(({ label, count }) => ({ label, count }));
 }
 
-function buildViewingTrend(items: ViewingHistoryItem[], bucket: Bucket): ChartDatum[] {
-  return aggregateByBucket(items, bucket, (item) => item.viewed_at, () => 1);
-}
-
-function buildJudgmentTrend(items: JudgmentHistoryItem[], bucket: Bucket): ChartDatum[] {
-  const seen = new Set<string>();
-  const filtered: JudgmentHistoryItem[] = [];
-  for (const item of items) {
-    const label = bucketLabel(item.judged_at, bucket);
-    if (!label) continue;
-    const key = `${item.video_id}:${label}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    filtered.push(item);
-  }
-  return aggregateByBucket(filtered, bucket, (item) => item.judged_at, () => 1);
-}
-
 function buildSelectionTrend(items: SelectionTrendItem[], bucket: Bucket): ChartDatum[] {
   return aggregateByBucket(items, bucket, (item) => item.date, (item) => item.count);
 }
@@ -955,10 +938,6 @@ function validatePeriod(
 function numberValue(value: unknown, fallback = 0): number {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
-}
-
-function isNumber(value: number | null): value is number {
-  return typeof value === "number";
 }
 
 function formatDate(date: Date): string {

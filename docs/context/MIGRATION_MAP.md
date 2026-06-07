@@ -14,7 +14,7 @@
 
 | 現行 Streamlit 関数 / 処理 | FastAPI 呼び出し |
 |---|---|
-| `VideoManager.get_videos(favorite_levels, performers, ...)` | `GET /api/videos?levels=...&performers=...` |
+| `VideoManager.get_videos(favorite_levels, ...)` | `GET /api/videos?levels=...`（performers フィルタは廃止） |
 | キーワード検索（title 部分一致） | `GET /api/videos?...`（または `GET /api/videos/search`） |
 | `ui_cache.get_filter_options()` | `GET /api/filter-options`（備考: HTTP キャッシュ / フロント state へ） |
 | `ui_cache.get_view_counts_and_last_viewed()` | `GET /api/stats/view-counts` + `GET /api/stats/last-viewed`（備考: フロント state へ） |
@@ -146,7 +146,7 @@
 
 | 現行キャッシュ関数 | ラップ対象 | 移行後 |
 |---|---|---|
-| `get_filter_options()`（ttl 30s） | `database.get_distinct_favorite_levels/performers/storage_locations()` | `GET /api/filter-options` |
+| `get_filter_options()`（ttl 30s） | `database.get_distinct_favorite_levels/storage_locations()`（performers 廃止） | `GET /api/filter-options` |
 | `get_view_counts_and_last_viewed()`（ttl 10s） | `database.get_view_counts_map/get_last_viewed_map()` | `GET /api/stats/view-counts` + `/last-viewed` |
 | `get_metrics()`（ttl 30s） | `database.get_total_videos_count/get_total_views_count()` | `GET /api/stats/kpi` に統合 or 専用 API |
 | `get_kpi_stats_cached()`（ttl 10s） | `ui/components/kpi_display.py:get_kpi_stats()` | `GET /api/stats/kpi`（core 移設前提） |

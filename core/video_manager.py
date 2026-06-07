@@ -52,7 +52,6 @@ class VideoManager:
     def get_videos(
         self,
         favorite_levels: Optional[List[int]] = None,
-        performers: Optional[List[str]] = None,
         storage_locations: Optional[List[str]] = None,
         keyword: Optional[str] = None,
         availability: Optional[str] = None,
@@ -66,7 +65,6 @@ class VideoManager:
 
         Args:
             favorite_levels: 取得するお気に入りレベルのリスト（例: [3, 4]）。None で全レベル。
-            performers: 出演者名のリスト。None で全出演者。
             storage_locations: ストレージ場所のリスト（'C_DRIVE', 'EXTERNAL_HDD'）。None で全ストレージ。
             availability: 'available'=利用可能のみ / 'unavailable'=利用不可のみ / None=show_unavailable に従う。
             show_unavailable: True のとき is_available=0 も含める（availability が None のときのみ有効）。
@@ -104,11 +102,6 @@ class VideoManager:
                 placeholders = ",".join("?" * len(favorite_levels))
                 query += f" AND current_favorite_level IN ({placeholders})"
                 params.extend(favorite_levels)
-
-            if performers:
-                placeholders = ",".join("?" * len(performers))
-                query += f" AND performer IN ({placeholders})"
-                params.extend(performers)
 
             if storage_locations:
                 placeholders = ",".join("?" * len(storage_locations))
@@ -186,6 +179,7 @@ class VideoManager:
     def get_unrated_random_videos(self, n: int) -> List[Video]:
         """未判定（内部値 -1）の動画をランダムに n 件取得して返す。
 
+        Tier1 は判定層のため、セレクション関連（needs_selection / is_selection_completed）は除外する。
         ランダム順序を保ったまま全フィールドの Video リストを返すため、
         UI 側は DB に直接アクセスする必要がない。
         ファイルが実際に存在しない動画（外付けHDD未接続など）は除外する。
@@ -199,6 +193,8 @@ class VideoManager:
                 WHERE current_favorite_level = -1
                   AND is_available = 1
                   AND is_deleted = 0
+                  AND needs_selection = 0
+                  AND is_selection_completed = 0
                 ORDER BY RANDOM()
                 """,
             ).fetchall()

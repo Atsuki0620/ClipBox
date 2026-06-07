@@ -39,7 +39,6 @@ def set_favorite_level_with_rename(video_id: int, new_level: Optional[int]) -> D
 
 def get_videos(
     favorite_levels: Optional[List[int]] = None,
-    performers: Optional[List[str]] = None,
     storage_locations: Optional[List[str]] = None,
     keyword: Optional[str] = None,
     availability: Optional[str] = None,
@@ -51,7 +50,6 @@ def get_videos(
     """フィルタ条件に合致する動画一覧を返す（VideoManager.get_videos 委譲）。"""
     return create_video_manager().get_videos(
         favorite_levels=favorite_levels,
-        performers=performers,
         storage_locations=storage_locations,
         keyword=keyword,
         availability=availability,
@@ -169,6 +167,8 @@ get_view_days_ranking = analysis_service.get_view_days_ranking
 get_like_count_ranking = analysis_service.get_like_count_ranking
 get_selection_judgment_trend = analysis_service.get_selection_judgment_trend
 get_selection_level_distribution = analysis_service.get_selection_level_distribution
+get_viewing_trend = analysis_service.get_viewing_trend
+get_judgment_trend = analysis_service.get_judgment_trend
 get_response_time_data = analysis_service.get_response_time_data
 get_ranked_videos_for_tab = analysis_service.get_ranked_videos_for_tab
 
@@ -201,16 +201,40 @@ def get_last_viewed_map() -> Dict[int, str]:
 
 
 def get_filter_options() -> Dict[str, list]:
-    """フィルタUI用の選択肢（お気に入りレベル・登場人物・保存場所）を返す。"""
+    """フィルタUI用の選択肢（お気に入りレベル・保存場所）を返す。
+
+    performers（フォルダ名由来の暫定抽出）はフィルタに用いないため返さない。
+    """
     with get_db_connection() as conn:
         return {
             "favorite_levels": database.get_distinct_favorite_levels(conn),
-            "performers": database.get_distinct_performers(conn),
             "storage_locations": database.get_distinct_storage_locations(conn),
         }
 
 
 create_backup = database.create_backup
+
+
+def has_recent_backup(hours: int = 24) -> bool:
+    """BACKUP_DIR に mtime が直近 `hours` 時間以内の .db バックアップが存在するか。
+
+    ライブラリスキャン（破壊的）前提条件の判定に使う。startup_backup が起動時に当日分を作るため
+    通常運用では満たされる。
+    """
+    import time
+    import config
+
+    backup_dir = Path(config.BACKUP_DIR)
+    if not backup_dir.exists():
+        return False
+    threshold = time.time() - hours * 3600
+    for path in backup_dir.glob("*.db"):
+        try:
+            if path.stat().st_mtime >= threshold:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 # マイグレーション ----------------------------------------------------------

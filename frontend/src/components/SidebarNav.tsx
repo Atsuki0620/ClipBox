@@ -20,7 +20,7 @@ import {
   SquareTerminal,
 } from "lucide-react";
 
-import { stopRuntimeService, getRuntimeStatus } from "@/lib/api";
+import { ApiError, getRuntimeStatus, stopRuntimeService, stopWebStack } from "@/lib/api";
 import type { RuntimeService, RuntimeServiceName, RuntimeServiceStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/avp", label: "AVP", icon: MonitorPlay },
   { href: "/settings", label: "設定", icon: Settings },
 ];
-
-const RUNTIME_ORDER: RuntimeServiceName[] = ["streamlit", "fastapi", "nextjs"];
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -126,27 +124,40 @@ export function SidebarNav() {
   );
 }
 
+type StopTarget = "streamlit" | "web-stack";
+
 function RuntimeControlPanel() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
-  const [confirmTarget, setConfirmTarget] = useState<RuntimeServiceName | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<StopTarget | null>(null);
 
   const runtimeQuery = useQuery({
     queryKey: ["runtime-status"],
     queryFn: getRuntimeStatus,
     refetchInterval: 4_000,
     refetchIntervalInBackground: true,
-    retry: 1,
+    // 無効時（404）は retry しない。
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.status === 404) && count < 1,
   });
 
-  const stopMutation = useMutation({
-    mutationFn: stopRuntimeService,
-    onSuccess: async (_data, service) => {
-      if (service === "nextjs") {
-        window.location.replace("about:blank");
-        return;
+  // CLIPBOX_ENABLE_RUNTIME_CONTROL 未設定だと /api/runtime は 404 → パネルを出さない。
+  const controlDisabled =
+    runtimeQuery.error instanceof ApiError && runtimeQuery.error.status === 404;
+
+  // Streamlit は個別停止。Web/API（FastAPI + Next.js）は web-stack で一括停止する。
+  const stopStreamlit = useMutation({
+    mutationFn: async () => {
+      const res = await stopRuntimeService("streamlit");
+      // 念のため: 200 でも非 success ならエラー扱い（通常は 409/500 で例外）。
+      if (res.status !== "success") {
+        throw new ApiError(409, res.message || "停止できませんでした");
       }
+      return res;
+    },
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["runtime-status"] });
+      setConfirmTarget(null);
     },
   });
 
@@ -154,19 +165,18 @@ function RuntimeControlPanel() {
   for (const service of runtimeQuery.data?.services ?? []) {
     serviceMap.set(service.name, service);
   }
-
-  const runtimeServices = RUNTIME_ORDER.map((name) => {
-    const current = serviceMap.get(name);
-    return (
-      current ?? {
-        name,
-        label: name === "nextjs" ? "Next.js" : name === "fastapi" ? "FastAPI" : "Streamlit",
-        port: name === "nextjs" ? 3000 : name === "fastapi" ? 8000 : 8501,
-        status: "unknown" as RuntimeServiceStatus,
-        pid: null,
-      }
-    );
-  });
+  const resolve = (name: RuntimeServiceName): RuntimeService =>
+    serviceMap.get(name) ?? {
+      name,
+      label: name === "nextjs" ? "Next.js" : name === "fastapi" ? "FastAPI" : "Streamlit",
+      port: name === "nextjs" ? 3000 : name === "fastapi" ? 8000 : 8501,
+      status: "unknown" as RuntimeServiceStatus,
+      pid: null,
+    };
+  const streamlit = resolve("streamlit");
+  const fastapi = resolve("fastapi");
+  const nextjs = resolve("nextjs");
+  const webRunning = fastapi.status === "running" || nextjs.status === "running";
 
   const lastUpdatedText = runtimeQuery.data
     ? new Intl.DateTimeFormat("ja-JP", {
@@ -175,6 +185,26 @@ function RuntimeControlPanel() {
         second: "2-digit",
       }).format(new Date(runtimeQuery.dataUpdatedAt))
     : "未取得";
+
+  if (controlDisabled) {
+    return null;
+  }
+
+  const handleConfirm = async () => {
+    if (confirmTarget === "streamlit") {
+      try {
+        await stopStreamlit.mutateAsync();
+      } catch {
+        // ダイアログにエラーを残す（onError 経由で表示）。
+      }
+      return;
+    }
+    if (confirmTarget === "web-stack") {
+      // FastAPI 停止で API も落ちるため、応答を待たずに遷移する。
+      void stopWebStack().catch(() => {});
+      window.location.replace("about:blank");
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-sidebar-border bg-sidebar/90 shadow-sm">
@@ -198,14 +228,22 @@ function RuntimeControlPanel() {
           </div>
 
           <div className="space-y-2">
-            {runtimeServices.map((service) => (
-              <RuntimeServiceRow
-                key={service.name}
-                service={service}
-                busy={stopMutation.isPending && stopMutation.variables === service.name}
-                onStop={() => setConfirmTarget(service.name)}
-              />
-            ))}
+            <StopRow
+              label="Streamlit"
+              statuses={[streamlit.status]}
+              meta={`Port ${streamlit.port}${streamlit.pid ? ` / PID ${streamlit.pid}` : ""}`}
+              busy={stopStreamlit.isPending}
+              disabled={streamlit.status !== "running" || stopStreamlit.isPending}
+              onStop={() => setConfirmTarget("streamlit")}
+            />
+            <StopRow
+              label="Web/API"
+              statuses={[fastapi.status, nextjs.status]}
+              meta={`FastAPI ${fastapi.port} / Next.js ${nextjs.port}`}
+              busy={false}
+              disabled={!webRunning}
+              onStop={() => setConfirmTarget("web-stack")}
+            />
           </div>
         </div>
       )}
@@ -219,9 +257,9 @@ function RuntimeControlPanel() {
       >
         <span className="sr-only">Runtime status</span>
         <div className="flex items-center gap-2">
-          {runtimeServices.map((service) => (
-            <RuntimeLamp key={service.name} status={service.status} title={service.label} />
-          ))}
+          <RuntimeLamp status={streamlit.status} title={streamlit.label} />
+          <RuntimeLamp status={fastapi.status} title={fastapi.label} />
+          <RuntimeLamp status={nextjs.status} title={nextjs.label} />
         </div>
         <ChevronDown
           className={cn(
@@ -232,56 +270,45 @@ function RuntimeControlPanel() {
       </button>
 
       <StopConfirmDialog
-        service={runtimeServices.find((item) => item.name === confirmTarget) ?? null}
+        target={confirmTarget}
         open={confirmTarget !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmTarget(null);
         }}
-        pending={stopMutation.isPending}
-        onConfirm={async () => {
-          if (!confirmTarget) return;
-          try {
-            await stopMutation.mutateAsync(confirmTarget);
-            setConfirmTarget(null);
-          } catch {
-            // dialog remains open so the error can be read
-          }
-        }}
-        error={
-          stopMutation.error instanceof Error
-            ? stopMutation.error.message
-            : runtimeQuery.error instanceof Error
-              ? runtimeQuery.error.message
-              : null
-        }
+        pending={stopStreamlit.isPending}
+        onConfirm={handleConfirm}
+        error={stopStreamlit.error instanceof Error ? stopStreamlit.error.message : null}
       />
     </div>
   );
 }
 
-function RuntimeServiceRow({
-  service,
+function StopRow({
+  label,
+  statuses,
+  meta,
   busy,
+  disabled,
   onStop,
 }: {
-  service: RuntimeService;
+  label: string;
+  statuses: RuntimeServiceStatus[];
+  meta: string;
   busy: boolean;
+  disabled: boolean;
   onStop: () => void;
 }) {
-  const disabled = service.status !== "running" || busy;
-
   return (
     <div className="rounded-xl border border-border bg-background px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <RuntimeLamp status={service.status} />
-            <span className="truncate text-sm font-medium">{service.label}</span>
+            {statuses.map((status, index) => (
+              <RuntimeLamp key={index} status={status} />
+            ))}
+            <span className="truncate text-sm font-medium">{label}</span>
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            Port {service.port}
-            {service.pid ? ` / PID ${service.pid}` : ""}
-          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{meta}</div>
         </div>
         <Button type="button" size="sm" variant="destructive" disabled={disabled} onClick={onStop}>
           {busy ? "停止中" : "停止"}
@@ -315,25 +342,25 @@ function RuntimeLamp({
 }
 
 function StopConfirmDialog({
-  service,
+  target,
   open,
   onOpenChange,
   onConfirm,
   pending,
   error,
 }: {
-  service: RuntimeService | null;
+  target: StopTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<void> | void;
   pending: boolean;
   error: string | null;
 }) {
-  const serviceLabel = service?.label ?? "サービス";
-  const note =
-    service?.name === "nextjs"
-      ? "Next.js を停止するとこのページは閉じます。"
-      : "停止するとプロセスが終了します。";
+  const isWeb = target === "web-stack";
+  const label = isWeb ? "Web/API（FastAPI + Next.js）" : "Streamlit";
+  const note = isWeb
+    ? "Next.js → FastAPI の順に停止します。停止後はこの画面も終了します。"
+    : "停止するとプロセスが終了します。";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -341,7 +368,7 @@ function StopConfirmDialog({
         <DialogHeader>
           <DialogTitle>停止の確認</DialogTitle>
           <DialogDescription>
-            {serviceLabel} を停止しますか。{note}
+            {label} を停止しますか。{note}
           </DialogDescription>
         </DialogHeader>
 
@@ -360,7 +387,7 @@ function StopConfirmDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={pending || !service}
+            disabled={pending || target === null}
             onClick={() => {
               void onConfirm();
             }}

@@ -88,7 +88,6 @@ def _folder_filter(videos: List[Video], folder: str) -> List[Video]:
 @router.get("/videos", response_model=VideosResponse)
 def list_videos(
     levels: Optional[List[str]] = Query(default=None, description="お気に入りレベル（複数可 / カンマ区切り可）。-1=未判定"),
-    performers: Optional[List[str]] = Query(default=None, description="登場人物（複数可 / カンマ区切り可）"),
     storage: Optional[List[str]] = Query(default=None, description="保存場所 C_DRIVE / EXTERNAL_HDD"),
     availability: Optional[Literal["available", "unavailable"]] = Query(default=None),
     show_unavailable: bool = Query(default=False, description="利用不可も含める（availability 省略時のみ有効）"),
@@ -107,7 +106,6 @@ def list_videos(
     """
     videos = app_service.get_videos(
         favorite_levels=csv_int_list(levels),
-        performers=csv_str_list(performers),
         storage_locations=csv_str_list(storage),
         keyword=keyword,
         availability=availability,

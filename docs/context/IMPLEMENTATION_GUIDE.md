@@ -67,8 +67,9 @@ Data層 (SQLite)
 **API層（FastAPI）**: UI層と同じく core に一方向依存する。各ルーターは `core.app_service` のファサード経由でのみ
 DB にアクセスし、`streamlit` を import しない。Streamlit(8501) と並走（既定 8000）し、起動時 lifespan は read-only
 （`init_database`/`run_startup_migration` は実行せず DB 初期化は Streamlit に委ねる＝SQLite 同時書き込み回避）。
-ドメイン 30 エンドポイント（AVP 起動 API を含む）+ 運用 2 エンドポイント（`/api/runtime` 系）= 計 32 が API_SPEC に
-準拠。詳細は `docs/context/API_SPEC.md`。runtime lamp / 停止は `core/runtime_control.py`（psutil）を介する dev/ops 用で、
+全ドメインエンドポイント（AVP 起動・分析トレンド `/analysis/{viewing,judgment}-trend` を含む）+ 運用 `/api/runtime` 系が
+API_SPEC に準拠。詳細は `docs/context/API_SPEC.md`。**Runtime は既定で無効**で `CLIPBOX_ENABLE_RUNTIME_CONTROL=1`
+（`api_app.create_app()` が参照）のときのみ公開。runtime lamp / 停止は `core/runtime_control.py`（psutil）を介する dev/ops 用で、
 使い方は `docs/runtime-controls.md` を参照。
 
 **フロントエンド（Next.js / Phase 4-A〜）**: `frontend/` の Next.js(App Router)+TypeScript+Tailwind v4+shadcn/ui。

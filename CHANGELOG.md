@@ -4,6 +4,49 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-07 — PR #30 レビュー対応（Runtime 安全化 / analysis 集計化 / performers 廃止 ほか）
+
+**目的**: PR #30 への Request changes レビュー（マージ前チェックリスト）を解消する。
+
+**1. Runtime stop を ClipBox プロセスに限定**（`core/runtime_control.py`, `api_app.py`, `api/runtime.py`, `run_dev.bat`,
+`frontend/src/components/SidebarNav.tsx`）
+- 停止対象を **cwd がリポジトリ配下 AND cmdline にサービス固有マーカー**を満たすプロセスに限定（無差別停止を排除）。
+  `uvicorn --reload` 対策として listener PID から祖先を辿り service root を特定しツリー停止。
+- ClipBox と確認できないポート占有は `status="blocked"` → API は **409**。フロントは確認ダイアログで明示。
+- Runtime API は **`create_app()` ファクトリ + `CLIPBOX_ENABLE_RUNTIME_CONTROL=1`** のときのみ公開（既定は無効・404）。
+  `run_dev.bat` が dev 一括起動時に有効化。フロントは 404 を「無効」として lamp/停止パネルを非表示。
+- **UI 統合**: FastAPI は API 実行主体のため、停止ボタンは「Streamlit」「Web/API」の2系統に集約。
+  Web/API は `POST /api/runtime/web-stack/stop`（Next.js→FastAPI 順）。応答を待たず `about:blank` へ遷移。
+
+**2. /analysis をサーバー SQL 集計へ**（`core/analysis_service.py`, `api/analysis.py`, `api/schemas.py`,
+`frontend/src/lib/{api,types}.ts`, `frontend/src/app/analysis/page.tsx`）
+- `GET /api/analysis/{viewing,judgment}-trend?bucket=day|week|month` を追加。viewing/judgment × videos を JOIN した
+  SQL 集計で **video_ids を HTTP に乗せない**（旧 chunked GET による URL 長超過・リクエスト爆発を解消）。
+  判定トレンドはバケットごとに `COUNT(DISTINCT video_id)`。週ラベルは月曜開始日で既存 selection-trend と統一。
+
+**3. performers フィルタ廃止**（`api/videos.py`, `core/{app_service,video_manager}.py`, `api/schemas.py`,
+`frontend/src/lib/types.ts`）
+- フォルダ名由来の暫定抽出でフィルタに使えていなかった performers を API/core/`filter-options`/型から削除。
+  DB カラム `performer` と `extract_performer` はレガシーとして据え置き（migration なし）。
+
+**4. Tier1 のセレクション非表示を全モードへ + 判定状態フィルタ**（`core/video_manager.py`,
+`frontend/src/lib/store.ts`, `frontend/src/components/FilterPanel.tsx`, `frontend/src/app/page.tsx`）
+- `get_unrated_random_videos()` に `needs_selection=0 AND is_selection_completed=0` を追加し、ランダム/運命の1本でも
+  セレクション関連(`!`/`+`)を出さない（Tier1=判定層を仕様化）。
+- Tier1 に「すべて/未判定/判定済み」status を追加（levels へ写像。judged は既存 level 選択と intersection）。
+
+**5. ライブラリスキャン前バックアップを必須化**（`core/app_service.py`, `api/admin.py`,
+`frontend/src/app/settings/page.tsx`）
+- `POST /api/scan/library` は直近24時間以内のバックアップが無ければ **409**（API 直叩き対策。`has_recent_backup()`）。
+- 設定画面は実バックアップ（セッション内作成）のみで実行許可。自己申告チェックは廃止し、ダイアログに「今すぐバックアップ」を配置。
+
+**6. AVP 複数ファイル起動の手動確認**: `docs/context/ACCEPTANCE_CRITERIA.md` に手動マトリクスを追記（実機確認は別途）。
+
+**テスト**: `pytest tests/` **121 passed**（runtime 検証/--reload/web-stack、analysis trend の週 distinct、
+unrated の selection 除外、scan 前バックアップ 409 ほかを追加）。frontend `tsc`/`lint`/`build` 通過。
+
+---
+
 ## 2026-06-07 — バグ修正: ライブラリスキャンが selection_folder 動画を is_available=0 にする問題
 
 **原因**: 通常のライブラリスキャン（`scan_and_update`）が自分のスキャン対象外の全動画を

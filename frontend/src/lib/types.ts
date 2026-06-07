@@ -31,7 +31,6 @@ export interface VideosResponse {
 
 export interface FilterOptions {
   favorite_levels: number[];
-  performers: string[];
   storage_locations: string[];
 }
 
@@ -116,10 +115,12 @@ export type SortOrder = "asc" | "desc";
 export type Availability = "available" | "unavailable";
 export type SelectionStatus = "all" | "unselected" | "completed";
 
+// Tier1 の判定状態フィルタ（UI 用。levels への写像は page.tsx）。
+export type JudgmentStatus = "all" | "unrated" | "judged";
+
 // 一覧クエリ（GET /api/videos）のパラメータ。
 export interface VideoListParams {
   levels?: number[];
-  performers?: string[];
   storage?: string[];
   availability?: Availability;
   show_unavailable?: boolean;
@@ -185,20 +186,17 @@ export interface AnalysisDataResponse {
   total: number;
 }
 
-export interface AnalysisHistoryQuery {
-  start?: string;
-  end?: string;
-  video_ids: number[];
+export type AnalysisBucket = "day" | "week" | "month";
+
+// 視聴/判定トレンド（サーバー集計）のクエリ。video_ids は送らない。
+export interface AnalysisTrendQuery extends AnalysisQuery {
+  bucket: AnalysisBucket;
 }
 
-export interface ViewingHistoryItem {
-  video_id: number;
-  viewed_at: string | null;
-}
-
-export interface JudgmentHistoryItem {
-  video_id: number;
-  judged_at: string | null;
+// バケット別件数（label=日/週(月曜開始日)/月）。
+export interface TrendItem {
+  label: string;
+  count: number;
 }
 
 export interface ResponseTimeItem {

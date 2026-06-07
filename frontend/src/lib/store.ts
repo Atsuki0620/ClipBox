@@ -2,7 +2,7 @@
 // サーバー状態は TanStack Query が持ち、ここは API に依存しない UI 状態のみ。
 
 import { create } from "zustand";
-import type { SortField, SortOrder } from "./types";
+import type { JudgmentStatus, SortField, SortOrder } from "./types";
 
 // 利用可否の3択。API パラメータ（availability / show_unavailable）への写像は page.tsx 側。
 export type AvailabilityMode = "available" | "unavailable" | "all";
@@ -11,6 +11,8 @@ export interface LibraryFilters {
   levels: number[];
   storage: string[];
   keyword: string;
+  // Tier1 の判定状態フィルタ。levels への写像は page.tsx（all=levels そのまま）。
+  judgmentStatus: JudgmentStatus;
   availabilityMode: AvailabilityMode;
   sort?: SortField;
   order?: SortOrder;
@@ -45,6 +47,7 @@ const DEFAULTS: LibraryFilters = {
   levels: [],
   storage: [],
   keyword: "",
+  judgmentStatus: "all",
   availabilityMode: "available",
   sort: undefined,
   order: undefined,

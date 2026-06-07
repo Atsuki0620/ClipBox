@@ -12,6 +12,9 @@ set "PYTHON_CMD=%ROOT%venv\Scripts\python.exe"
 set "API_ALREADY_UP=0"
 set "WEB_ALREADY_UP=0"
 
+REM Runtime control（サイドバーからのサービス停止）を有効化（dev 一括起動時のみ）
+set "CLIPBOX_ENABLE_RUNTIME_CONTROL=1"
+
 if not exist "%PYTHON_CMD%" set "PYTHON_CMD=python"
 
 echo Starting ClipBox...

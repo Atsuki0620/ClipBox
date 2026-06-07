@@ -101,10 +101,12 @@ class VideosResponse(BaseModel):
 
 
 class FilterOptionsResponse(BaseModel):
-    """フィルタ UI 用の選択肢（使用中のレベル・登場人物・保存場所）。"""
+    """フィルタ UI 用の選択肢（使用中のレベル・保存場所）。
+
+    performers（フォルダ名由来の暫定抽出）はフィルタに用いないため返さない。
+    """
 
     favorite_levels: List[int]
-    performers: List[str]
     storage_locations: List[str]
 
 
@@ -251,6 +253,13 @@ class SelectionTrendItem(BaseModel):
     """セレクション判定の日次件数。"""
 
     date: str
+    count: int
+
+
+class TrendItem(BaseModel):
+    """視聴/判定トレンドのバケット別件数（label=日/週(月曜開始日)/月）。"""
+
+    label: str
     count: int
 
 

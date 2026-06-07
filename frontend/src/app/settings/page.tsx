@@ -16,7 +16,6 @@ import {
 } from "@/lib/api";
 import type { BackupResponse, Config } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -68,7 +67,6 @@ export default function SettingsPage() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [libraryScanOpen, setLibraryScanOpen] = useState(false);
   const [selectionScanOpen, setSelectionScanOpen] = useState(false);
-  const [libraryBackupConfirmed, setLibraryBackupConfirmed] = useState(false);
 
   const libraryRootsValue =
     libraryRootsText ?? configQ.data?.library_roots.join("\n") ?? "";
@@ -103,7 +101,8 @@ export default function SettingsPage() {
     () => validateSelectionScan(selectionFolderValue),
     [selectionFolderValue],
   );
-  const canConfirmLibraryScan = lastBackup != null || libraryBackupConfirmed;
+  // 実バックアップ（このセッションで作成）だけを実行許可の条件にする（外部自己申告は使わない）。
+  const canConfirmLibraryScan = lastBackup != null;
 
   const invalidateSharedQueries = () => {
     for (const queryKey of INVALIDATE_KEYS) {
@@ -135,7 +134,6 @@ export default function SettingsPage() {
     mutationFn: scanLibrary,
     onSuccess: (response) => {
       setLibraryScanOpen(false);
-      setLibraryBackupConfirmed(false);
       setResult({ tone: "success", text: response.message });
       invalidateSharedQueries();
     },
@@ -163,7 +161,6 @@ export default function SettingsPage() {
     mutationFn: createBackup,
     onSuccess: (response) => {
       setLastBackup(response);
-      setLibraryBackupConfirmed(false);
       setResult({
         tone: "success",
         text: `バックアップを作成しました: ${response.filename}（${formatBytes(response.size_bytes)}）`,
@@ -349,19 +346,28 @@ export default function SettingsPage() {
       >
         <div className="grid gap-2 text-sm">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
-            見つからない動画は利用不可になります。Streamlit を停止し、DB
-            バックアップ済みであることを確認してください。
+            見つからない動画は利用不可になります。Streamlit を停止し、必ず DB
+            バックアップを作成してから実行してください。
           </div>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={lastBackup != null || libraryBackupConfirmed}
-              disabled={lastBackup != null}
-              onCheckedChange={(checked) =>
-                setLibraryBackupConfirmed(Boolean(checked))
-              }
-            />
-            DB バックアップ済み
-          </label>
+          {lastBackup ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950">
+              バックアップ済み: {lastBackup.filename}（{formatBytes(lastBackup.size_bytes)}）
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-destructive px-3 py-2 text-destructive">
+              <span>このセッションでバックアップが未作成です。</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => backupMutation.mutate()}
+                disabled={backupMutation.isPending}
+              >
+                <DatabaseBackup className="size-4" />
+                今すぐバックアップ
+              </Button>
+            </div>
+          )}
         </div>
       </ConfirmDialog>
     </div>

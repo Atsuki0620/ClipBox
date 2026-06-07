@@ -316,27 +316,13 @@ WAL 化等の core 改善は制約上 Phase 5 以降に回す。
 
 ---
 
-### A. コミット積み上げ（最優先）
+### A. コミット積み上げ ✅ 完了（PR #30）
 
-実装済みだが git に未追加のファイルがある。受け入れ前に必ずコミットしておくこと。
-
-| ファイル / ディレクトリ | 内容 |
-|---|---|
-| `frontend/src/app/analysis/` | 分析ダッシュボード画面（Recharts）|
-| `frontend/src/app/settings/` | 設定画面（スキャン・バックアップ）|
-| `frontend/src/app/avp/` | AVP 並列再生画面 |
-| `frontend/src/components/LibraryFilterBar.tsx` | Tier1 フィルタバー |
-| `frontend/src/components/LibraryWorkspace.tsx` | Tier1 ライブラリ本体 |
-| `frontend/src/components/VideoActionPanel.tsx` | 再生・判定・いいねパネル |
-| `frontend/src/components/VideoState.tsx` | 動画状態表示 |
-| `api/avp.py` | AVP 再生エンドポイント |
-| `api/runtime.py` | ランタイム制御エンドポイント |
-| `core/runtime_control.py` | ランタイム制御ロジック |
-| `scripts/` | 起動スクリプト群 |
-| `docs/runtime-controls.md` | ランタイム制御ドキュメント |
-
-コミット前に変更済み tracked ファイル群（`api/schemas.py`, `api/videos.py`, `core/app_service.py` 等）も
-あわせて整理する。
+Phase 4-B/4-C の実装（`frontend/src/app/{analysis,settings,avp}`、`LibraryFilterBar`/`LibraryWorkspace`/`VideoActionPanel`/
+`VideoState`、`api/avp.py`、`api/runtime.py`、`core/runtime_control.py`、`scripts/startup_backup.py`、
+`docs/runtime-controls.md`、および `api/schemas.py`/`api/videos.py`/`core/app_service.py` 等の変更）は
+**コミット済み・PR #30 に含む**。続くレビュー指摘の修正も同 PR で対応（Runtime stop 安全化・runtime API env gate・
+/analysis サーバー集計・performers 廃止・Tier1 セレクション非表示+status・scan 前バックアップ必須）。詳細は CHANGELOG 参照。
 
 ---
 

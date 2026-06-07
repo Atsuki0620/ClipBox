@@ -22,22 +22,34 @@ export default function Tier1Page() {
   const kpiQ = useQuery({ queryKey: ["kpi"], queryFn: getKpi });
   const store = useLibraryStore();
 
-  const params: VideoListParams = useMemo(
-    () => ({
-      levels: store.levels,
+  const params: VideoListParams = useMemo(() => {
+    // judgmentStatus を levels に写像。
+    //  all=既存 levels / unrated=[-1] / judged=既存 levels∩[0..4]（空なら [0..4]）。
+    const judgedLevels = store.levels.filter((level) => level >= 0);
+    const levels =
+      store.judgmentStatus === "unrated"
+        ? [-1]
+        : store.judgmentStatus === "judged"
+          ? judgedLevels.length > 0
+            ? judgedLevels
+            : [0, 1, 2, 3, 4]
+          : store.levels;
+
+    return {
+      levels,
       storage: store.storage,
       keyword: store.keyword || undefined,
       availability:
         store.availabilityMode === "all" ? undefined : store.availabilityMode,
       show_unavailable: store.availabilityMode === "all",
+      // Tier1 はセレクション関連(!/+)を表示しない（Tier2 が選別層）。仕様として固定。
       exclude_selection: true,
       sort: store.sort,
       order: store.order,
       page: store.page,
       page_size: store.page_size,
-    }),
-    [store],
-  );
+    };
+  }, [store]);
 
   const videosQ = useQuery({
     queryKey: ["videos", params],
