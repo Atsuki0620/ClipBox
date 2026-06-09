@@ -348,6 +348,27 @@ def get_last_viewed_map(conn) -> dict[int, str]:
     return {row["video_id"]: row["last_viewed"] for row in rows}
 
 
+def get_latest_judged_at_map(conn, selection: bool) -> dict[int, str]:
+    """動画IDごとの「最新の判定日時」マップを Tier 別に取得する。
+
+    Tier1（通常判定）は was_selection_judgment=0、Tier2（選別判定）は =1 の
+    judgment_history を対象に、video_id ごとの MAX(judged_at) を返す。
+    論理削除済み（is_deleted=1）の動画は除外する。判定日時ソート用。
+    """
+    rows = conn.execute(
+        """
+        SELECT jh.video_id AS video_id, MAX(jh.judged_at) AS latest
+          FROM judgment_history jh
+          JOIN videos v ON v.id = jh.video_id
+         WHERE jh.was_selection_judgment = ?
+           AND v.is_deleted = 0
+         GROUP BY jh.video_id
+        """,
+        (1 if selection else 0,),
+    ).fetchall()
+    return {row["video_id"]: row["latest"] for row in rows}
+
+
 def get_total_videos_count(conn) -> int:
     """総動画数を取得"""
     cursor = conn.execute("SELECT COUNT(*) FROM videos")

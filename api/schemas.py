@@ -100,6 +100,23 @@ class VideosResponse(BaseModel):
     page_size: int
 
 
+class VideosByIdsRequest(BaseModel):
+    """ID指定の一括取得リクエスト（AVP候補のバッチ取得用）。"""
+
+    ids: List[int]
+
+
+class VideosByIdsResponse(BaseModel):
+    """ID指定一括取得のレスポンス。items は入力順保持（削除済み含む）。
+
+    見つからなかったID（削除消滅など）は missing_ids に入れ、クライアント側の
+    永続候補（localStorage）の掃除に使えるようにする。
+    """
+
+    items: List[VideoOut]
+    missing_ids: List[int]
+
+
 class FilterOptionsResponse(BaseModel):
     """フィルタ UI 用の選択肢（使用中のレベル・保存場所）。
 

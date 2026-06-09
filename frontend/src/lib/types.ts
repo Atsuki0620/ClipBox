@@ -29,6 +29,13 @@ export interface VideosResponse {
   page_size: number;
 }
 
+// POST /api/videos/by-ids のレスポンス。items は入力順保持・削除済み含む。
+// missing_ids は見つからなかったID（localStorage 永続候補の掃除に使う）。
+export interface VideosByIdsResponse {
+  items: Video[];
+  missing_ids: number[];
+}
+
 export interface FilterOptions {
   favorite_levels: number[];
   storage_locations: string[];
@@ -109,7 +116,7 @@ export type SortField =
   | "view_count"
   | "last_viewed"
   | "title"
-  | "modified";
+  | "judged_at";
 
 export type SortOrder = "asc" | "desc";
 export type Availability = "available" | "unavailable";

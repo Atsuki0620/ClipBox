@@ -272,3 +272,33 @@ def test_get_videos_watch_later_filter(tmp_db):
     assert later_only == {"later.mp4"}
     assert "normal.mp4" in rest_only
     assert "later.mp4" not in rest_only
+
+
+def test_get_latest_judged_at_map_tier_separation_and_latest(tmp_db):
+    """get_latest_judged_at_map が Tier 別に最新 judged_at を返す（PR1 判定日時ソート）"""
+    with database.get_db_connection() as conn:
+        conn.executemany(
+            """INSERT INTO videos (id, essential_filename, current_full_path,
+               current_favorite_level, storage_location, is_available, is_deleted)
+               VALUES (?, ?, ?, 1, 'C_DRIVE', 1, 0)""",
+            [
+                (1, "a.mp4", "C:/a.mp4"),
+                (2, "b.mp4", "C:/b.mp4"),
+            ],
+        )
+        conn.executemany(
+            """INSERT INTO judgment_history (video_id, new_level, judged_at, was_selection_judgment)
+               VALUES (?, ?, ?, ?)""",
+            [
+                (1, 1, "2026-06-01 10:00:00", 0),  # Tier1 旧
+                (1, 2, "2026-06-05 10:00:00", 0),  # Tier1 最新（こちらを採用）
+                (2, 1, "2026-06-03 10:00:00", 1),  # Tier2
+            ],
+        )
+
+    with database.get_db_connection() as conn:
+        tier1 = database.get_latest_judged_at_map(conn, selection=False)
+        tier2 = database.get_latest_judged_at_map(conn, selection=True)
+
+    assert tier1 == {1: "2026-06-05 10:00:00"}
+    assert tier2 == {2: "2026-06-03 10:00:00"}

@@ -22,7 +22,7 @@ const SORT_LABELS: Record<SortField, string> = {
   view_count: "視聴回数",
   last_viewed: "最終視聴",
   title: "タイトル",
-  modified: "更新日",
+  judged_at: "判定日時",
 };
 
 const AVAILABILITY_LABELS: Record<AvailabilityMode, string> = {

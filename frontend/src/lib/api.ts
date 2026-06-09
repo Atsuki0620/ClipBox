@@ -28,6 +28,7 @@ import type {
   TrendItem,
   Video,
   VideoListParams,
+  VideosByIdsResponse,
   VideosResponse,
 } from "./types";
 
@@ -103,6 +104,18 @@ export function getConfig(): Promise<Config> {
 
 export function getVideo(id: number): Promise<Video> {
   return request<Video>(`/videos/${id}`);
+}
+
+// 指定IDの動画を一括取得（入力順保持・削除済み含む）。missing_ids で欠損IDを返す。
+// 空配列はリクエストせず空レスポンスを返す。
+export function getVideosByIds(ids: number[]): Promise<VideosByIdsResponse> {
+  if (ids.length === 0) {
+    return Promise.resolve({ items: [], missing_ids: [] });
+  }
+  return request<VideosByIdsResponse>(`/videos/by-ids`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
 }
 
 export function getSelectionKpi(folder?: string): Promise<SelectionKpi> {

@@ -4,6 +4,27 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-09 — feat: Next.js版改善 PR1（バッチ取得 + 判定日時ソート）
+
+承認済み計画の **PR1**。独立・低リスクの API/フロント拡張。
+
+**変更点**:
+- **R1/R9 バッチ取得** (`POST /api/videos/by-ids`): `{ ids }` → `{ items, missing_ids }`。
+  items は入力順保持・削除済み含む。見つからないIDは missing_ids（クライアントの localStorage 候補掃除用）。
+  `app_service.get_videos_by_ids` をラップ。`/videos/{video_id}` より前に定義（パス解決順）。
+- **判定日時ソート**: `GET /api/videos`・`/videos/selection` の `sort` を `modified`→`judged_at` に置換。
+  `core.database.get_latest_judged_at_map(conn, selection)` を新設（Tier1=`was_selection_judgment=0` /
+  Tier2=`=1` の最新 judged_at、`is_deleted=0` 尊重）。`_apply_sort` は partition 方式で
+  **未判定（判定履歴なし）を asc/desc とも末尾固定**。
+- フロント: `types.ts`（`SortField` modified→judged_at、`VideosByIdsResponse` 追加）/
+  `api.ts`（`getVideosByIds`、空配列は無通信）/ `LibraryFilterBar`（「更新日」→「判定日時」）。
+- `API_SPEC.md` 更新。
+
+**検証**: pytest 132件緑（by-ids 順序保持/missing、judged_at 末尾安定、Tier別マップの追加テスト）。
+フロント `tsc --noEmit` / `eslint` 緑。
+
+---
+
 ## 2026-06-09 — feat: Next.js版改善 PR0（R5/R6 基盤修正 + スキーマ移行基盤）
 
 Next.js版7改善の承認済み計画（`docs/...` / 計画ファイル）の **PR0**。他PRの前提となる core 正当性の是正と、

@@ -202,6 +202,12 @@ def get_last_viewed_map() -> Dict[int, str]:
         return database.get_last_viewed_map(conn)
 
 
+def get_latest_judged_at_map(selection: bool) -> Dict[int, str]:
+    """動画IDごとの最新判定日時マップを Tier 別に返す（判定日時ソート用）。"""
+    with get_db_connection() as conn:
+        return database.get_latest_judged_at_map(conn, selection)
+
+
 def get_filter_options() -> Dict[str, list]:
     """フィルタUI用の選択肢（お気に入りレベル・保存場所）を返す。
 
