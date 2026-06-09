@@ -10,8 +10,8 @@ import {
   getSelectionFate,
   getSelectionKpi,
   listSelectionVideos,
-  playVideo,
 } from "@/lib/api";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type {
   SelectionStatus,
   SelectionVideoListParams,
@@ -138,14 +138,16 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
     enabled: fateToken > 0,
   });
 
+  // 選別運命の1本も再抽選しない（invalidateKeys 空）。再生中ハイライトは usePlayVideo が配線。
+  const { mutate: playFate } = usePlayVideo([]);
   const prevFateIdRef = useRef<number | null>(null);
   useEffect(() => {
     const id = fateQ.data?.id as number | undefined;
     if (id != null && id !== prevFateIdRef.current) {
       prevFateIdRef.current = id;
-      playVideo(id).catch(() => {});
+      playFate(id);
     }
-  }, [fateQ.data]);
+  }, [fateQ.data, playFate]);
 
   const resetPage = () => setPage(1);
 

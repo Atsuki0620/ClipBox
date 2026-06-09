@@ -4,8 +4,9 @@ import { useMemo, useState, useEffect, useRef } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getKpi, getUnratedFate, getUnratedRandom, listVideos, playVideo } from "@/lib/api";
+import { getKpi, getUnratedFate, getUnratedRandom, listVideos } from "@/lib/api";
 import { useLibraryStore } from "@/lib/store";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type { VideoListParams } from "@/lib/types";
 import { FilterPanel } from "@/components/FilterPanel";
 import { KpiCard } from "@/components/KpiCard";
@@ -70,14 +71,16 @@ export default function Tier1Page() {
     enabled: fateToken > 0,
   });
 
+  // 運命の1本は再抽選しないので invalidateKeys は空。再生中ハイライトは usePlayVideo が配線する。
+  const { mutate: playFate } = usePlayVideo([]);
   const prevFateIdRef = useRef<number | null>(null);
   useEffect(() => {
     const id = fateQ.data?.id as number | undefined;
     if (id != null && id !== prevFateIdRef.current) {
       prevFateIdRef.current = id;
-      playVideo(id).catch(() => {});
+      playFate(id);
     }
-  }, [fateQ.data]);
+  }, [fateQ.data, playFate]);
 
   return (
     <LibraryWorkspace

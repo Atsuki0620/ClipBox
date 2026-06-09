@@ -1,7 +1,9 @@
 // Tier1 ライブラリの選択中フィルタ（クライアント横断状態）。
 // サーバー状態は TanStack Query が持ち、ここは API に依存しない UI 状態のみ。
 
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { JudgmentStatus, SortField, SortOrder } from "./types";
 
 // 利用可否の3択。API パラメータ（availability / show_unavailable）への写像は page.tsx 側。
@@ -123,3 +125,51 @@ export const useAvpStore = create<AvpStore>((set) => ({
   setAvpPlayingIds: (ids) => set({ avpPlayingIds: ids.slice(0, MAX_AVP_SELECTION) }),
   clearAvpPlayingIds: () => set({ avpPlayingIds: [] }),
 }));
+
+// 再生中ハイライト用ストア（単体=1本 / AVP=最大4本）。
+// タブ・ページ移動を越えて保持し、localStorage 永続でリロードも越える。
+// 次の単体/AVP再生で対象IDを置換する（single と avp は排他）。
+interface PlaybackStore {
+  singlePlayingId: number | null;
+  avpPlayingIds: number[];
+  setSinglePlaying: (id: number) => void;
+  setAvpPlaying: (ids: number[]) => void;
+  clearPlaying: () => void;
+}
+
+export const usePlaybackStore = create<PlaybackStore>()(
+  persist(
+    (set) => ({
+      singlePlayingId: null,
+      avpPlayingIds: [],
+      // 単体再生: single をセットし avp をクリア。
+      setSinglePlaying: (id) => set({ singlePlayingId: id, avpPlayingIds: [] }),
+      // AVP再生: avp をセット（最大4）し single をクリア。
+      setAvpPlaying: (ids) =>
+        set({ singlePlayingId: null, avpPlayingIds: ids.slice(0, MAX_AVP_SELECTION) }),
+      clearPlaying: () => set({ singlePlayingId: null, avpPlayingIds: [] }),
+    }),
+    { name: "clipbox-playback" },
+  ),
+);
+
+// ハイドレーション検出。SSR と初回クライアントレンダリングでは false、以降 true。
+// useSyncExternalStore を使うことで setState-in-effect を避けつつ不整合を防ぐ。
+const emptySubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
+// 再生中ハイライト判定。localStorage 由来の状態はハイドレーション後にのみ反映する
+// （初回レンダリングはサーバーと一致させて false）。
+export function useIsPlaying(id: number | null): boolean {
+  const singlePlayingId = usePlaybackStore((state) => state.singlePlayingId);
+  const avpPlayingIds = usePlaybackStore((state) => state.avpPlayingIds);
+  const hydrated = useHydrated();
+  if (!hydrated || id == null) return false;
+  return id === singlePlayingId || avpPlayingIds.includes(id);
+}

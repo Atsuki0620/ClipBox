@@ -4,6 +4,28 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-09 — feat: Next.js版改善 PR2（再生中ハイライト）
+
+承認済み計画の **PR2**。単体=1本 / AVP=最大4本の「再生中」をカードでハイライトする。
+
+**変更点**:
+- **永続ストア** (`frontend/src/lib/store.ts`): `usePlaybackStore`（`zustand/middleware` の persist、
+  key `clipbox-playback`）。`singlePlayingId` / `avpPlayingIds`(≤4) と `setSinglePlaying`（avp クリア）/
+  `setAvpPlaying`（single クリア・最大4）。次の再生でID置換。タブ移動・リロードを越えて保持。
+- **ハイドレーション安全** (`useIsPlaying` / `useHydrated`): `useSyncExternalStore` で SSR と初回
+  クライアントレンダリングは false、以降 localStorage 由来を反映（不整合・setState-in-effect 回避）。
+- **R4 共通フック** (`frontend/src/lib/usePlayVideo.ts` 新規): 再生成功で `setSinglePlaying(id)`、
+  共通キー（kpi/likes/view-counts）+ 画面別 invalidateKeys を無効化。**VideoCard・運命の1本
+  （app/page.tsx / app/tier2/page.tsx の playVideo 直呼び）の全経路**で使用し配線漏れを防ぐ。
+- **VideoCard**: 旧 AVP 選択リング（`ring-2 ring-primary`）を撤去し、`isPlaying` で
+  `border-2 border-amber-400 bg-amber-50`（薄背景・色付き太枠）。再生は usePlayVideo 経由。
+- **AVPページ**: 起動成功で `setAvpPlaying(ids)` も呼び、AVP 再生中（最大4本）をハイライト。
+
+**検証**: フロント `tsc --noEmit` / `eslint` 緑。pytest 132件緑（バックエンド非変更）。
+手動確認（再生中ハイライト・タブ/リロード保持・次の再生で置換）は別途。
+
+---
+
 ## 2026-06-09 — feat: Next.js版改善 PR1（バッチ取得 + 判定日時ソート）
 
 承認済み計画の **PR1**。独立・低リスクの API/フロント拡張。

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { getVideo, playAvp } from "@/lib/api";
 import { levelName, storageLabel } from "@/lib/levels";
-import { MAX_AVP_SELECTION, useAvpStore } from "@/lib/store";
+import { MAX_AVP_SELECTION, useAvpStore, usePlaybackStore } from "@/lib/store";
 import type { Video } from "@/lib/types";
 import { VideoGrid } from "@/components/VideoGrid";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ export default function AvpPage() {
     setAvpPlayingIds,
     clearAvpPlayingIds,
   } = useAvpStore();
+  const setAvpPlaying = usePlaybackStore((state) => state.setAvpPlaying);
   const [result, setResult] = useState<ResultMessage | null>(null);
 
   const videoIds = useMemo(
@@ -77,6 +78,7 @@ export default function AvpPage() {
     mutationFn: (ids: number[]) => playAvp(ids),
     onSuccess: (response, ids) => {
       setAvpPlayingIds(ids);
+      setAvpPlaying(ids); // 再生中ハイライト（AVP=最大4本）を更新
       clearAvpLaunchSelectedIds();
       setResult({ tone: "success", text: response.message });
     },

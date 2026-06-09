@@ -6,9 +6,10 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, playVideo, setLevel } from "@/lib/api";
+import { likeVideo, setLevel } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
-import { MAX_AVP_SELECTION, useAvpStore } from "@/lib/store";
+import { MAX_AVP_SELECTION, useAvpStore, useIsPlaying } from "@/lib/store";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type { Video } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,10 +60,9 @@ export function VideoCard({
     }
   };
 
-  const playM = useMutation({
-    mutationFn: () => playVideo(id),
-    onSettled: invalidate,
-  });
+  // 再生は共通フック（成功で再生中=単体をセット。invalidate も内包）。
+  const playM = usePlayVideo(invalidateKeys);
+  const isPlaying = useIsPlaying(id);
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
     onSuccess: (_data, level) => setDisplayLevel(level),
@@ -86,7 +86,7 @@ export function VideoCard({
   return (
     <Card
       className={`${video.is_available ? "" : "opacity-60"} ${
-        isAvpSelected ? "ring-2 ring-primary" : ""
+        isPlaying ? "border-2 border-amber-400 bg-amber-50" : ""
       }`}
     >
       <CardContent className="flex flex-col gap-1 py-1">
@@ -138,7 +138,7 @@ export function VideoCard({
                   size="sm"
                   variant="default"
                   disabled={mutateDisabled}
-                  onClick={() => playM.mutate()}
+                  onClick={() => playM.mutate(id)}
                 />
               }
             >
