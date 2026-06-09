@@ -46,6 +46,7 @@ def get_videos(
     show_deleted: bool = False,
     needs_selection_filter: Optional[bool] = None,
     exclude_selection: bool = False,
+    watch_later_filter: Optional[bool] = None,
 ) -> List[Video]:
     """フィルタ条件に合致する動画一覧を返す（VideoManager.get_videos 委譲）。"""
     return create_video_manager().get_videos(
@@ -57,6 +58,7 @@ def get_videos(
         show_deleted=show_deleted,
         needs_selection_filter=needs_selection_filter,
         exclude_selection=exclude_selection,
+        watch_later_filter=watch_later_filter,
     )
 
 
@@ -240,14 +242,30 @@ def has_recent_backup(hours: int = 24) -> bool:
 # マイグレーション ----------------------------------------------------------
 def run_startup_migration() -> dict:
     """
-    起動時マイグレーションを実行する（UI層からの直接DB接続を排除するため）。
+    起動時データマイグレーションを実行する（UI層からの直接DB接続を排除するため）。
+
+    実行するデータ補正（いずれも冪等・ログ式で1回限り）:
+      1. migrate_level_0_to_minus_1 … プレフィックスなしLv0 → -1（未判定）
+      2. resync_selection_completed … is_selection_completed 列を + プレフィックスに再同期（R6）
 
     Returns:
-        dict: マイグレーション結果 {'status': str, 'message': str, 'updated_count': int}
+        dict: {'status': str, 'message': str, 'updated_count': int, 'results': list[dict]}
     """
     from config import DATABASE_PATH
     from core.migration import Migration
 
     migration = Migration(DATABASE_PATH)
     with get_db_connection() as conn:
-        return migration.migrate_level_0_to_minus_1(conn)
+        results = [
+            migration.migrate_level_0_to_minus_1(conn),
+            migration.resync_selection_completed(conn),
+        ]
+
+    total_updated = sum(r.get("updated_count", 0) for r in results)
+    status = "completed" if any(r.get("status") == "completed" for r in results) else "skipped"
+    return {
+        "status": status,
+        "message": " / ".join(r.get("message", "") for r in results),
+        "updated_count": total_updated,
+        "results": results,
+    }

@@ -4,6 +4,63 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-09 — feat: Next.js版改善 PR0（R5/R6 基盤修正 + スキーマ移行基盤）
+
+Next.js版7改善の承認済み計画（`docs/...` / 計画ファイル）の **PR0**。他PRの前提となる core 正当性の是正と、
+Next.js スタックに欠けていたスキーマ移行経路を新設する。**UI 変更なし**。
+
+**背景**: `run_dev.bat` は Streamlit を起動せず、`api_app.py` の lifespan は read-only。よって
+`init_database()` / `run_startup_migration()`（従来 Streamlit が担っていた）を流す経路が無く、
+新フロントが前提とする列を用意できなかった。加えて `is_selection_completed` 列が陳腐化していた。
+
+**変更点**:
+- **R5 選別済み列の書込同期** (`core/video_manager.py`): `set_favorite_level_with_rename` の UPDATE で
+  `is_selection_completed` を + プレフィックス有無に同期。あわせて判定済み(level≥0)/選別完了(+付与)時に
+  `watch_later` を自動解除（同一トランザクション）。
+- **R6 既存分の冪等再同期** (`core/migration.py`): `resync_selection_completed`（id `resync_selection_completed_20260609`）。
+  全 videos の + 有無で列を再計算。`app_service.run_startup_migration()` から `migrate_level_0_to_minus_1` と共に実行。
+- **R2 watch_later カラム** (`core/database.py`): `init_database()` の PRAGMA ガード付き ALTER に追記
+  （CREATE TABLE 定義 + 部分インデックス `idx_videos_watch_later`）。列はログ式で別管理しない。
+- **R8 watch_later の波及** (`core/models.py`, `core/video_manager.py`, `core/analysis_service.py`, `core/app_service.py`):
+  `Video` に実フィールド `watch_later` を追加し、`video_from_row` / `_df_row_to_video` で投入。
+  `get_videos(watch_later_filter=...)` フィルタ引数を追加。
+- **R3/R7 移行ランナー** (`scripts/run_migrations.py` 新規): `GET /api/health` で稼働検知。
+  未稼働=書込移行を実行 / 稼働中=read-only 確認（**必要列 + 未完了データ補正の両方**が揃えば exit 0、
+  どちらか未充足なら exit≠0 で「API停止して再実行」を促す）。列だけ見るとデータ補正
+  （`resync_selection_completed`）の未実行を見逃すため、`migration` の ledger（`core.migration.DATA_MIGRATION_IDS`）も
+  確認する。`run_dev.bat` / `run_api.bat` を `startup_backup.py` 直後・uvicorn 起動の前に配線
+  （純ASCII維持。run_dev は移行失敗で中断）。
+
+**検証**: 既存 + 追加 pytest 全 128 件緑。実DBのコピー（4,083行）に移行を適用 →
+watch_later 列追加・行数不変・+動画の is_selection_completed 不整合 2件→0件（R6）・再実行は skip の no-op を確認。
+
+**次PR**: PR1（`POST /videos/by-ids` + 判定日時ソート）以降は別途。
+
+---
+
+## 2026-06-08 — fix: run_dev.bat / run_api.bat の文字コード問題で Next.js が起動しない不具合
+
+**症状**: `run_dev.bat` をダブルクリックしても `http://localhost:3000/` に Web アプリが出ない。
+API(8000)は起動するが Next.js(3000)が立ち上がらない。
+
+**原因**: 両 .bat が **BOM なし UTF-8** で日本語コメントを含んでいた。ダブルクリックで開く cmd.exe は
+システム OEM コードページ **932 (Shift-JIS)** でバッチを読むため、UTF-8 の日本語バイト列を誤読し、
+後続行のパースが崩れる。これにより `start "" /D "%FRONTEND%" npm.cmd run dev` の経路が壊れ、
+npm が誤った作業ディレクトリ等で失敗して node プロセスが起動しなかった。
+（`chcp 65001` を冒頭に置いても、cmd の**バッチパーサ**はこれだけでは UTF-8 マルチバイトを安定して扱えない。）
+
+**切り分け**: 英語コメントのみのプローブ bat では Next.js が起動、日本語コメント入りプローブでは
+`set` 行すら誤認し日本語が「コマンド」として実行された → 日本語コメントが原因と特定。
+
+**対応**: `run_dev.bat` / `run_api.bat` の日本語コメントを英語化し、**ファイル全体を純 ASCII**に。
+（`run_clipbox.bat` は元から ASCII のため変更なし。）修正後 `run_dev.bat` 実行で
+API/Next.js とも起動・`localhost:3000` が HTTP 200 を返すことを確認。
+
+**今後の注意**: cmd.exe 用 .bat は非 ASCII を入れない（英語コメント）こと。日本語を残すなら
+Shift-JIS(CP932) 保存か UTF-8 **BOM 付き**で保存する必要がある。AI/エディタの既定保存(UTF-8 no-BOM)では壊れる。
+
+---
+
 ## 2026-06-07 — PR #30 レビュー対応（Runtime 安全化 / analysis 集計化 / performers 廃止 ほか）
 
 **目的**: PR #30 への Request changes レビュー（マージ前チェックリスト）を解消する。

@@ -12,7 +12,7 @@ set "PYTHON_CMD=%ROOT%venv\Scripts\python.exe"
 set "API_ALREADY_UP=0"
 set "WEB_ALREADY_UP=0"
 
-REM Runtime control（サイドバーからのサービス停止）を有効化（dev 一括起動時のみ）
+REM Enable runtime control (service stop from sidebar); dev batch launch only
 set "CLIPBOX_ENABLE_RUNTIME_CONTROL=1"
 
 if not exist "%PYTHON_CMD%" set "PYTHON_CMD=python"
@@ -45,6 +45,18 @@ if not errorlevel 1 set "API_ALREADY_UP=1"
 if "%WEB_PRECHECK_FAILED%"=="0" (
     call :url_ready "%WEB_URL%" 1
     if not errorlevel 1 set "WEB_ALREADY_UP=1"
+)
+
+echo.
+echo Applying schema migrations...
+"%PYTHON_CMD%" scripts\run_migrations.py
+if errorlevel 1 (
+    echo.
+    echo ERROR: Schema migration could not complete.
+    echo If the API is already running with an outdated schema, stop it and run this script again.
+    echo.
+    pause
+    exit /b 1
 )
 
 echo.

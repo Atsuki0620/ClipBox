@@ -62,7 +62,8 @@ def init_database():
                 last_file_modified DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_scanned_at DATETIME,
-                notes TEXT
+                notes TEXT,
+                watch_later BOOLEAN DEFAULT 0
             )
         """)
 
@@ -160,6 +161,11 @@ def init_database():
                 except Exception:
                     pass
 
+        # あとで見る: watch_later フラグ（DB永続。判定/選別完了で自動解除）
+        if "watch_later" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN watch_later BOOLEAN DEFAULT 0")
+            conn.execute("UPDATE videos SET watch_later = 0 WHERE watch_later IS NULL")
+
         # セレクション: judgment_history に was_selection_judgment フラグ
         judgment_cols = [row[1] for row in conn.execute("PRAGMA table_info(judgment_history)").fetchall()]
         if "was_selection_judgment" not in judgment_cols:
@@ -175,6 +181,7 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_deleted ON videos(is_deleted)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_needs_selection ON videos(needs_selection)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_selection_completed ON videos(is_selection_completed)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_videos_watch_later ON videos(watch_later) WHERE watch_later = 1")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")

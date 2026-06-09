@@ -30,6 +30,7 @@ class Video:
     is_deleted: bool = False
     is_judging: bool = False  # F4: 判定中フラグ
     needs_selection: bool = False  # セレクション対象フラグ（?プレフィックス）
+    watch_later: bool = False  # あとで見るフラグ（DBカラム由来。判定/選別完了で自動解除）
 
     @property
     def is_selection_completed(self) -> bool:

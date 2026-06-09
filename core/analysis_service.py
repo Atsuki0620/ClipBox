@@ -682,6 +682,7 @@ def _df_row_to_video(row) -> "Video":
         is_deleted=bool(int(row.get("is_deleted", 0) or 0)),
         is_judging=bool(int(row.get("is_judging", 0) or 0)),
         needs_selection=bool(int(row.get("needs_selection", 0) or 0)),
+        watch_later=bool(int(row.get("watch_later", 0) or 0)),
     )
 
 

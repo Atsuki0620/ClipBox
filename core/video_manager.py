@@ -43,6 +43,7 @@ def video_from_row(row) -> Video:
         is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
         is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
         needs_selection=bool(row["needs_selection"]) if "needs_selection" in row.keys() else False,
+        watch_later=bool(row["watch_later"]) if "watch_later" in row.keys() else False,
     )
 
 
@@ -59,6 +60,7 @@ class VideoManager:
         show_deleted: bool = False,
         needs_selection_filter: Optional[bool] = None,
         exclude_selection: bool = False,
+        watch_later_filter: Optional[bool] = None,
     ) -> List[Video]:
         """
         フィルタ条件に合致する動画一覧を返す。
@@ -71,6 +73,7 @@ class VideoManager:
             show_deleted: True のとき is_deleted=1 も含める。通常は False。
             needs_selection_filter: True=!プレフィックス動画のみ / False=通常動画のみ / None=全て。
             exclude_selection: True のとき needs_selection=1 と is_selection_completed=1 の動画を除外する。
+            watch_later_filter: True=あとで見る動画のみ / False=それ以外のみ / None=全て。
 
         Returns:
             List[Video]: 条件に合致する動画のリスト。
@@ -97,6 +100,10 @@ class VideoManager:
 
             if exclude_selection:
                 query += " AND needs_selection = 0 AND is_selection_completed = 0"
+
+            if watch_later_filter is not None:
+                query += " AND watch_later = ?"
+                params.append(1 if watch_later_filter else 0)
 
             if favorite_levels:
                 placeholders = ",".join("?" * len(favorite_levels))
@@ -353,6 +360,12 @@ class VideoManager:
 
             new_path = current_path.with_name(new_filename)
 
+            # R5: is_selection_completed 列を + プレフィックス有無に同期する（列の陳腐化防止）。
+            # 列を使う SQL 集計（選別KPI/ランキング）とプロパティ（+由来）の乖離を解消する。
+            new_is_selection_completed = 1 if new_filename.startswith("+") else 0
+            # 判定済み(level>=0) もしくは 選別完了(+付与) になった動画は「あとで見る」を自動解除する。
+            clear_watch_later = (db_level >= 0) or (new_is_selection_completed == 1)
+
             try:
                 if new_path != current_path:
                     current_path.rename(new_path)
@@ -363,10 +376,18 @@ class VideoManager:
                        SET current_full_path = ?,
                            current_favorite_level = ?,
                            needs_selection = 0,
+                           is_selection_completed = ?,
+                           watch_later = CASE WHEN ? = 1 THEN 0 ELSE watch_later END,
                            last_scanned_at = CURRENT_TIMESTAMP
                      WHERE id = ?
                     """,
-                    (str(new_path), db_level, video_id),
+                    (
+                        str(new_path),
+                        db_level,
+                        new_is_selection_completed,
+                        1 if clear_watch_later else 0,
+                        video_id,
+                    ),
                 )
 
                 rename_completed_at = datetime.now()
