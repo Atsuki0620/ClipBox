@@ -23,6 +23,9 @@ from config import FAVORITE_LEVEL_NAMES
 
 logger = get_logger(__name__)
 
+# SQLite のデフォルト SQLITE_MAX_VARIABLE_NUMBER は 999。チャンク単位をそれより小さく保つ。
+_SQLITE_VAR_LIMIT = 900
+
 
 def video_from_row(row) -> Video:
     """データベースの行を Video オブジェクトに変換（モジュールレベル公開関数）"""
@@ -131,17 +134,28 @@ class VideoManager:
             return videos
 
     def get_videos_by_ids(self, video_ids: List[int]) -> List[Video]:
-        """指定IDリストの動画をDBから取得し、IDの順序を保って返す"""
+        """指定IDリストの動画をDBから取得し、IDの順序を保って返す。
+
+        重複IDは先頭の出現のみ返す（dedup 済み・入力順維持）。
+        SQLite のバインド変数上限を超える件数は _SQLITE_VAR_LIMIT 件ずつチャンクに
+        分けて取得し、最終的な順序を入力順に揃える。
+        """
         if not video_ids:
             return []
+        # 重複を除去しつつ挿入順を維持（dict.fromkeys は Python 3.7+ で挿入順保証）
+        unique_ids = list(dict.fromkeys(video_ids))
+        id_to_video: Dict[int, Video] = {}
         with get_db_connection() as conn:
-            placeholders = ",".join("?" * len(video_ids))
-            rows = conn.execute(
-                f"SELECT * FROM videos WHERE id IN ({placeholders})",
-                video_ids,
-            ).fetchall()
-        id_to_video = {row["id"]: video_from_row(row) for row in rows}
-        return [id_to_video[vid] for vid in video_ids if vid in id_to_video]
+            for i in range(0, len(unique_ids), _SQLITE_VAR_LIMIT):
+                chunk = unique_ids[i : i + _SQLITE_VAR_LIMIT]
+                placeholders = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    f"SELECT * FROM videos WHERE id IN ({placeholders})",
+                    chunk,
+                ).fetchall()
+                for row in rows:
+                    id_to_video[row["id"]] = video_from_row(row)
+        return [id_to_video[vid] for vid in unique_ids if vid in id_to_video]
 
     def get_fate_video(self, folder_path_str: str = "") -> Optional[Video]:
         """経過日数重み付きで未選別動画を1本選出する（運命の1本用）。

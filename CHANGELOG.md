@@ -4,6 +4,30 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-10 — fix: PR #31 レビュー対応（by-ids チャンク取得 + テスト追加）
+
+PR #31 のレビュー指摘に対する修正。
+
+**変更点**:
+- **チャンク取得** (`core/video_manager.py`): `get_videos_by_ids` を SQLite のバインド変数上限
+  （デフォルト 999）に対応するため `_SQLITE_VAR_LIMIT=900` 件ずつ IN 句をチャンク分割して取得する
+  方式に変更。重複IDは先頭の出現のみ返す（`dict.fromkeys` で dedup・入力順維持）。
+  API 層の `missing_ids` 算出は元の `dict.fromkeys` ロジックを維持。
+- **テスト追加** (`tests/api/test_videos.py`):
+  - `test_get_videos_by_ids_large_batch`: 1000件超（SQLite 上限を超える）でもエラーなし・
+    入力順保持・missing_ids 正確に返る。
+  - `test_get_videos_by_ids_duplicate_ids`: 重複IDは items 1件・missing_ids も重複除去されて
+    1件であることを明示。
+
+**TODO（次PR以降）**: `watch_later` はこの PR で DB カラム・`core.models.Video` フィールド・
+`get_videos(watch_later_filter=...)` まで基盤を整えた。`VideoOut.watch_later` の公開・
+`PUT /api/videos/{id}/watch-later` エンドポイント・フロント UI（VideoCard トグル / フィルタ）は
+**PR5 で実装予定**（承認済み計画参照）。
+
+**検証**: pytest 全件緑（後述）。
+
+---
+
 ## 2026-06-09 — feat: Next.js版改善 PR2（再生中ハイライト）
 
 承認済み計画の **PR2**。単体=1本 / AVP=最大4本の「再生中」をカードでハイライトする。

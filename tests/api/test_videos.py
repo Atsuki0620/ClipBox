@@ -163,6 +163,36 @@ def test_get_videos_by_ids_empty(tmp_db, tmp_path):
     assert body == {"items": [], "missing_ids": []}
 
 
+def test_get_videos_by_ids_large_batch(tmp_db, tmp_path):
+    """1000件超のIDリストでも SQLite 変数上限に当たらず正常に返る（チャンク取得の検証）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+    a = _video_id("alpha.mp4")
+    # 存在する1件 + 存在しない999件 = 1000件（SQLite デフォルト上限 999 を超える）
+    nonexistent = list(range(900001, 901000))
+    ids = [a] + nonexistent
+
+    body = client.post("/api/videos/by-ids", json={"ids": ids}).json()
+
+    assert len(body["items"]) == 1
+    assert body["items"][0]["essential_filename"] == "alpha.mp4"
+    assert len(body["missing_ids"]) == len(nonexistent)
+    assert body["missing_ids"] == nonexistent
+
+
+def test_get_videos_by_ids_duplicate_ids(tmp_db, tmp_path):
+    """重複IDは1件のみ返り、missing_ids の重複も除去される（dedup 仕様の明示）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+    a = _video_id("alpha.mp4")
+
+    body = client.post("/api/videos/by-ids", json={"ids": [a, a, 999999, 999999]}).json()
+
+    assert len(body["items"]) == 1
+    assert body["items"][0]["essential_filename"] == "alpha.mp4"
+    assert body["missing_ids"] == [999999]
+
+
 def test_list_videos_sort_judged_at_tail_stable(tmp_db, tmp_path):
     """sort=judged_at は Tier1 判定の最新で並び、未判定は asc/desc とも末尾固定。"""
     _seed(tmp_path)  # alpha(3), beta(1), gamma(-1)
