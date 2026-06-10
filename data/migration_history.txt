@@ -1,2 +1,0 @@
-migrate_level_0_to_minus_1_20260115	2026-01-15T23:07:11.601416
-resync_selection_completed_20260609	2026-06-10T00:05:43.978637

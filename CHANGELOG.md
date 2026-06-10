@@ -4,6 +4,39 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — fix: PR8 — Codex レビュー指摘 5件対応
+
+**バックエンド**:
+- **`core/video_manager.py`** `toggle_watch_later`: SELECT→計算→UPDATE の非アトミックな
+  read-modify-write を `UPDATE ... SET watch_later = 1 - watch_later WHERE ... AND is_deleted = 0`
+  の単一アトミック UPDATE に変更。rowcount=0 で KeyError を発生。
+- **`core/video_manager.py`** `get_videos_by_ids`: `AND is_deleted = 0` フィルタを追加。
+  `include_deleted: bool = False` パラメータを追加し、`GET /videos/{id}` エンドポイントのみ
+  `include_deleted=True` で呼び出すよう `api/videos.py` を変更。
+- **`core/video_manager.py`** `set_favorite_level_with_rename`: `was_selection_judgment` の
+  条件を `video.needs_selection` のみから
+  `video.needs_selection or video.is_selection_completed` に修正。
+  `+` プレフィックス（選別済み）動画の再判定も正しく記録される。
+
+**インフラ**:
+- **`.gitignore`**: `data/migration_history.txt` を追加。`git rm --cached` でインデックスから除外。
+  新規 checkout でマイグレーションが「実行済み」とみなされてスキップされる問題を解消。
+- **`core/migration.py`** `is_migration_completed`: `migration_id in log.read()` の部分一致判定を
+  `splitlines()` + 先頭列の厳密比較に変更。将来の migration_id が既存 ID の部分文字列でも
+  誤ってスキップされない。
+
+**フロントエンド**:
+- **`frontend/src/lib/store.ts`** `toggleAvpCandidateId`: remove 側で `avpPlayTargetIds` も
+  フィルタするよう修正。チェックを外した動画が `avpPlayTargetIds` に残留する不整合を解消。
+
+**テスト**:
+- `tests/test_video_manager.py` に 3件追加（計 142件）:
+  - `test_toggle_watch_later_toggles_and_raises_for_missing`: アトミック UPDATE の動作検証
+  - `test_get_videos_by_ids_excludes_deleted`: 削除済み動画の除外検証
+  - `test_was_selection_judgment_for_completed_video`: `is_selection_completed=True` 動画の記録検証
+
+---
+
 ## 2026-06-10 — feat: PR7 — 総合ランキング composite 式刷新
 
 **バックエンド**:

@@ -32,7 +32,8 @@ class Migration:
             return False
 
         with open(self.migration_log_path, "r", encoding="utf-8") as log:
-            return migration_id in log.read()
+            completed_ids = {line.split("\t")[0] for line in log.read().splitlines() if line}
+        return migration_id in completed_ids
 
     def mark_migration_completed(self, migration_id: str) -> None:
         """マイグレーション完了をログに記録"""

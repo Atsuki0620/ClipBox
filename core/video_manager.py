@@ -133,24 +133,28 @@ class VideoManager:
                 ]
             return videos
 
-    def get_videos_by_ids(self, video_ids: List[int]) -> List[Video]:
+    def get_videos_by_ids(
+        self, video_ids: List[int], include_deleted: bool = False
+    ) -> List[Video]:
         """指定IDリストの動画をDBから取得し、IDの順序を保って返す。
 
         重複IDは先頭の出現のみ返す（dedup 済み・入力順維持）。
         SQLite のバインド変数上限を超える件数は _SQLITE_VAR_LIMIT 件ずつチャンクに
         分けて取得し、最終的な順序を入力順に揃える。
+        include_deleted=True の場合のみ is_deleted=1 の動画も返す。
         """
         if not video_ids:
             return []
         # 重複を除去しつつ挿入順を維持（dict.fromkeys は Python 3.7+ で挿入順保証）
         unique_ids = list(dict.fromkeys(video_ids))
         id_to_video: Dict[int, Video] = {}
+        deleted_filter = "" if include_deleted else " AND is_deleted = 0"
         with get_db_connection() as conn:
             for i in range(0, len(unique_ids), _SQLITE_VAR_LIMIT):
                 chunk = unique_ids[i : i + _SQLITE_VAR_LIMIT]
                 placeholders = ",".join("?" * len(chunk))
                 rows = conn.execute(
-                    f"SELECT * FROM videos WHERE id IN ({placeholders})",
+                    f"SELECT * FROM videos WHERE id IN ({placeholders}){deleted_filter}",
                     chunk,
                 ).fetchall()
                 for row in rows:
@@ -424,7 +428,7 @@ class VideoManager:
                         rename_completed_at,
                         rename_duration_ms,
                         video.storage_location,
-                        1 if video.needs_selection else 0,
+                        1 if (video.needs_selection or video.is_selection_completed) else 0,
                     ),
                 )
 
@@ -459,14 +463,13 @@ class VideoManager:
     def toggle_watch_later(self, video_id: int) -> bool:
         """watch_later フラグを反転して新しい値を返す。動画不在は KeyError。"""
         with get_db_connection() as conn:
-            row = conn.execute(
-                "SELECT watch_later FROM videos WHERE id = ? AND is_deleted = 0",
+            rowcount = conn.execute(
+                "UPDATE videos SET watch_later = 1 - watch_later WHERE id = ? AND is_deleted = 0",
                 (video_id,),
-            ).fetchone()
-            if row is None:
+            ).rowcount
+            if rowcount == 0:
                 raise KeyError(video_id)
-            new_val = 0 if row["watch_later"] else 1
-            conn.execute(
-                "UPDATE videos SET watch_later = ? WHERE id = ?", (new_val, video_id)
-            )
-        return bool(new_val)
+            row = conn.execute(
+                "SELECT watch_later FROM videos WHERE id = ?", (video_id,)
+            ).fetchone()
+        return bool(row["watch_later"])

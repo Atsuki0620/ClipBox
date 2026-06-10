@@ -63,9 +63,9 @@ def get_videos(
     )
 
 
-def get_videos_by_ids(video_ids: List[int]) -> List[Video]:
-    """指定IDの動画を取得する（IDの順序を保つ。削除済みも含む）。"""
-    return create_video_manager().get_videos_by_ids(video_ids)
+def get_videos_by_ids(video_ids: List[int], include_deleted: bool = False) -> List[Video]:
+    """指定IDの動画を取得する（IDの順序を保つ）。include_deleted=True で削除済みも含む。"""
+    return create_video_manager().get_videos_by_ids(video_ids, include_deleted=include_deleted)
 
 
 def search_videos(keyword: str, storage_locations: Optional[List[str]] = None) -> List[Video]:

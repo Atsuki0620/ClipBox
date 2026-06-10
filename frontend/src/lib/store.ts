@@ -80,11 +80,17 @@ export const useAvpStore = create<AvpStore>()(
       avpCandidateIds: [],
       avpPlayTargetIds: [],
       toggleAvpCandidateId: (id) =>
-        set((state) => ({
-          avpCandidateIds: state.avpCandidateIds.includes(id)
-            ? state.avpCandidateIds.filter((v) => v !== id)
-            : [...state.avpCandidateIds, id],
-        })),
+        set((state) => {
+          const isRemoving = state.avpCandidateIds.includes(id);
+          return {
+            avpCandidateIds: isRemoving
+              ? state.avpCandidateIds.filter((v) => v !== id)
+              : [...state.avpCandidateIds, id],
+            ...(isRemoving && {
+              avpPlayTargetIds: state.avpPlayTargetIds.filter((v) => v !== id),
+            }),
+          };
+        }),
       removeAvpCandidateId: (id) =>
         set((state) => ({
           avpCandidateIds: state.avpCandidateIds.filter((v) => v !== id),

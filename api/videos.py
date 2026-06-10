@@ -231,7 +231,7 @@ def filter_options() -> FilterOptionsResponse:
 @router.get("/videos/{video_id}", response_model=VideoOut)
 def get_video(video_id: int) -> VideoOut:
     """動画IDを指定して1件取得する（削除済みも返す＝現行踏襲）。存在しなければ 404。"""
-    videos = app_service.get_videos_by_ids([video_id])
+    videos = app_service.get_videos_by_ids([video_id], include_deleted=True)
     if not videos:
         raise HTTPException(status_code=404, detail="動画が見つかりません")
     return VideoOut.from_video(videos[0])
