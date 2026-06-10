@@ -30,6 +30,7 @@ import type {
   VideoListParams,
   VideosByIdsResponse,
   VideosResponse,
+  WatchLaterResponse,
 } from "./types";
 
 export const API_BASE =
@@ -237,6 +238,10 @@ export function setLevel(id: number, level: number | null): Promise<StatusMessag
 
 export function likeVideo(id: number): Promise<LikeResponse> {
   return request<LikeResponse>(`/videos/${id}/like`, { method: "POST" });
+}
+
+export function toggleWatchLater(id: number): Promise<WatchLaterResponse> {
+  return request<WatchLaterResponse>(`/videos/${id}/watch-later/toggle`, { method: "POST" });
 }
 
 export function updateConfig(config: Config): Promise<StatusMessage> {

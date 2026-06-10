@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, setLevel } from "@/lib/api";
+import { likeVideo, setLevel, toggleWatchLater } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
 import { useAvpStore, useIsPlaying } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
@@ -26,7 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Heart, Play } from "lucide-react";
+import { Bookmark, Heart, Play } from "lucide-react";
 
 export function VideoCard({
   video,
@@ -72,8 +72,12 @@ export function VideoCard({
     mutationFn: () => likeVideo(id),
     onSettled: invalidate,
   });
+  const watchLaterM = useMutation({
+    mutationFn: () => toggleWatchLater(id),
+    onSettled: invalidate,
+  });
 
-  const busy = playM.isPending || levelM.isPending || likeM.isPending;
+  const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
   const mutateDisabled = busy || !video.is_available;
   const error = playM.error || levelM.error || likeM.error;
@@ -163,6 +167,16 @@ export function VideoCard({
           >
             <Heart className="size-4" />
             {likeCount}
+          </Button>
+
+          <Button
+            size="sm"
+            variant={video.watch_later ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => watchLaterM.mutate()}
+            title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+          >
+            <Bookmark className="size-4" />
           </Button>
         </div>
 

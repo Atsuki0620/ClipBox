@@ -111,6 +111,7 @@ def list_videos(
     availability: Optional[Literal["available", "unavailable"]] = Query(default=None),
     show_unavailable: bool = Query(default=False, description="利用不可も含める（availability 省略時のみ有効）"),
     show_deleted: bool = Query(default=False, description="論理削除済みも含める"),
+    watch_later: Optional[bool] = Query(default=None, description="True=あとで見るのみ / 省略=全て"),
     needs_selection_filter: Optional[bool] = Query(default=None, description="True=未選別のみ / False=通常のみ / 省略=全て"),
     exclude_selection: bool = Query(default=False, description="セレクション対象・完了を除外"),
     keyword: Optional[str] = Query(default=None, description="本質的ファイル名の部分一致検索（core 側で normalize_text 正規化）"),
@@ -131,6 +132,7 @@ def list_videos(
         availability=availability,
         show_unavailable=show_unavailable,
         show_deleted=show_deleted,
+        watch_later_filter=watch_later,
         needs_selection_filter=needs_selection_filter,
         exclude_selection=exclude_selection,
     )

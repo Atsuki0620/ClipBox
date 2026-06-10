@@ -455,3 +455,18 @@ class VideoManager:
                     "operation=judgment video_id=%d reason=rename_error error=%s", video_id, str(e)
                 )
                 return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
+
+    def toggle_watch_later(self, video_id: int) -> bool:
+        """watch_later フラグを反転して新しい値を返す。動画不在は KeyError。"""
+        with get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT watch_later FROM videos WHERE id = ? AND is_deleted = 0",
+                (video_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(video_id)
+            new_val = 0 if row["watch_later"] else 1
+            conn.execute(
+                "UPDATE videos SET watch_later = ? WHERE id = ?", (new_val, video_id)
+            )
+        return bool(new_val)

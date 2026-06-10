@@ -101,6 +101,11 @@ def play_video(video_id: int, **kwargs) -> Dict[str, str]:
     return create_video_manager().play_video(video_id, **kwargs)
 
 
+def toggle_watch_later(video_id: int) -> bool:
+    """watch_later フラグを反転して新しい値を返す（VideoManager 委譲）。"""
+    return create_video_manager().toggle_watch_later(video_id)
+
+
 def record_avp_viewing(video_ids: List[int]) -> None:
     """AVP 再生後に viewing_history を一括記録する（1 トランザクション・executemany）。"""
     if not video_ids:

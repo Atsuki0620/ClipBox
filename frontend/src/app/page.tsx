@@ -45,6 +45,7 @@ export default function Tier1Page() {
       show_unavailable: store.availabilityMode === "all",
       // Tier1 はセレクション関連(!/+)を表示しない（Tier2 が選別層）。仕様として固定。
       exclude_selection: true,
+      watch_later: store.watchLater,
       sort: store.sort,
       order: store.order,
       page: store.page,

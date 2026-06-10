@@ -4,6 +4,37 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-10 — feat: PR5 — あとで見る（watch_later）
+
+**バックエンド**:
+- **`core/video_manager.py`**: `toggle_watch_later(video_id)` 追加。`watch_later` フラグを
+  反転して新値（`bool`）を返す。動画不在は `KeyError`。
+- **`core/app_service.py`**: `toggle_watch_later` ファサード追加。
+- **`api/schemas.py`**: `VideoOut` に `watch_later: bool` 追加（`from_video` で評価）。
+  `WatchLaterResponse(status, message, watch_later)` 追加。
+- **`api/actions.py`**: `POST /videos/{id}/watch-later/toggle` エンドポイント追加。
+  `_ensure_exists` で存在確認 → `app_service.toggle_watch_later` 呼び出し。
+- **`api/videos.py`**: `GET /videos` に `watch_later: Optional[bool]` フィルタ追加。
+- **`tests/api/test_watch_later.py`**: 新規テスト 5件。トグル on/off・404・絞り込み・
+  判定変更時の自動解除（回帰）。
+
+**フロントエンド**:
+- **`frontend/src/lib/types.ts`**: `Video.watch_later: boolean`、`VideoListParams.watch_later?`、
+  `WatchLaterResponse` インターフェース追加。
+- **`frontend/src/lib/api.ts`**: `toggleWatchLater(id)` 関数追加。`WatchLaterResponse` import追加。
+- **`frontend/src/lib/store.ts`**: `LibraryFilters.watchLater?: boolean` 追加。
+  `DEFAULTS.watchLater: undefined` 追加。
+- **`frontend/src/components/VideoCard.tsx`**: Bookmark トグルボタン追加（`watchLaterM`
+  mutation + `onSettled: invalidate`）。`watch_later` が `true` のとき `variant="default"`。
+- **`frontend/src/components/LibraryFilterBar.tsx`**: `watchLater` props + `onWatchLaterChange`
+  コールバック + Bookmark ボタン追加。
+- **`frontend/src/components/FilterPanel.tsx`**: `watchLater` / `onWatchLaterChange` を store に配線。
+- **`frontend/src/app/page.tsx`**: `params` の `useMemo` に `watch_later: store.watchLater` 追加。
+
+**検証**: pytest 139件全件緑 / tsc 0 errors / eslint 0 warnings。
+
+---
+
 ## 2026-06-10 — feat: PR3 + PR4（AVP ページ再設計 + AVP 再生履歴記録）
 
 承認済み計画の **PR3**（AVP ページ再設計）と **PR4**（AVP 再生後の視聴履歴記録）。

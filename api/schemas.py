@@ -65,6 +65,7 @@ class VideoOut(BaseModel):
     # 派生値（dataclass の property / メソッド）
     is_selection_completed: bool
     is_judged: bool
+    watch_later: bool
 
     @classmethod
     def from_video(cls, v: Video) -> "VideoOut":
@@ -88,6 +89,7 @@ class VideoOut(BaseModel):
             needs_selection=bool(v.needs_selection),
             is_selection_completed=v.is_selection_completed,
             is_judged=v.is_judged(),
+            watch_later=bool(v.watch_later),
         )
 
 
@@ -194,6 +196,14 @@ class LikeResponse(BaseModel):
 
     video_id: int
     like_count: int
+
+
+class WatchLaterResponse(BaseModel):
+    """あとで見るトグル後のレスポンス。"""
+
+    status: str
+    message: str
+    watch_later: bool
 
 
 class ScanLibraryResponse(BaseModel):

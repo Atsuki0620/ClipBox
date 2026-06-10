@@ -16,6 +16,7 @@ export interface LibraryFilters {
   // Tier1 の判定状態フィルタ。levels への写像は page.tsx（all=levels そのまま）。
   judgmentStatus: JudgmentStatus;
   availabilityMode: AvailabilityMode;
+  watchLater?: boolean;  // undefined=全て / true=あとで見るのみ
   sort?: SortField;
   order?: SortOrder;
   page: number;
@@ -49,6 +50,7 @@ const DEFAULTS: LibraryFilters = {
   keyword: "",
   judgmentStatus: "all",
   availabilityMode: "available",
+  watchLater: undefined,
   sort: undefined,
   order: undefined,
   page: 1,

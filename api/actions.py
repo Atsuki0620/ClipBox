@@ -26,7 +26,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from core import app_service
-from api.schemas import LevelRequest, PlayRequest, StatusMessageResponse
+from api.schemas import LevelRequest, PlayRequest, StatusMessageResponse, WatchLaterResponse
 
 router = APIRouter()
 
@@ -65,3 +65,19 @@ def set_level(video_id: int, body: LevelRequest) -> StatusMessageResponse:
     _ensure_exists(video_id)
     result = app_service.set_favorite_level_with_rename(video_id, body.level)
     return _map_mutation_result(video_id, result)
+
+
+@router.post("/videos/{video_id}/watch-later/toggle", response_model=WatchLaterResponse)
+def toggle_watch_later(video_id: int) -> WatchLaterResponse:
+    """あとで見るフラグを反転する。"""
+    _ensure_exists(video_id)
+    try:
+        new_val = app_service.toggle_watch_later(video_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    label = "登録" if new_val else "解除"
+    return WatchLaterResponse(
+        status="success",
+        message=f"あとで見るを{label}しました",
+        watch_later=new_val,
+    )

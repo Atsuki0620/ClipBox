@@ -7,6 +7,7 @@ import { levelName, storageLabel } from "@/lib/levels";
 import type { AvailabilityMode } from "@/lib/store";
 import type { SortField, SortOrder } from "@/lib/types";
 import { MultiSelect } from "@/components/MultiSelect";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Bookmark } from "lucide-react";
 
 const SORT_LABELS: Record<SortField, string> = {
   favorite_level: "レベル",
@@ -38,12 +40,14 @@ export interface LibraryFilterBarProps {
   sort?: SortField;
   order?: SortOrder;
   availabilityMode?: AvailabilityMode;
+  watchLater?: boolean;
   onKeywordChange: (value: string) => void;
   onLevelsChange: (value: number[]) => void;
   onStorageChange: (value: string[]) => void;
   onSortChange: (value: SortField | undefined) => void;
   onOrderChange: (value: SortOrder) => void;
   onAvailabilityModeChange?: (value: AvailabilityMode) => void;
+  onWatchLaterChange?: (value: boolean | undefined) => void;
 }
 
 export function LibraryFilterBar({
@@ -53,12 +57,14 @@ export function LibraryFilterBar({
   sort,
   order,
   availabilityMode,
+  watchLater,
   onKeywordChange,
   onLevelsChange,
   onStorageChange,
   onSortChange,
   onOrderChange,
   onAvailabilityModeChange,
+  onWatchLaterChange,
 }: LibraryFilterBarProps) {
   const { data: options } = useQuery({
     queryKey: ["filter-options"],
@@ -139,6 +145,17 @@ export function LibraryFilterBar({
           </SelectContent>
         </Select>
       ) : null}
+
+      {onWatchLaterChange && (
+        <Button
+          size="sm"
+          variant={watchLater ? "default" : "outline"}
+          onClick={() => onWatchLaterChange(watchLater ? undefined : true)}
+        >
+          <Bookmark className="size-4" />
+          あとで見る
+        </Button>
+      )}
     </div>
   );
 }

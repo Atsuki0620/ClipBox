@@ -20,6 +20,7 @@ export interface Video {
   needs_selection: boolean;
   is_selection_completed: boolean;
   is_judged: boolean;
+  watch_later: boolean;
 }
 
 export interface VideosResponse {
@@ -132,12 +133,19 @@ export interface VideoListParams {
   availability?: Availability;
   show_unavailable?: boolean;
   show_deleted?: boolean;
+  watch_later?: boolean;
   exclude_selection?: boolean;
   keyword?: string;
   sort?: SortField;
   order?: SortOrder;
   page?: number;
   page_size?: number;
+}
+
+export interface WatchLaterResponse {
+  status: string;
+  message: string;
+  watch_later: boolean;
 }
 
 export interface SelectionVideoListParams {
