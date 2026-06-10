@@ -21,7 +21,7 @@ export function VideoGrid({
   emptyMessage?: string;
   invalidateKeys?: QueryKey[];
   gridClassName?: string;
-  displayContext?: "tier1" | "tier2";
+  displayContext?: "tier1" | "tier2" | "avp";
 }) {
   const ids = useMemo(
     () => videos.map((v) => v.id as number).filter(Boolean),

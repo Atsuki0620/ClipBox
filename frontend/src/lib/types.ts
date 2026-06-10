@@ -155,6 +155,7 @@ export interface SelectionVideoListParams {
   storage?: string[];
   keyword?: string;
   show_unavailable?: boolean;
+  watch_later?: boolean;
   sort?: SortField;
   order?: SortOrder;
   page?: number;

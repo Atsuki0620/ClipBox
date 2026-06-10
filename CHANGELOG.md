@@ -4,6 +4,34 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — fix: PR31 マージ前整合（B-1/B-2/F-1/F-2/F-3/T-1）
+
+**バックエンド**:
+- **`api/videos.py`** `/videos/selection`: `watch_later` クエリパラメータを追加し、
+  `app_service.get_videos(watch_later_filter=watch_later)` に渡すよう変更。Tier2 でも
+  「あとで見る」絞り込みが可能になった。
+- **`api/videos.py`** `/videos/by-ids` docstring: 「削除済み含む」誤記を
+  「デフォルト削除済み除外」に修正（実装は `include_deleted=False` のまま変更なし）。
+
+**フロントエンド**:
+- **`VideoCard.tsx`**: `displayContext` に `"avp"` を追加。`avpPlayTarget` / `onAvpRemove`
+  props を追加。`watch_later` ボタンの Tier2 制限を撤廃（全コンテキストで表示）。
+  AVP候補チェックボックスを `"avp"` コンテキストでも非表示に。Tier2 × `needs_selection`
+  × level -1 のとき SelectTrigger を「未選別」と表示する `levelDisplay` 変数を追加。
+- **`avp/page.tsx`**: 候補一覧をカスタム行表示から `VideoCard(displayContext="avp")` グリッドに
+  差し替え。再生中ハイライト（`useIsPlaying`）が自動で機能するようになった。
+  `getLikes` / `getViewCounts` クエリを追加し likeCount / viewCount を供給。
+- **`tier2/page.tsx`**: `watchLater` state を追加。`selectionParams` に `watch_later` を追加。
+  `LibraryFilterBar` に `watchLater` / `onWatchLaterChange` を渡すよう変更。
+- **`types.ts`** `SelectionVideoListParams`: `watch_later?: boolean` フィールドを追加。
+- **`VideoGrid.tsx`**: `displayContext` の型に `"avp"` を追加。
+
+**テスト**:
+- `tests/api/test_videos_read.py` `_insert` ヘルパーに `watch_later=0` パラメータを追加。
+- `test_selection_list_watch_later_filter` を新規追加（計 143件パス）。
+
+---
+
 ## 2026-06-11 — fix: PR8 — Codex レビュー指摘 5件対応
 
 **バックエンド**:

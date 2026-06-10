@@ -74,6 +74,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
   const [keyword, setKeyword] = useState("");
   const [levels, setLevels] = useState<number[]>([]);
   const [storage, setStorage] = useState<string[]>([]);
+  const [watchLater, setWatchLater] = useState<boolean | undefined>(undefined);
   const [sort, setSort] = useState<SortField | undefined>(undefined);
   const [order, setOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
@@ -90,12 +91,13 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
       storage,
       keyword: keyword || undefined,
       show_unavailable: true,
+      watch_later: watchLater,
       sort,
       order,
       page,
       page_size: pageSize,
     }),
-    [keyword, levels, order, page, pageSize, selectionFolder, sort, status, storage],
+    [keyword, levels, order, page, pageSize, selectionFolder, sort, status, storage, watchLater],
   );
 
   const kpiQ = useQuery({
@@ -185,6 +187,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
             storage={storage}
             sort={sort}
             order={order}
+            watchLater={watchLater}
             onKeywordChange={(value) => {
               setKeyword(value);
               resetPage();
@@ -203,6 +206,10 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
             }}
             onOrderChange={(value) => {
               setOrder(value);
+              resetPage();
+            }}
+            onWatchLaterChange={(val) => {
+              setWatchLater(val);
               resetPage();
             }}
           />

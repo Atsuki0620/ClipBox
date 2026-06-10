@@ -16,6 +16,7 @@ def _insert(
     deleted=0,
     needs_sel=0,
     sel_done=0,
+    watch_later=0,
 ):
     with get_db_connection() as conn:
         conn.execute(
@@ -23,11 +24,11 @@ def _insert(
             INSERT INTO videos (
                 essential_filename, current_full_path, current_favorite_level,
                 performer, storage_location, is_available, is_deleted,
-                needs_selection, is_selection_completed
+                needs_selection, is_selection_completed, watch_later
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (essential, path, level, performer, storage, available, deleted, needs_sel, sel_done),
+            (essential, path, level, performer, storage, available, deleted, needs_sel, sel_done, watch_later),
         )
         return conn.execute(
             "SELECT id FROM videos WHERE essential_filename = ?",
@@ -296,6 +297,28 @@ def test_videos_levels_csv_form(client):
 
     body = client.get("/api/videos", params={"levels": "3,4"}).json()
     assert {it["essential_filename"] for it in body["items"]} == {"a.mp4", "b.mp4"}
+
+
+def test_selection_list_watch_later_filter(client, tmp_path):
+    """watch_later=true フィルタで selection 内の「あとで見る」動画のみ絞り込める。"""
+    sel = tmp_path / "sel"
+    sel.mkdir()
+    (sel / "!watch.mp4").write_text("x")
+    (sel / "!normal.mp4").write_text("x")
+    _insert("watch.mp4", str(sel / "!watch.mp4"), -1, needs_sel=1, watch_later=1)
+    _insert("normal.mp4", str(sel / "!normal.mp4"), -1, needs_sel=1)
+
+    body = client.get(
+        "/api/videos/selection",
+        params={"folder": str(sel), "watch_later": "true"},
+    ).json()
+    assert {it["essential_filename"] for it in body["items"]} == {"watch.mp4"}
+
+    body_all = client.get(
+        "/api/videos/selection",
+        params={"folder": str(sel)},
+    ).json()
+    assert {it["essential_filename"] for it in body_all["items"]} == {"watch.mp4", "normal.mp4"}
 
 
 def test_selection_folder_boundary_excludes_sibling(client, tmp_path):

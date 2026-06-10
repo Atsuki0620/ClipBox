@@ -26,7 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Bookmark, Heart, Play } from "lucide-react";
+import { Bookmark, Heart, Play, X } from "lucide-react";
 
 export function VideoCard({
   video,
@@ -34,13 +34,17 @@ export function VideoCard({
   viewCount,
   invalidateKeys = [],
   displayContext = "tier1",
+  avpPlayTarget,
+  onAvpRemove,
 }: {
   video: Video;
   likeCount: number;
   viewCount: number;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
-  displayContext?: "tier1" | "tier2";
+  displayContext?: "tier1" | "tier2" | "avp";
+  avpPlayTarget?: { checked: boolean; disabled: boolean; onToggle: () => void };
+  onAvpRemove?: () => void;
 }) {
   const qc = useQueryClient();
   const id = video.id as number;
@@ -78,6 +82,11 @@ export function VideoCard({
     mutationFn: () => toggleWatchLater(id),
     onSettled: invalidate,
   });
+
+  const levelDisplay =
+    displayContext === "tier2" && video.needs_selection && displayLevel === -1
+      ? "未選別"
+      : levelName(displayLevel);
 
   const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
@@ -118,7 +127,7 @@ export function VideoCard({
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
         </div>
 
-        {displayContext !== "tier2" && (
+        {displayContext !== "tier2" && displayContext !== "avp" && (
           <label
             className={`flex w-fit items-center gap-2 text-sm ${
               avpDisabled ? "text-muted-foreground" : ""
@@ -157,7 +166,7 @@ export function VideoCard({
             disabled={mutateDisabled}
           >
             <SelectTrigger className="w-28" size="sm">
-              <span>{levelName(displayLevel)}</span>
+              <span>{levelDisplay}</span>
             </SelectTrigger>
             <SelectContent>
               {LEVEL_OPTIONS.map((l) => (
@@ -178,15 +187,38 @@ export function VideoCard({
             {likeCount}
           </Button>
 
-          {displayContext !== "tier2" && (
-            <Button
-              size="sm"
-              variant={video.watch_later ? "default" : "outline"}
-              disabled={busy}
-              onClick={() => watchLaterM.mutate()}
-              title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+          <Button
+            size="sm"
+            variant={video.watch_later ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => watchLaterM.mutate()}
+            title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+          >
+            <Bookmark className="size-4" />
+          </Button>
+
+          {avpPlayTarget && (
+            <label
+              className={`flex w-fit items-center gap-2 text-sm ${
+                avpPlayTarget.disabled ? "text-muted-foreground" : ""
+              }`}
             >
-              <Bookmark className="size-4" />
+              <Checkbox
+                checked={avpPlayTarget.checked}
+                disabled={avpPlayTarget.disabled}
+                onCheckedChange={() => avpPlayTarget.onToggle()}
+              />
+              <span>再生対象</span>
+            </label>
+          )}
+          {onAvpRemove && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onAvpRemove}
+              title="候補から外す"
+            >
+              <X className="size-4" />
             </Button>
           )}
         </div>

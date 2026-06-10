@@ -1,20 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getVideosByIds, playAvp } from "@/lib/api";
-import { levelColor, levelName, storageLabel } from "@/lib/levels";
+import { getLikes, getVideosByIds, getViewCounts, playAvp } from "@/lib/api";
 import { MAX_AVP_PLAY_TARGET, useAvpStore, usePlaybackStore } from "@/lib/store";
-import { Badge } from "@/components/ui/badge";
+import { VideoCard } from "@/components/VideoCard";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { MonitorPlay, Trash2, X } from "lucide-react";
+import { MonitorPlay, Trash2 } from "lucide-react";
 
 type ResultMessage = {
   tone: "success" | "error";
@@ -47,7 +40,20 @@ export default function AvpPage() {
     }
   }, [candidateData?.missing_ids, pruneIds]);
 
-  const candidateVideos = candidateData?.items ?? [];
+  const candidateVideos = useMemo(() => candidateData?.items ?? [], [candidateData?.items]);
+  const candidateIds = useMemo(
+    () => candidateVideos.map((v) => v.id as number).filter(Boolean),
+    [candidateVideos],
+  );
+  const likesQ = useQuery({
+    queryKey: ["likes", candidateIds],
+    queryFn: () => getLikes(candidateIds),
+    enabled: candidateIds.length > 0,
+  });
+  const viewCountsQ = useQuery({
+    queryKey: ["view-counts"],
+    queryFn: getViewCounts,
+  });
 
   const launchMutation = useMutation({
     mutationFn: (ids: number[]) => playAvp(ids),
@@ -101,69 +107,27 @@ export default function AvpPage() {
         ) : candidateVideos.length === 0 ? (
           <EmptyBox>候補動画の情報を取得できません。</EmptyBox>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {candidateVideos.map((video) => {
               const id = video.id as number;
               const isTarget = avpPlayTargetIds.includes(id);
               const targetFull =
                 avpPlayTargetIds.length >= MAX_AVP_PLAY_TARGET && !isTarget;
-              const checkDisabled = !video.is_available || targetFull;
-
               return (
-                <div
+                <VideoCard
                   key={id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border px-3 py-2"
-                >
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span>
-                          <Checkbox
-                            checked={isTarget}
-                            disabled={checkDisabled}
-                            onCheckedChange={() => toggleAvpPlayTargetId(id)}
-                          />
-                        </span>
-                      }
-                    />
-                    {targetFull && (
-                      <TooltipContent>再生対象は最大{MAX_AVP_PLAY_TARGET}本です</TooltipContent>
-                    )}
-                  </Tooltip>
-
-                  <div className="min-w-0">
-                    <div
-                      className="truncate text-sm font-medium"
-                      title={video.essential_filename}
-                    >
-                      {video.essential_filename}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge
-                        style={{
-                          backgroundColor: levelColor(video.current_favorite_level),
-                        }}
-                      >
-                        {levelName(video.current_favorite_level)}
-                      </Badge>
-                      <Badge variant="secondary">
-                        {storageLabel(video.storage_location)}
-                      </Badge>
-                      {!video.is_available && (
-                        <Badge variant="destructive">利用不可</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="候補から外す"
-                    onClick={() => removeAvpCandidateId(id)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
+                  video={video}
+                  likeCount={likesQ.data?.[id] ?? 0}
+                  viewCount={viewCountsQ.data?.[id] ?? 0}
+                  displayContext="avp"
+                  avpPlayTarget={{
+                    checked: isTarget,
+                    disabled: !video.is_available || targetFull,
+                    onToggle: () => toggleAvpPlayTargetId(id),
+                  }}
+                  onAvpRemove={() => removeAvpCandidateId(id)}
+                  invalidateKeys={[["avp-candidates"]]}
+                />
               );
             })}
           </div>
