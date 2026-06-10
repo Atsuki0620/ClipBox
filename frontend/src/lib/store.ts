@@ -30,19 +30,17 @@ interface LibraryStore extends LibraryFilters {
 }
 
 interface AvpStore {
-  avpSelectedIds: number[];
-  avpLaunchSelectedIds: number[];
-  avpPlayingIds: number[];
-  toggleAvpSelectedId: (id: number) => void;
-  removeAvpSelectedId: (id: number) => void;
-  clearAvpSelectedIds: () => void;
-  toggleAvpLaunchSelectedId: (id: number) => void;
-  clearAvpLaunchSelectedIds: () => void;
-  setAvpPlayingIds: (ids: number[]) => void;
-  clearAvpPlayingIds: () => void;
+  avpCandidateIds: number[];    // 候補（上限なし・localStorage 永続）
+  avpPlayTargetIds: number[];   // 再生対象（≤ MAX_AVP_PLAY_TARGET）
+  toggleAvpCandidateId: (id: number) => void;
+  removeAvpCandidateId: (id: number) => void;
+  clearAvpCandidateIds: () => void;
+  toggleAvpPlayTargetId: (id: number) => void;  // 上限超えは no-op
+  clearAvpPlayTargetIds: () => void;
+  pruneIds: (missingIds: number[]) => void;      // 両リストから欠損IDを除去
 }
 
-export const MAX_AVP_SELECTION = 4;
+export const MAX_AVP_PLAY_TARGET = 4;
 
 // 既定は Streamlit 現行に寄せる（セレクション除外 ON・未判定含む全レベル・利用可能のみ）。
 const DEFAULTS: LibraryFilters = {
@@ -74,57 +72,46 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
   reset: () => set(DEFAULTS),
 }));
 
-export const useAvpStore = create<AvpStore>((set) => ({
-  avpSelectedIds: [],
-  avpLaunchSelectedIds: [],
-  avpPlayingIds: [],
-  toggleAvpSelectedId: (id) =>
-    set((state) => {
-      const selected = state.avpSelectedIds.includes(id);
-      if (selected) {
-        return {
-          avpSelectedIds: state.avpSelectedIds.filter((value) => value !== id),
-          avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
-            (value) => value !== id,
-          ),
-        };
-      }
-      if (state.avpSelectedIds.length >= MAX_AVP_SELECTION) {
-        return state;
-      }
-      return { avpSelectedIds: [...state.avpSelectedIds, id] };
+export const useAvpStore = create<AvpStore>()(
+  persist(
+    (set) => ({
+      avpCandidateIds: [],
+      avpPlayTargetIds: [],
+      toggleAvpCandidateId: (id) =>
+        set((state) => ({
+          avpCandidateIds: state.avpCandidateIds.includes(id)
+            ? state.avpCandidateIds.filter((v) => v !== id)
+            : [...state.avpCandidateIds, id],
+        })),
+      removeAvpCandidateId: (id) =>
+        set((state) => ({
+          avpCandidateIds: state.avpCandidateIds.filter((v) => v !== id),
+          avpPlayTargetIds: state.avpPlayTargetIds.filter((v) => v !== id),
+        })),
+      clearAvpCandidateIds: () => set({ avpCandidateIds: [], avpPlayTargetIds: [] }),
+      toggleAvpPlayTargetId: (id) =>
+        set((state) => {
+          if (state.avpPlayTargetIds.includes(id)) {
+            return { avpPlayTargetIds: state.avpPlayTargetIds.filter((v) => v !== id) };
+          }
+          if (state.avpPlayTargetIds.length >= MAX_AVP_PLAY_TARGET) {
+            return state;
+          }
+          return { avpPlayTargetIds: [...state.avpPlayTargetIds, id] };
+        }),
+      clearAvpPlayTargetIds: () => set({ avpPlayTargetIds: [] }),
+      pruneIds: (missingIds) =>
+        set((state) => {
+          const missing = new Set(missingIds);
+          return {
+            avpCandidateIds: state.avpCandidateIds.filter((v) => !missing.has(v)),
+            avpPlayTargetIds: state.avpPlayTargetIds.filter((v) => !missing.has(v)),
+          };
+        }),
     }),
-  removeAvpSelectedId: (id) =>
-    set((state) => ({
-      avpSelectedIds: state.avpSelectedIds.filter((value) => value !== id),
-      avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
-        (value) => value !== id,
-      ),
-    })),
-  clearAvpSelectedIds: () =>
-    set({ avpSelectedIds: [], avpLaunchSelectedIds: [] }),
-  toggleAvpLaunchSelectedId: (id) =>
-    set((state) => {
-      const selected = state.avpLaunchSelectedIds.includes(id);
-      if (selected) {
-        return {
-          avpLaunchSelectedIds: state.avpLaunchSelectedIds.filter(
-            (value) => value !== id,
-          ),
-        };
-      }
-      if (
-        !state.avpSelectedIds.includes(id) ||
-        state.avpLaunchSelectedIds.length >= MAX_AVP_SELECTION
-      ) {
-        return state;
-      }
-      return { avpLaunchSelectedIds: [...state.avpLaunchSelectedIds, id] };
-    }),
-  clearAvpLaunchSelectedIds: () => set({ avpLaunchSelectedIds: [] }),
-  setAvpPlayingIds: (ids) => set({ avpPlayingIds: ids.slice(0, MAX_AVP_SELECTION) }),
-  clearAvpPlayingIds: () => set({ avpPlayingIds: [] }),
-}));
+    { name: "clipbox-avp" },
+  ),
+);
 
 // 再生中ハイライト用ストア（単体=1本 / AVP=最大4本）。
 // タブ・ページ移動を越えて保持し、localStorage 永続でリロードも越える。
@@ -146,7 +133,7 @@ export const usePlaybackStore = create<PlaybackStore>()(
       setSinglePlaying: (id) => set({ singlePlayingId: id, avpPlayingIds: [] }),
       // AVP再生: avp をセット（最大4）し single をクリア。
       setAvpPlaying: (ids) =>
-        set({ singlePlayingId: null, avpPlayingIds: ids.slice(0, MAX_AVP_SELECTION) }),
+        set({ singlePlayingId: null, avpPlayingIds: ids.slice(0, MAX_AVP_PLAY_TARGET) }),
       clearPlaying: () => set({ singlePlayingId: null, avpPlayingIds: [] }),
     }),
     { name: "clipbox-playback" },

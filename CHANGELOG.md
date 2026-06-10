@@ -4,6 +4,38 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-10 — feat: PR3 + PR4（AVP ページ再設計 + AVP 再生履歴記録）
+
+承認済み計画の **PR3**（AVP ページ再設計）と **PR4**（AVP 再生後の視聴履歴記録）。
+
+**PR3 — AvpStore 刷新 + AVP ページ再設計**:
+- **`frontend/src/lib/store.ts`**: `useAvpStore` を全面刷新。旧 `avpSelectedIds`(≤4) /
+  `avpLaunchSelectedIds` / `avpPlayingIds` を廃止し、`avpCandidateIds`（候補・上限なし）/
+  `avpPlayTargetIds`（再生対象・≤4）に変更。`zustand/middleware` の persist（key `clipbox-avp`）
+  でリロードを越えて永続化。`pruneIds(missingIds)` で欠損ID を両リストから一括除去。
+  `MAX_AVP_SELECTION` を廃止し `MAX_AVP_PLAY_TARGET = 4` に統一。
+- **`frontend/src/components/VideoCard.tsx`**: `avpSelectedIds` → `avpCandidateIds`、
+  `toggleAvpSelectedId` → `toggleAvpCandidateId`、上限ガード（`avpMaxReached`）を撤去。
+  ラベル「AVP選択」→「AVP候補」。候補は利用不可のみ disabled。
+- **`frontend/src/components/SidebarNav.tsx`**: バッジカウントを `avpCandidateIds.length` に更新。
+- **`frontend/src/app/avp/page.tsx`**: 全面改修。`useQueries`（N+1）廃止 → `useQuery + getVideosByIds`
+  一括取得（staleTime 30 s）。`useEffect` で `missing_ids` を `pruneIds` に渡して自動掃除。
+  2セクション構成（選択済み / 評価待ち）→ 単一候補カード一覧に統一。再生対象チェックボックスが
+  4本上限で disabled + ツールチップ表示。再生成功後は `setAvpPlaying`（ハイライト更新）+
+  `clearAvpPlayTargetIds`（再生対象リセット）。
+
+**PR4 — AVP 再生後の視聴履歴記録**:
+- **`core/app_service.py`**: `record_avp_viewing(video_ids)` 追加。AVP 再生後に
+  `viewing_history` へ全 ID 一括 `executemany` で 1 トランザクション記録。
+- **`api/avp.py`**: `subprocess.Popen` 成功後に `app_service.record_avp_viewing(video_ids)` を呼び出し。
+  設計コメントを「viewing_history を記録する」に更新。
+- **`tests/api/test_avp.py`**: `test_avp_play_success_records_view_history` に改名・期待値反転
+  （`count == 0` → `count == len(ids)`）。
+
+**検証**: pytest 134件全件緑 / tsc 0 errors / eslint 0 warnings。
+
+---
+
 ## 2026-06-10 — fix: PR #31 レビュー対応（by-ids チャンク取得 + テスト追加）
 
 PR #31 のレビュー指摘に対する修正。

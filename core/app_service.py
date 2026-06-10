@@ -6,6 +6,7 @@ Streamlit 側からの呼び出しをこのファイルに集約し、
 外部挙動は一切変えない。
 """
 
+from datetime import datetime
 from typing import Optional, Dict, List
 from pathlib import Path
 
@@ -98,6 +99,19 @@ def get_fate_video(folder_path_str: str = "") -> Optional[Video]:
 def play_video(video_id: int, **kwargs) -> Dict[str, str]:
     """動画を再生し視聴履歴を記録する（VideoManager.play_video 委譲）。"""
     return create_video_manager().play_video(video_id, **kwargs)
+
+
+def record_avp_viewing(video_ids: List[int]) -> None:
+    """AVP 再生後に viewing_history を一括記録する（1 トランザクション・executemany）。"""
+    if not video_ids:
+        return
+    viewed_at = datetime.now()
+    with get_db_connection() as conn:
+        conn.executemany(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (?, ?, 'APP_PLAYBACK')",
+            [(vid, viewed_at) for vid in video_ids],
+        )
 
 
 def detect_library_root(file_path: Path, active_roots: list) -> str:

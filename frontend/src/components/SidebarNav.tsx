@@ -52,7 +52,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const avpCount = useAvpStore((state) => state.avpSelectedIds.length);
+  const avpCount = useAvpStore((state) => state.avpCandidateIds.length);
   const [open, setOpen] = useState(true);
 
   return (

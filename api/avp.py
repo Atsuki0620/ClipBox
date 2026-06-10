@@ -6,7 +6,7 @@ ClipBox API - Awesome Video Player 連携ルーター。
 
 【設計制約】
 - `core.app_service` のファサード経由でのみ DB / 設定へアクセスする。
-- AVP 起動は Streamlit 現行挙動に合わせ、viewing_history / play_history を記録しない。
+- AVP 起動後に viewing_history を記録する（play_history は記録しない）。
 - `subprocess.Popen([avp_exe_path, ...paths])` で FastAPI 実行マシン上の AVP を起動する。
 """
 
@@ -68,6 +68,8 @@ def play_avp(body: AvpPlayRequest) -> StatusMessageResponse:
         subprocess.Popen([avp_exe_path, *paths])
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AVP の起動に失敗しました: {exc}") from exc
+
+    app_service.record_avp_viewing(video_ids)
 
     return StatusMessageResponse(
         status="success",
