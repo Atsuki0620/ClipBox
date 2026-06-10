@@ -688,6 +688,13 @@ def _df_row_to_video(row) -> "Video":
 
 _RANKING_PERIOD_DAYS = {"180日": 180, "1年": 365}
 
+# 総合スコア係数（チューニング用定数）。
+# score = int((view_days*A + likes*B) * (1 + BONUS_T1*t1 + BONUS_T2*t2) * 100)
+_COMPOSITE_A = 1       # 視聴日数の重み
+_COMPOSITE_B = 3       # いいね数の重み
+_COMPOSITE_BONUS_T1 = 0.5  # T1 判定済みボーナス（+50%）
+_COMPOSITE_BONUS_T2 = 0.3  # T2 選別済み追加ボーナス（+30%）
+
 
 def get_ranked_videos_for_tab(
     ranking_type: str,
@@ -780,10 +787,6 @@ def get_ranked_videos_for_tab(
         df[score_col] = df[score_col].fillna(0).astype(int)
 
     elif ranking_type == "composite":
-        # 視聴回数
-        df = calculate_period_view_count(df, period_start, period_end)
-        df["period_view_count"] = df["period_view_count"].fillna(0)
-
         # 視聴日数
         video_ids = df["id"].tolist()
         q_days = (
@@ -805,7 +808,7 @@ def get_ranked_videos_for_tab(
             else pd.DataFrame(columns=["video_id", "view_days"])
         ).rename(columns={"video_id": "id"})
         df = df.merge(df_days, on="id", how="left")
-        df["view_days"] = df["view_days"].fillna(0)
+        df["view_days"] = df["view_days"].fillna(0).astype(int)
 
         # いいね数
         q_lk = "SELECT video_id, COUNT(*) AS like_count FROM likes WHERE 1=1"
@@ -824,31 +827,16 @@ def get_ranked_videos_for_tab(
             else pd.DataFrame(columns=["video_id", "like_count"])
         ).rename(columns={"video_id": "id"})
         df = df.merge(df_lk, on="id", how="left")
-        df["like_count"] = df["like_count"].fillna(0)
+        df["like_count"] = df["like_count"].fillna(0).astype(int)
 
-        # 正規化（各指標を max で割って 0-1 に）
-        max_vc = df["period_view_count"].max() or 1
-        max_vd = df["view_days"].max() or 1
-        max_lk = df["like_count"].max() or 1
-        df["_norm_vc"] = df["period_view_count"] / max_vc
-        df["_norm_vd"] = df["view_days"] / max_vd
-        df["_norm_lk"] = df["like_count"] / max_lk
+        # T1/T2 フラグ（未判定は t1=0 でボーナスなしのままランキング対象）
+        df["_t1"] = (df["current_favorite_level"].fillna(-1).astype(int) >= 0).astype(int)
+        df["_t2"] = df["is_selection_completed"].fillna(0).astype(int)
 
-        # 重み付け合算（視聴回数×1.0 + 視聴日数×1.2 + いいね×1.5）
-        df["_raw_score"] = (
-            df["_norm_vc"] * 1.0
-            + df["_norm_vd"] * 1.2
-            + df["_norm_lk"] * 1.5
-        )
-
-        # レベル乗数（未判定=0 → composite_score=0 → ランキング除外）
-        _LV_MULT = {4: 1.5, 3: 1.2, 2: 0.9, 1: 0.6, 0: 0.5, -1: 0.0}
-        df["_lv_mult"] = df["current_favorite_level"].apply(
-            lambda lv: _LV_MULT.get(int(lv) if pd.notna(lv) else -1, 0.0)
-        )
-
-        # × 100 して整数化（表示用: 最大約555pt）
-        df["composite_score"] = (df["_raw_score"] * df["_lv_mult"] * 100).round(0).astype(int)
+        # ハイブリッドスコア: base * bonus * 100 整数化
+        base = df["view_days"] * _COMPOSITE_A + df["like_count"] * _COMPOSITE_B
+        bonus = 1 + _COMPOSITE_BONUS_T1 * df["_t1"] + _COMPOSITE_BONUS_T2 * df["_t2"]
+        df["composite_score"] = (base * bonus * 100).round(0).astype(int)
         score_col = "composite_score"
 
     else:

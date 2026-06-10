@@ -4,6 +4,25 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-10 — feat: PR7 — 総合ランキング composite 式刷新
+
+**バックエンド**:
+- **`core/analysis_service.py`**: 総合スコア係数定数を追加
+  （`_COMPOSITE_A=1`, `_COMPOSITE_B=3`, `_COMPOSITE_BONUS_T1=0.5`, `_COMPOSITE_BONUS_T2=0.3`）。
+  `get_ranked_videos_for_tab` の composite ブランチを**ハイブリッド式**に刷新:
+  - 旧式: `norm(視聴回数)*1.0 + norm(視聴日数)*1.2 + norm(いいね)*1.5` × レベル乗数（未判定=除外）
+  - 新式: `base = 視聴日数*1 + いいね*3`、`score = int(base * (1 + 0.5*T1判定 + 0.3*T2選別済み) * 100)`
+  - 未判定動画をランキングに含める（T1/T2ボーナス=0のまま base スコアで参加）。
+  - T1判定済み（level≥0）で +50%、T2選別済みで追加 +30% ボーナス。
+  - 係数はモジュール定数化し 1行で調整可能。
+
+**フロントエンド変更なし**（`ranking/page.tsx` + `/ranking` エンドポイントは composite 対応済み）。
+**Streamlit にも反映**（`get_ranked_videos_for_tab` 共有のため自動）。
+
+**検証**: pytest 139件全件緑。
+
+---
+
 ## 2026-06-10 — feat: PR6 — Tier2 カード表示改善（displayContext）
 
 **フロントエンド**:
