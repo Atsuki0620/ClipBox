@@ -6,9 +6,10 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, playVideo, setLevel } from "@/lib/api";
+import { likeVideo, setLevel, toggleWatchLater } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
-import { MAX_AVP_SELECTION, useAvpStore } from "@/lib/store";
+import { useAvpStore, useIsPlaying } from "@/lib/store";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type { Video } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,24 +26,30 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Heart, Play } from "lucide-react";
+import { Bookmark, Heart, Play, X } from "lucide-react";
 
 export function VideoCard({
   video,
   likeCount,
   viewCount,
   invalidateKeys = [],
+  displayContext = "tier1",
+  avpPlayTarget,
+  onAvpRemove,
 }: {
   video: Video;
   likeCount: number;
   viewCount: number;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
+  displayContext?: "tier1" | "tier2" | "avp";
+  avpPlayTarget?: { checked: boolean; disabled: boolean; onToggle: () => void };
+  onAvpRemove?: () => void;
 }) {
   const qc = useQueryClient();
   const id = video.id as number;
-  const avpSelectedIds = useAvpStore((state) => state.avpSelectedIds);
-  const toggleAvpSelectedId = useAvpStore((state) => state.toggleAvpSelectedId);
+  const avpCandidateIds = useAvpStore((state) => state.avpCandidateIds);
+  const toggleAvpCandidateId = useAvpStore((state) => state.toggleAvpCandidateId);
 
   // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
@@ -59,10 +66,9 @@ export function VideoCard({
     }
   };
 
-  const playM = useMutation({
-    mutationFn: () => playVideo(id),
-    onSettled: invalidate,
-  });
+  // 再生は共通フック（成功で再生中=単体をセット。invalidate も内包）。
+  const playM = usePlayVideo(invalidateKeys);
+  const isPlaying = useIsPlaying(id);
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
     onSuccess: (_data, level) => setDisplayLevel(level),
@@ -72,21 +78,28 @@ export function VideoCard({
     mutationFn: () => likeVideo(id),
     onSettled: invalidate,
   });
+  const watchLaterM = useMutation({
+    mutationFn: () => toggleWatchLater(id),
+    onSettled: invalidate,
+  });
 
-  const busy = playM.isPending || levelM.isPending || likeM.isPending;
+  const levelDisplay =
+    displayContext === "tier2" && video.needs_selection && displayLevel === -1
+      ? "未選別"
+      : levelName(displayLevel);
+
+  const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
   const mutateDisabled = busy || !video.is_available;
   const error = playM.error || levelM.error || likeM.error;
   const isJudged = displayLevel !== -1;
-  const isAvpSelected = avpSelectedIds.includes(id);
-  const avpMaxReached =
-    avpSelectedIds.length >= MAX_AVP_SELECTION && !isAvpSelected;
-  const avpDisabled = !video.is_available || avpMaxReached;
+  const isAvpSelected = avpCandidateIds.includes(id);
+  const avpDisabled = !video.is_available;
 
   return (
     <Card
       className={`${video.is_available ? "" : "opacity-60"} ${
-        isAvpSelected ? "ring-2 ring-primary" : ""
+        isPlaying ? "border-2 border-amber-400 bg-amber-50" : ""
       }`}
     >
       <CardContent className="flex flex-col gap-1 py-1">
@@ -105,30 +118,29 @@ export function VideoCard({
           )}
           <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
           <Badge variant="outline">視聴 {viewCount}</Badge>
-          {video.is_selection_completed && <Badge variant="outline">選別済み</Badge>}
+          {displayContext === "tier2" && video.needs_selection && !video.is_selection_completed && (
+            <Badge variant="secondary">未選別</Badge>
+          )}
+          {displayContext === "tier2" && video.is_selection_completed && (
+            <Badge variant="outline">選別済み</Badge>
+          )}
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
         </div>
 
-        <label
-          className={`flex w-fit items-center gap-2 text-sm ${
-            avpDisabled ? "text-muted-foreground" : ""
-          }`}
-          title={
-            avpMaxReached
-              ? `AVP 選択は最大${MAX_AVP_SELECTION}本です`
-              : undefined
-          }
-        >
-          <Checkbox
-            checked={isAvpSelected}
-            disabled={avpDisabled}
-            onCheckedChange={() => toggleAvpSelectedId(id)}
-          />
-          <span>AVP選択</span>
-          <span className="text-xs text-muted-foreground">
-            {avpSelectedIds.length}/{MAX_AVP_SELECTION}
-          </span>
-        </label>
+        {displayContext !== "tier2" && displayContext !== "avp" && (
+          <label
+            className={`flex w-fit items-center gap-2 text-sm ${
+              avpDisabled ? "text-muted-foreground" : ""
+            }`}
+          >
+            <Checkbox
+              checked={isAvpSelected}
+              disabled={avpDisabled}
+              onCheckedChange={() => toggleAvpCandidateId(id)}
+            />
+            <span>AVP候補</span>
+          </label>
+        )}
 
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -138,7 +150,7 @@ export function VideoCard({
                   size="sm"
                   variant="default"
                   disabled={mutateDisabled}
-                  onClick={() => playM.mutate()}
+                  onClick={() => playM.mutate(id)}
                 />
               }
             >
@@ -154,7 +166,7 @@ export function VideoCard({
             disabled={mutateDisabled}
           >
             <SelectTrigger className="w-28" size="sm">
-              <span>{levelName(displayLevel)}</span>
+              <span>{levelDisplay}</span>
             </SelectTrigger>
             <SelectContent>
               {LEVEL_OPTIONS.map((l) => (
@@ -174,6 +186,41 @@ export function VideoCard({
             <Heart className="size-4" />
             {likeCount}
           </Button>
+
+          <Button
+            size="sm"
+            variant={video.watch_later ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => watchLaterM.mutate()}
+            title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+          >
+            <Bookmark className="size-4" />
+          </Button>
+
+          {avpPlayTarget && (
+            <label
+              className={`flex w-fit items-center gap-2 text-sm ${
+                avpPlayTarget.disabled ? "text-muted-foreground" : ""
+              }`}
+            >
+              <Checkbox
+                checked={avpPlayTarget.checked}
+                disabled={avpPlayTarget.disabled}
+                onCheckedChange={() => avpPlayTarget.onToggle()}
+              />
+              <span>再生対象</span>
+            </label>
+          )}
+          {onAvpRemove && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onAvpRemove}
+              title="候補から外す"
+            >
+              <X className="size-4" />
+            </Button>
+          )}
         </div>
 
         {error && (

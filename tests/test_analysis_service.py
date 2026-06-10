@@ -25,6 +25,23 @@ def test_apply_scope_filter_filters_available_only():
     assert set(filtered["id"]) == {1}
 
 
+def test_df_row_to_video_carries_watch_later():
+    """DataFrame 行→Video マッパーが watch_later を保持する（R8）"""
+    row = {
+        "id": 1,
+        "essential_filename": "v.mp4",
+        "current_full_path": "C:/videos/#_v.mp4",
+        "current_favorite_level": 1,
+        "storage_location": "C_DRIVE",
+        "watch_later": 1,
+    }
+    video = analysis_service._df_row_to_video(row)
+    assert video.watch_later is True
+
+    row["watch_later"] = 0
+    assert analysis_service._df_row_to_video(row).watch_later is False
+
+
 def test_calculate_period_view_count_uses_period_range(tmp_db):
     now = datetime.now()
     with db.get_db_connection() as conn:

@@ -10,8 +10,8 @@ import {
   getSelectionFate,
   getSelectionKpi,
   listSelectionVideos,
-  playVideo,
 } from "@/lib/api";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type {
   SelectionStatus,
   SelectionVideoListParams,
@@ -74,6 +74,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
   const [keyword, setKeyword] = useState("");
   const [levels, setLevels] = useState<number[]>([]);
   const [storage, setStorage] = useState<string[]>([]);
+  const [watchLater, setWatchLater] = useState<boolean | undefined>(undefined);
   const [sort, setSort] = useState<SortField | undefined>(undefined);
   const [order, setOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
@@ -90,12 +91,13 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
       storage,
       keyword: keyword || undefined,
       show_unavailable: true,
+      watch_later: watchLater,
       sort,
       order,
       page,
       page_size: pageSize,
     }),
-    [keyword, levels, order, page, pageSize, selectionFolder, sort, status, storage],
+    [keyword, levels, order, page, pageSize, selectionFolder, sort, status, storage, watchLater],
   );
 
   const kpiQ = useQuery({
@@ -138,14 +140,16 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
     enabled: fateToken > 0,
   });
 
+  // 選別運命の1本も再抽選しない（invalidateKeys 空）。再生中ハイライトは usePlayVideo が配線。
+  const { mutate: playFate } = usePlayVideo([]);
   const prevFateIdRef = useRef<number | null>(null);
   useEffect(() => {
     const id = fateQ.data?.id as number | undefined;
     if (id != null && id !== prevFateIdRef.current) {
       prevFateIdRef.current = id;
-      playVideo(id).catch(() => {});
+      playFate(id);
     }
-  }, [fateQ.data]);
+  }, [fateQ.data, playFate]);
 
   const resetPage = () => setPage(1);
 
@@ -183,6 +187,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
             storage={storage}
             sort={sort}
             order={order}
+            watchLater={watchLater}
             onKeywordChange={(value) => {
               setKeyword(value);
               resetPage();
@@ -203,6 +208,10 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
               setOrder(value);
               resetPage();
             }}
+            onWatchLaterChange={(val) => {
+              setWatchLater(val);
+              resetPage();
+            }}
           />
 
           {videosQ.isLoading || videosQ.isFetching ? (
@@ -215,6 +224,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
                 videos={videosQ.data?.items ?? []}
                 emptyMessage="条件に合う動画はありません。"
                 invalidateKeys={[["selection-videos"], ["selection-kpi"]]}
+                displayContext="tier2"
               />
               {(videosQ.data?.total ?? 0) > 0 ? (
                 <Pagination
@@ -249,6 +259,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
             videos={randomVideos}
             emptyMessage="条件に合う未選別動画はありません。"
             invalidateKeys={[["selection-kpi"]]}
+            displayContext="tier2"
           />
         </RandomPanel>
       }
@@ -265,7 +276,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
           emptyMessageWhenNoTarget="対象の動画がありません。"
         >
           {fateQ.data ? (
-            <VideoGrid videos={[fateQ.data]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" />
+            <VideoGrid videos={[fateQ.data]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" displayContext="tier2" />
           ) : null}
         </FatePanel>
       }

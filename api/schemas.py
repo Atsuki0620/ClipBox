@@ -65,6 +65,7 @@ class VideoOut(BaseModel):
     # 派生値（dataclass の property / メソッド）
     is_selection_completed: bool
     is_judged: bool
+    watch_later: bool
 
     @classmethod
     def from_video(cls, v: Video) -> "VideoOut":
@@ -88,6 +89,7 @@ class VideoOut(BaseModel):
             needs_selection=bool(v.needs_selection),
             is_selection_completed=v.is_selection_completed,
             is_judged=v.is_judged(),
+            watch_later=bool(v.watch_later),
         )
 
 
@@ -98,6 +100,23 @@ class VideosResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class VideosByIdsRequest(BaseModel):
+    """ID指定の一括取得リクエスト（AVP候補のバッチ取得用）。"""
+
+    ids: List[int]
+
+
+class VideosByIdsResponse(BaseModel):
+    """ID指定一括取得のレスポンス。items は入力順保持（削除済み含む）。
+
+    見つからなかったID（削除消滅など）は missing_ids に入れ、クライアント側の
+    永続候補（localStorage）の掃除に使えるようにする。
+    """
+
+    items: List[VideoOut]
+    missing_ids: List[int]
 
 
 class FilterOptionsResponse(BaseModel):
@@ -177,6 +196,14 @@ class LikeResponse(BaseModel):
 
     video_id: int
     like_count: int
+
+
+class WatchLaterResponse(BaseModel):
+    """あとで見るトグル後のレスポンス。"""
+
+    status: str
+    message: str
+    watch_later: bool
 
 
 class ScanLibraryResponse(BaseModel):

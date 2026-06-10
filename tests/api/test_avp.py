@@ -2,7 +2,7 @@
 ClipBox API - AVP 並列再生エンドポイントのテスト。
 
 AVP 本体は起動せず subprocess.Popen を monkeypatch する。
-AVP 起動では viewing_history を記録しないことも検証する。
+AVP 起動後は viewing_history に全 ID ぶん記録されることも検証する。
 """
 
 from core import app_service
@@ -32,8 +32,8 @@ def _configure_avp(tmp_path, path=None):
     return avp_path
 
 
-def test_avp_play_success_launches_without_view_history(client, tmp_path, monkeypatch):
-    """1〜4件の実在ファイルは AVP に渡され、視聴履歴は増えない。"""
+def test_avp_play_success_records_view_history(client, tmp_path, monkeypatch):
+    """1〜4件の実在ファイルは AVP に渡され、全 ID ぶんの視聴履歴が記録される。"""
     avp_path = _configure_avp(tmp_path)
     files = []
     ids = []
@@ -53,7 +53,7 @@ def test_avp_play_success_launches_without_view_history(client, tmp_path, monkey
     assert calls == [[str(avp_path), *files]]
     with get_db_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM viewing_history").fetchone()[0]
-    assert count == 0
+    assert count == len(ids)
 
 
 def test_avp_play_rejects_empty_and_too_many_ids(client):

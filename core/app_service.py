@@ -6,6 +6,7 @@ Streamlit 側からの呼び出しをこのファイルに集約し、
 外部挙動は一切変えない。
 """
 
+from datetime import datetime
 from typing import Optional, Dict, List
 from pathlib import Path
 
@@ -46,6 +47,7 @@ def get_videos(
     show_deleted: bool = False,
     needs_selection_filter: Optional[bool] = None,
     exclude_selection: bool = False,
+    watch_later_filter: Optional[bool] = None,
 ) -> List[Video]:
     """フィルタ条件に合致する動画一覧を返す（VideoManager.get_videos 委譲）。"""
     return create_video_manager().get_videos(
@@ -57,12 +59,13 @@ def get_videos(
         show_deleted=show_deleted,
         needs_selection_filter=needs_selection_filter,
         exclude_selection=exclude_selection,
+        watch_later_filter=watch_later_filter,
     )
 
 
-def get_videos_by_ids(video_ids: List[int]) -> List[Video]:
-    """指定IDの動画を取得する（IDの順序を保つ。削除済みも含む）。"""
-    return create_video_manager().get_videos_by_ids(video_ids)
+def get_videos_by_ids(video_ids: List[int], include_deleted: bool = False) -> List[Video]:
+    """指定IDの動画を取得する（IDの順序を保つ）。include_deleted=True で削除済みも含む。"""
+    return create_video_manager().get_videos_by_ids(video_ids, include_deleted=include_deleted)
 
 
 def search_videos(keyword: str, storage_locations: Optional[List[str]] = None) -> List[Video]:
@@ -96,6 +99,24 @@ def get_fate_video(folder_path_str: str = "") -> Optional[Video]:
 def play_video(video_id: int, **kwargs) -> Dict[str, str]:
     """動画を再生し視聴履歴を記録する（VideoManager.play_video 委譲）。"""
     return create_video_manager().play_video(video_id, **kwargs)
+
+
+def toggle_watch_later(video_id: int) -> bool:
+    """watch_later フラグを反転して新しい値を返す（VideoManager 委譲）。"""
+    return create_video_manager().toggle_watch_later(video_id)
+
+
+def record_avp_viewing(video_ids: List[int]) -> None:
+    """AVP 再生後に viewing_history を一括記録する（1 トランザクション・executemany）。"""
+    if not video_ids:
+        return
+    viewed_at = datetime.now()
+    with get_db_connection() as conn:
+        conn.executemany(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (?, ?, 'APP_PLAYBACK')",
+            [(vid, viewed_at) for vid in video_ids],
+        )
 
 
 def detect_library_root(file_path: Path, active_roots: list) -> str:
@@ -200,6 +221,12 @@ def get_last_viewed_map() -> Dict[int, str]:
         return database.get_last_viewed_map(conn)
 
 
+def get_latest_judged_at_map(selection: bool) -> Dict[int, str]:
+    """動画IDごとの最新判定日時マップを Tier 別に返す（判定日時ソート用）。"""
+    with get_db_connection() as conn:
+        return database.get_latest_judged_at_map(conn, selection)
+
+
 def get_filter_options() -> Dict[str, list]:
     """フィルタUI用の選択肢（お気に入りレベル・保存場所）を返す。
 
@@ -240,14 +267,30 @@ def has_recent_backup(hours: int = 24) -> bool:
 # マイグレーション ----------------------------------------------------------
 def run_startup_migration() -> dict:
     """
-    起動時マイグレーションを実行する（UI層からの直接DB接続を排除するため）。
+    起動時データマイグレーションを実行する（UI層からの直接DB接続を排除するため）。
+
+    実行するデータ補正（いずれも冪等・ログ式で1回限り）:
+      1. migrate_level_0_to_minus_1 … プレフィックスなしLv0 → -1（未判定）
+      2. resync_selection_completed … is_selection_completed 列を + プレフィックスに再同期（R6）
 
     Returns:
-        dict: マイグレーション結果 {'status': str, 'message': str, 'updated_count': int}
+        dict: {'status': str, 'message': str, 'updated_count': int, 'results': list[dict]}
     """
     from config import DATABASE_PATH
     from core.migration import Migration
 
     migration = Migration(DATABASE_PATH)
     with get_db_connection() as conn:
-        return migration.migrate_level_0_to_minus_1(conn)
+        results = [
+            migration.migrate_level_0_to_minus_1(conn),
+            migration.resync_selection_completed(conn),
+        ]
+
+    total_updated = sum(r.get("updated_count", 0) for r in results)
+    status = "completed" if any(r.get("status") == "completed" for r in results) else "skipped"
+    return {
+        "status": status,
+        "message": " / ".join(r.get("message", "") for r in results),
+        "updated_count": total_updated,
+        "results": results,
+    }

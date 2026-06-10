@@ -53,6 +53,7 @@ export function FilterPanel() {
         sort={store.sort}
         order={store.order ?? "desc"}
         availabilityMode={store.availabilityMode}
+        watchLater={store.watchLater}
         onKeywordChange={(value) => store.setFilter("keyword", value)}
         onLevelsChange={(value) => store.setFilter("levels", value)}
         onStorageChange={(value) => store.setFilter("storage", value)}
@@ -61,6 +62,7 @@ export function FilterPanel() {
         onAvailabilityModeChange={(value) =>
           store.setFilter("availabilityMode", value)
         }
+        onWatchLaterChange={(value) => store.setFilter("watchLater", value)}
       />
     </div>
   );

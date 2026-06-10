@@ -62,7 +62,8 @@ def init_database():
                 last_file_modified DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_scanned_at DATETIME,
-                notes TEXT
+                notes TEXT,
+                watch_later BOOLEAN DEFAULT 0
             )
         """)
 
@@ -160,6 +161,11 @@ def init_database():
                 except Exception:
                     pass
 
+        # あとで見る: watch_later フラグ（DB永続。判定/選別完了で自動解除）
+        if "watch_later" not in videos_cols:
+            conn.execute("ALTER TABLE videos ADD COLUMN watch_later BOOLEAN DEFAULT 0")
+            conn.execute("UPDATE videos SET watch_later = 0 WHERE watch_later IS NULL")
+
         # セレクション: judgment_history に was_selection_judgment フラグ
         judgment_cols = [row[1] for row in conn.execute("PRAGMA table_info(judgment_history)").fetchall()]
         if "was_selection_judgment" not in judgment_cols:
@@ -175,6 +181,7 @@ def init_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_deleted ON videos(is_deleted)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_needs_selection ON videos(needs_selection)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_is_selection_completed ON videos(is_selection_completed)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_videos_watch_later ON videos(watch_later) WHERE watch_later = 1")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_video_id ON viewing_history(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_viewed_at ON viewing_history(viewed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_play_history_file_path ON play_history(file_path)")
@@ -339,6 +346,27 @@ def get_last_viewed_map(conn) -> dict[int, str]:
         "SELECT video_id, MAX(viewed_at) AS last_viewed FROM viewing_history GROUP BY video_id"
     ).fetchall()
     return {row["video_id"]: row["last_viewed"] for row in rows}
+
+
+def get_latest_judged_at_map(conn, selection: bool) -> dict[int, str]:
+    """動画IDごとの「最新の判定日時」マップを Tier 別に取得する。
+
+    Tier1（通常判定）は was_selection_judgment=0、Tier2（選別判定）は =1 の
+    judgment_history を対象に、video_id ごとの MAX(judged_at) を返す。
+    論理削除済み（is_deleted=1）の動画は除外する。判定日時ソート用。
+    """
+    rows = conn.execute(
+        """
+        SELECT jh.video_id AS video_id, MAX(jh.judged_at) AS latest
+          FROM judgment_history jh
+          JOIN videos v ON v.id = jh.video_id
+         WHERE jh.was_selection_judgment = ?
+           AND v.is_deleted = 0
+         GROUP BY jh.video_id
+        """,
+        (1 if selection else 0,),
+    ).fetchall()
+    return {row["video_id"]: row["latest"] for row in rows}
 
 
 def get_total_videos_count(conn) -> int:

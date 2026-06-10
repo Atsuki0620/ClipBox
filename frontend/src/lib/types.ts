@@ -20,6 +20,7 @@ export interface Video {
   needs_selection: boolean;
   is_selection_completed: boolean;
   is_judged: boolean;
+  watch_later: boolean;
 }
 
 export interface VideosResponse {
@@ -27,6 +28,13 @@ export interface VideosResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+// POST /api/videos/by-ids のレスポンス。items は入力順保持・削除済み含む。
+// missing_ids は見つからなかったID（localStorage 永続候補の掃除に使う）。
+export interface VideosByIdsResponse {
+  items: Video[];
+  missing_ids: number[];
 }
 
 export interface FilterOptions {
@@ -109,7 +117,7 @@ export type SortField =
   | "view_count"
   | "last_viewed"
   | "title"
-  | "modified";
+  | "judged_at";
 
 export type SortOrder = "asc" | "desc";
 export type Availability = "available" | "unavailable";
@@ -125,12 +133,19 @@ export interface VideoListParams {
   availability?: Availability;
   show_unavailable?: boolean;
   show_deleted?: boolean;
+  watch_later?: boolean;
   exclude_selection?: boolean;
   keyword?: string;
   sort?: SortField;
   order?: SortOrder;
   page?: number;
   page_size?: number;
+}
+
+export interface WatchLaterResponse {
+  status: string;
+  message: string;
+  watch_later: boolean;
 }
 
 export interface SelectionVideoListParams {
@@ -140,6 +155,7 @@ export interface SelectionVideoListParams {
   storage?: string[];
   keyword?: string;
   show_unavailable?: boolean;
+  watch_later?: boolean;
   sort?: SortField;
   order?: SortOrder;
   page?: number;

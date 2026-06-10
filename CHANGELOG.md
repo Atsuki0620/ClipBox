@@ -4,6 +4,292 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — fix: PR31 マージ前整合（B-1/B-2/F-1/F-2/F-3/T-1）
+
+**バックエンド**:
+- **`api/videos.py`** `/videos/selection`: `watch_later` クエリパラメータを追加し、
+  `app_service.get_videos(watch_later_filter=watch_later)` に渡すよう変更。Tier2 でも
+  「あとで見る」絞り込みが可能になった。
+- **`api/videos.py`** `/videos/by-ids` docstring: 「削除済み含む」誤記を
+  「デフォルト削除済み除外」に修正（実装は `include_deleted=False` のまま変更なし）。
+
+**フロントエンド**:
+- **`VideoCard.tsx`**: `displayContext` に `"avp"` を追加。`avpPlayTarget` / `onAvpRemove`
+  props を追加。`watch_later` ボタンの Tier2 制限を撤廃（全コンテキストで表示）。
+  AVP候補チェックボックスを `"avp"` コンテキストでも非表示に。Tier2 × `needs_selection`
+  × level -1 のとき SelectTrigger を「未選別」と表示する `levelDisplay` 変数を追加。
+- **`avp/page.tsx`**: 候補一覧をカスタム行表示から `VideoCard(displayContext="avp")` グリッドに
+  差し替え。再生中ハイライト（`useIsPlaying`）が自動で機能するようになった。
+  `getLikes` / `getViewCounts` クエリを追加し likeCount / viewCount を供給。
+- **`tier2/page.tsx`**: `watchLater` state を追加。`selectionParams` に `watch_later` を追加。
+  `LibraryFilterBar` に `watchLater` / `onWatchLaterChange` を渡すよう変更。
+- **`types.ts`** `SelectionVideoListParams`: `watch_later?: boolean` フィールドを追加。
+- **`VideoGrid.tsx`**: `displayContext` の型に `"avp"` を追加。
+
+**テスト**:
+- `tests/api/test_videos_read.py` `_insert` ヘルパーに `watch_later=0` パラメータを追加。
+- `test_selection_list_watch_later_filter` を新規追加（計 143件パス）。
+
+---
+
+## 2026-06-11 — fix: PR8 — Codex レビュー指摘 5件対応
+
+**バックエンド**:
+- **`core/video_manager.py`** `toggle_watch_later`: SELECT→計算→UPDATE の非アトミックな
+  read-modify-write を `UPDATE ... SET watch_later = 1 - watch_later WHERE ... AND is_deleted = 0`
+  の単一アトミック UPDATE に変更。rowcount=0 で KeyError を発生。
+- **`core/video_manager.py`** `get_videos_by_ids`: `AND is_deleted = 0` フィルタを追加。
+  `include_deleted: bool = False` パラメータを追加し、`GET /videos/{id}` エンドポイントのみ
+  `include_deleted=True` で呼び出すよう `api/videos.py` を変更。
+- **`core/video_manager.py`** `set_favorite_level_with_rename`: `was_selection_judgment` の
+  条件を `video.needs_selection` のみから
+  `video.needs_selection or video.is_selection_completed` に修正。
+  `+` プレフィックス（選別済み）動画の再判定も正しく記録される。
+
+**インフラ**:
+- **`.gitignore`**: `data/migration_history.txt` を追加。`git rm --cached` でインデックスから除外。
+  新規 checkout でマイグレーションが「実行済み」とみなされてスキップされる問題を解消。
+- **`core/migration.py`** `is_migration_completed`: `migration_id in log.read()` の部分一致判定を
+  `splitlines()` + 先頭列の厳密比較に変更。将来の migration_id が既存 ID の部分文字列でも
+  誤ってスキップされない。
+
+**フロントエンド**:
+- **`frontend/src/lib/store.ts`** `toggleAvpCandidateId`: remove 側で `avpPlayTargetIds` も
+  フィルタするよう修正。チェックを外した動画が `avpPlayTargetIds` に残留する不整合を解消。
+
+**テスト**:
+- `tests/test_video_manager.py` に 3件追加（計 142件）:
+  - `test_toggle_watch_later_toggles_and_raises_for_missing`: アトミック UPDATE の動作検証
+  - `test_get_videos_by_ids_excludes_deleted`: 削除済み動画の除外検証
+  - `test_was_selection_judgment_for_completed_video`: `is_selection_completed=True` 動画の記録検証
+
+---
+
+## 2026-06-10 — feat: PR7 — 総合ランキング composite 式刷新
+
+**バックエンド**:
+- **`core/analysis_service.py`**: 総合スコア係数定数を追加
+  （`_COMPOSITE_A=1`, `_COMPOSITE_B=3`, `_COMPOSITE_BONUS_T1=0.5`, `_COMPOSITE_BONUS_T2=0.3`）。
+  `get_ranked_videos_for_tab` の composite ブランチを**ハイブリッド式**に刷新:
+  - 旧式: `norm(視聴回数)*1.0 + norm(視聴日数)*1.2 + norm(いいね)*1.5` × レベル乗数（未判定=除外）
+  - 新式: `base = 視聴日数*1 + いいね*3`、`score = int(base * (1 + 0.5*T1判定 + 0.3*T2選別済み) * 100)`
+  - 未判定動画をランキングに含める（T1/T2ボーナス=0のまま base スコアで参加）。
+  - T1判定済み（level≥0）で +50%、T2選別済みで追加 +30% ボーナス。
+  - 係数はモジュール定数化し 1行で調整可能。
+
+**フロントエンド変更なし**（`ranking/page.tsx` + `/ranking` エンドポイントは composite 対応済み）。
+**Streamlit にも反映**（`get_ranked_videos_for_tab` 共有のため自動）。
+
+**検証**: pytest 139件全件緑。
+
+---
+
+## 2026-06-10 — feat: PR6 — Tier2 カード表示改善（displayContext）
+
+**フロントエンド**:
+- **`frontend/src/components/VideoCard.tsx`**: `displayContext?: "tier1" | "tier2"` prop 追加。
+  Tier2 では AVP候補チェックボックスとあとで見るボタンを非表示。
+  `is_selection_completed` / `needs_selection` バッジを Tier2 専用に整理:
+  `needs_selection && !is_selection_completed` → 「未選別」バッジ、
+  `is_selection_completed` → 「選別済み」バッジ（いずれも Tier2 のみ表示）。
+- **`frontend/src/components/VideoGrid.tsx`**: `displayContext?: "tier1" | "tier2"` prop 追加。
+  VideoCard に透過渡し。
+- **`frontend/src/app/tier2/page.tsx`**: ライブラリ・ランダム・選別運命の全 VideoGrid に
+  `displayContext="tier2"` を追加。
+
+**バックエンド変更なし**（`needs_selection` は既存フィールド）。
+
+**検証**: tsc 0 errors / eslint 0 warnings。
+
+---
+
+## 2026-06-10 — feat: PR5 — あとで見る（watch_later）
+
+**バックエンド**:
+- **`core/video_manager.py`**: `toggle_watch_later(video_id)` 追加。`watch_later` フラグを
+  反転して新値（`bool`）を返す。動画不在は `KeyError`。
+- **`core/app_service.py`**: `toggle_watch_later` ファサード追加。
+- **`api/schemas.py`**: `VideoOut` に `watch_later: bool` 追加（`from_video` で評価）。
+  `WatchLaterResponse(status, message, watch_later)` 追加。
+- **`api/actions.py`**: `POST /videos/{id}/watch-later/toggle` エンドポイント追加。
+  `_ensure_exists` で存在確認 → `app_service.toggle_watch_later` 呼び出し。
+- **`api/videos.py`**: `GET /videos` に `watch_later: Optional[bool]` フィルタ追加。
+- **`tests/api/test_watch_later.py`**: 新規テスト 5件。トグル on/off・404・絞り込み・
+  判定変更時の自動解除（回帰）。
+
+**フロントエンド**:
+- **`frontend/src/lib/types.ts`**: `Video.watch_later: boolean`、`VideoListParams.watch_later?`、
+  `WatchLaterResponse` インターフェース追加。
+- **`frontend/src/lib/api.ts`**: `toggleWatchLater(id)` 関数追加。`WatchLaterResponse` import追加。
+- **`frontend/src/lib/store.ts`**: `LibraryFilters.watchLater?: boolean` 追加。
+  `DEFAULTS.watchLater: undefined` 追加。
+- **`frontend/src/components/VideoCard.tsx`**: Bookmark トグルボタン追加（`watchLaterM`
+  mutation + `onSettled: invalidate`）。`watch_later` が `true` のとき `variant="default"`。
+- **`frontend/src/components/LibraryFilterBar.tsx`**: `watchLater` props + `onWatchLaterChange`
+  コールバック + Bookmark ボタン追加。
+- **`frontend/src/components/FilterPanel.tsx`**: `watchLater` / `onWatchLaterChange` を store に配線。
+- **`frontend/src/app/page.tsx`**: `params` の `useMemo` に `watch_later: store.watchLater` 追加。
+
+**検証**: pytest 139件全件緑 / tsc 0 errors / eslint 0 warnings。
+
+---
+
+## 2026-06-10 — feat: PR3 + PR4（AVP ページ再設計 + AVP 再生履歴記録）
+
+承認済み計画の **PR3**（AVP ページ再設計）と **PR4**（AVP 再生後の視聴履歴記録）。
+
+**PR3 — AvpStore 刷新 + AVP ページ再設計**:
+- **`frontend/src/lib/store.ts`**: `useAvpStore` を全面刷新。旧 `avpSelectedIds`(≤4) /
+  `avpLaunchSelectedIds` / `avpPlayingIds` を廃止し、`avpCandidateIds`（候補・上限なし）/
+  `avpPlayTargetIds`（再生対象・≤4）に変更。`zustand/middleware` の persist（key `clipbox-avp`）
+  でリロードを越えて永続化。`pruneIds(missingIds)` で欠損ID を両リストから一括除去。
+  `MAX_AVP_SELECTION` を廃止し `MAX_AVP_PLAY_TARGET = 4` に統一。
+- **`frontend/src/components/VideoCard.tsx`**: `avpSelectedIds` → `avpCandidateIds`、
+  `toggleAvpSelectedId` → `toggleAvpCandidateId`、上限ガード（`avpMaxReached`）を撤去。
+  ラベル「AVP選択」→「AVP候補」。候補は利用不可のみ disabled。
+- **`frontend/src/components/SidebarNav.tsx`**: バッジカウントを `avpCandidateIds.length` に更新。
+- **`frontend/src/app/avp/page.tsx`**: 全面改修。`useQueries`（N+1）廃止 → `useQuery + getVideosByIds`
+  一括取得（staleTime 30 s）。`useEffect` で `missing_ids` を `pruneIds` に渡して自動掃除。
+  2セクション構成（選択済み / 評価待ち）→ 単一候補カード一覧に統一。再生対象チェックボックスが
+  4本上限で disabled + ツールチップ表示。再生成功後は `setAvpPlaying`（ハイライト更新）+
+  `clearAvpPlayTargetIds`（再生対象リセット）。
+
+**PR4 — AVP 再生後の視聴履歴記録**:
+- **`core/app_service.py`**: `record_avp_viewing(video_ids)` 追加。AVP 再生後に
+  `viewing_history` へ全 ID 一括 `executemany` で 1 トランザクション記録。
+- **`api/avp.py`**: `subprocess.Popen` 成功後に `app_service.record_avp_viewing(video_ids)` を呼び出し。
+  設計コメントを「viewing_history を記録する」に更新。
+- **`tests/api/test_avp.py`**: `test_avp_play_success_records_view_history` に改名・期待値反転
+  （`count == 0` → `count == len(ids)`）。
+
+**検証**: pytest 134件全件緑 / tsc 0 errors / eslint 0 warnings。
+
+---
+
+## 2026-06-10 — fix: PR #31 レビュー対応（by-ids チャンク取得 + テスト追加）
+
+PR #31 のレビュー指摘に対する修正。
+
+**変更点**:
+- **チャンク取得** (`core/video_manager.py`): `get_videos_by_ids` を SQLite のバインド変数上限
+  （デフォルト 999）に対応するため `_SQLITE_VAR_LIMIT=900` 件ずつ IN 句をチャンク分割して取得する
+  方式に変更。重複IDは先頭の出現のみ返す（`dict.fromkeys` で dedup・入力順維持）。
+  API 層の `missing_ids` 算出は元の `dict.fromkeys` ロジックを維持。
+- **テスト追加** (`tests/api/test_videos.py`):
+  - `test_get_videos_by_ids_large_batch`: 1000件超（SQLite 上限を超える）でもエラーなし・
+    入力順保持・missing_ids 正確に返る。
+  - `test_get_videos_by_ids_duplicate_ids`: 重複IDは items 1件・missing_ids も重複除去されて
+    1件であることを明示。
+
+**TODO（次PR以降）**: `watch_later` はこの PR で DB カラム・`core.models.Video` フィールド・
+`get_videos(watch_later_filter=...)` まで基盤を整えた。`VideoOut.watch_later` の公開・
+`PUT /api/videos/{id}/watch-later` エンドポイント・フロント UI（VideoCard トグル / フィルタ）は
+**PR5 で実装予定**（承認済み計画参照）。
+
+**検証**: pytest 全件緑（後述）。
+
+---
+
+## 2026-06-09 — feat: Next.js版改善 PR2（再生中ハイライト）
+
+承認済み計画の **PR2**。単体=1本 / AVP=最大4本の「再生中」をカードでハイライトする。
+
+**変更点**:
+- **永続ストア** (`frontend/src/lib/store.ts`): `usePlaybackStore`（`zustand/middleware` の persist、
+  key `clipbox-playback`）。`singlePlayingId` / `avpPlayingIds`(≤4) と `setSinglePlaying`（avp クリア）/
+  `setAvpPlaying`（single クリア・最大4）。次の再生でID置換。タブ移動・リロードを越えて保持。
+- **ハイドレーション安全** (`useIsPlaying` / `useHydrated`): `useSyncExternalStore` で SSR と初回
+  クライアントレンダリングは false、以降 localStorage 由来を反映（不整合・setState-in-effect 回避）。
+- **R4 共通フック** (`frontend/src/lib/usePlayVideo.ts` 新規): 再生成功で `setSinglePlaying(id)`、
+  共通キー（kpi/likes/view-counts）+ 画面別 invalidateKeys を無効化。**VideoCard・運命の1本
+  （app/page.tsx / app/tier2/page.tsx の playVideo 直呼び）の全経路**で使用し配線漏れを防ぐ。
+- **VideoCard**: 旧 AVP 選択リング（`ring-2 ring-primary`）を撤去し、`isPlaying` で
+  `border-2 border-amber-400 bg-amber-50`（薄背景・色付き太枠）。再生は usePlayVideo 経由。
+- **AVPページ**: 起動成功で `setAvpPlaying(ids)` も呼び、AVP 再生中（最大4本）をハイライト。
+
+**検証**: フロント `tsc --noEmit` / `eslint` 緑。pytest 132件緑（バックエンド非変更）。
+手動確認（再生中ハイライト・タブ/リロード保持・次の再生で置換）は別途。
+
+---
+
+## 2026-06-09 — feat: Next.js版改善 PR1（バッチ取得 + 判定日時ソート）
+
+承認済み計画の **PR1**。独立・低リスクの API/フロント拡張。
+
+**変更点**:
+- **R1/R9 バッチ取得** (`POST /api/videos/by-ids`): `{ ids }` → `{ items, missing_ids }`。
+  items は入力順保持・削除済み含む。見つからないIDは missing_ids（クライアントの localStorage 候補掃除用）。
+  `app_service.get_videos_by_ids` をラップ。`/videos/{video_id}` より前に定義（パス解決順）。
+- **判定日時ソート**: `GET /api/videos`・`/videos/selection` の `sort` を `modified`→`judged_at` に置換。
+  `core.database.get_latest_judged_at_map(conn, selection)` を新設（Tier1=`was_selection_judgment=0` /
+  Tier2=`=1` の最新 judged_at、`is_deleted=0` 尊重）。`_apply_sort` は partition 方式で
+  **未判定（判定履歴なし）を asc/desc とも末尾固定**。
+- フロント: `types.ts`（`SortField` modified→judged_at、`VideosByIdsResponse` 追加）/
+  `api.ts`（`getVideosByIds`、空配列は無通信）/ `LibraryFilterBar`（「更新日」→「判定日時」）。
+- `API_SPEC.md` 更新。
+
+**検証**: pytest 132件緑（by-ids 順序保持/missing、judged_at 末尾安定、Tier別マップの追加テスト）。
+フロント `tsc --noEmit` / `eslint` 緑。
+
+---
+
+## 2026-06-09 — feat: Next.js版改善 PR0（R5/R6 基盤修正 + スキーマ移行基盤）
+
+Next.js版7改善の承認済み計画（`docs/...` / 計画ファイル）の **PR0**。他PRの前提となる core 正当性の是正と、
+Next.js スタックに欠けていたスキーマ移行経路を新設する。**UI 変更なし**。
+
+**背景**: `run_dev.bat` は Streamlit を起動せず、`api_app.py` の lifespan は read-only。よって
+`init_database()` / `run_startup_migration()`（従来 Streamlit が担っていた）を流す経路が無く、
+新フロントが前提とする列を用意できなかった。加えて `is_selection_completed` 列が陳腐化していた。
+
+**変更点**:
+- **R5 選別済み列の書込同期** (`core/video_manager.py`): `set_favorite_level_with_rename` の UPDATE で
+  `is_selection_completed` を + プレフィックス有無に同期。あわせて判定済み(level≥0)/選別完了(+付与)時に
+  `watch_later` を自動解除（同一トランザクション）。
+- **R6 既存分の冪等再同期** (`core/migration.py`): `resync_selection_completed`（id `resync_selection_completed_20260609`）。
+  全 videos の + 有無で列を再計算。`app_service.run_startup_migration()` から `migrate_level_0_to_minus_1` と共に実行。
+- **R2 watch_later カラム** (`core/database.py`): `init_database()` の PRAGMA ガード付き ALTER に追記
+  （CREATE TABLE 定義 + 部分インデックス `idx_videos_watch_later`）。列はログ式で別管理しない。
+- **R8 watch_later の波及** (`core/models.py`, `core/video_manager.py`, `core/analysis_service.py`, `core/app_service.py`):
+  `Video` に実フィールド `watch_later` を追加し、`video_from_row` / `_df_row_to_video` で投入。
+  `get_videos(watch_later_filter=...)` フィルタ引数を追加。
+- **R3/R7 移行ランナー** (`scripts/run_migrations.py` 新規): `GET /api/health` で稼働検知。
+  未稼働=書込移行を実行 / 稼働中=read-only 確認（**必要列 + 未完了データ補正の両方**が揃えば exit 0、
+  どちらか未充足なら exit≠0 で「API停止して再実行」を促す）。列だけ見るとデータ補正
+  （`resync_selection_completed`）の未実行を見逃すため、`migration` の ledger（`core.migration.DATA_MIGRATION_IDS`）も
+  確認する。`run_dev.bat` / `run_api.bat` を `startup_backup.py` 直後・uvicorn 起動の前に配線
+  （純ASCII維持。run_dev は移行失敗で中断）。
+
+**検証**: 既存 + 追加 pytest 全 128 件緑。実DBのコピー（4,083行）に移行を適用 →
+watch_later 列追加・行数不変・+動画の is_selection_completed 不整合 2件→0件（R6）・再実行は skip の no-op を確認。
+
+**次PR**: PR1（`POST /videos/by-ids` + 判定日時ソート）以降は別途。
+
+---
+
+## 2026-06-08 — fix: run_dev.bat / run_api.bat の文字コード問題で Next.js が起動しない不具合
+
+**症状**: `run_dev.bat` をダブルクリックしても `http://localhost:3000/` に Web アプリが出ない。
+API(8000)は起動するが Next.js(3000)が立ち上がらない。
+
+**原因**: 両 .bat が **BOM なし UTF-8** で日本語コメントを含んでいた。ダブルクリックで開く cmd.exe は
+システム OEM コードページ **932 (Shift-JIS)** でバッチを読むため、UTF-8 の日本語バイト列を誤読し、
+後続行のパースが崩れる。これにより `start "" /D "%FRONTEND%" npm.cmd run dev` の経路が壊れ、
+npm が誤った作業ディレクトリ等で失敗して node プロセスが起動しなかった。
+（`chcp 65001` を冒頭に置いても、cmd の**バッチパーサ**はこれだけでは UTF-8 マルチバイトを安定して扱えない。）
+
+**切り分け**: 英語コメントのみのプローブ bat では Next.js が起動、日本語コメント入りプローブでは
+`set` 行すら誤認し日本語が「コマンド」として実行された → 日本語コメントが原因と特定。
+
+**対応**: `run_dev.bat` / `run_api.bat` の日本語コメントを英語化し、**ファイル全体を純 ASCII**に。
+（`run_clipbox.bat` は元から ASCII のため変更なし。）修正後 `run_dev.bat` 実行で
+API/Next.js とも起動・`localhost:3000` が HTTP 200 を返すことを確認。
+
+**今後の注意**: cmd.exe 用 .bat は非 ASCII を入れない（英語コメント）こと。日本語を残すなら
+Shift-JIS(CP932) 保存か UTF-8 **BOM 付き**で保存する必要がある。AI/エディタの既定保存(UTF-8 no-BOM)では壊れる。
+
+---
+
 ## 2026-06-07 — PR #30 レビュー対応（Runtime 安全化 / analysis 集計化 / performers 廃止 ほか）
 
 **目的**: PR #30 への Request changes レビュー（マージ前チェックリスト）を解消する。

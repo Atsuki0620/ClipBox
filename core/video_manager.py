@@ -23,6 +23,9 @@ from config import FAVORITE_LEVEL_NAMES
 
 logger = get_logger(__name__)
 
+# SQLite のデフォルト SQLITE_MAX_VARIABLE_NUMBER は 999。チャンク単位をそれより小さく保つ。
+_SQLITE_VAR_LIMIT = 900
+
 
 def video_from_row(row) -> Video:
     """データベースの行を Video オブジェクトに変換（モジュールレベル公開関数）"""
@@ -43,6 +46,7 @@ def video_from_row(row) -> Video:
         is_deleted=bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
         is_judging=bool(row["is_judging"]) if "is_judging" in row.keys() else False,
         needs_selection=bool(row["needs_selection"]) if "needs_selection" in row.keys() else False,
+        watch_later=bool(row["watch_later"]) if "watch_later" in row.keys() else False,
     )
 
 
@@ -59,6 +63,7 @@ class VideoManager:
         show_deleted: bool = False,
         needs_selection_filter: Optional[bool] = None,
         exclude_selection: bool = False,
+        watch_later_filter: Optional[bool] = None,
     ) -> List[Video]:
         """
         フィルタ条件に合致する動画一覧を返す。
@@ -71,6 +76,7 @@ class VideoManager:
             show_deleted: True のとき is_deleted=1 も含める。通常は False。
             needs_selection_filter: True=!プレフィックス動画のみ / False=通常動画のみ / None=全て。
             exclude_selection: True のとき needs_selection=1 と is_selection_completed=1 の動画を除外する。
+            watch_later_filter: True=あとで見る動画のみ / False=それ以外のみ / None=全て。
 
         Returns:
             List[Video]: 条件に合致する動画のリスト。
@@ -98,6 +104,10 @@ class VideoManager:
             if exclude_selection:
                 query += " AND needs_selection = 0 AND is_selection_completed = 0"
 
+            if watch_later_filter is not None:
+                query += " AND watch_later = ?"
+                params.append(1 if watch_later_filter else 0)
+
             if favorite_levels:
                 placeholders = ",".join("?" * len(favorite_levels))
                 query += f" AND current_favorite_level IN ({placeholders})"
@@ -123,18 +133,33 @@ class VideoManager:
                 ]
             return videos
 
-    def get_videos_by_ids(self, video_ids: List[int]) -> List[Video]:
-        """指定IDリストの動画をDBから取得し、IDの順序を保って返す"""
+    def get_videos_by_ids(
+        self, video_ids: List[int], include_deleted: bool = False
+    ) -> List[Video]:
+        """指定IDリストの動画をDBから取得し、IDの順序を保って返す。
+
+        重複IDは先頭の出現のみ返す（dedup 済み・入力順維持）。
+        SQLite のバインド変数上限を超える件数は _SQLITE_VAR_LIMIT 件ずつチャンクに
+        分けて取得し、最終的な順序を入力順に揃える。
+        include_deleted=True の場合のみ is_deleted=1 の動画も返す。
+        """
         if not video_ids:
             return []
+        # 重複を除去しつつ挿入順を維持（dict.fromkeys は Python 3.7+ で挿入順保証）
+        unique_ids = list(dict.fromkeys(video_ids))
+        id_to_video: Dict[int, Video] = {}
+        deleted_filter = "" if include_deleted else " AND is_deleted = 0"
         with get_db_connection() as conn:
-            placeholders = ",".join("?" * len(video_ids))
-            rows = conn.execute(
-                f"SELECT * FROM videos WHERE id IN ({placeholders})",
-                video_ids,
-            ).fetchall()
-        id_to_video = {row["id"]: video_from_row(row) for row in rows}
-        return [id_to_video[vid] for vid in video_ids if vid in id_to_video]
+            for i in range(0, len(unique_ids), _SQLITE_VAR_LIMIT):
+                chunk = unique_ids[i : i + _SQLITE_VAR_LIMIT]
+                placeholders = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    f"SELECT * FROM videos WHERE id IN ({placeholders}){deleted_filter}",
+                    chunk,
+                ).fetchall()
+                for row in rows:
+                    id_to_video[row["id"]] = video_from_row(row)
+        return [id_to_video[vid] for vid in unique_ids if vid in id_to_video]
 
     def get_fate_video(self, folder_path_str: str = "") -> Optional[Video]:
         """経過日数重み付きで未選別動画を1本選出する（運命の1本用）。
@@ -353,6 +378,12 @@ class VideoManager:
 
             new_path = current_path.with_name(new_filename)
 
+            # R5: is_selection_completed 列を + プレフィックス有無に同期する（列の陳腐化防止）。
+            # 列を使う SQL 集計（選別KPI/ランキング）とプロパティ（+由来）の乖離を解消する。
+            new_is_selection_completed = 1 if new_filename.startswith("+") else 0
+            # 判定済み(level>=0) もしくは 選別完了(+付与) になった動画は「あとで見る」を自動解除する。
+            clear_watch_later = (db_level >= 0) or (new_is_selection_completed == 1)
+
             try:
                 if new_path != current_path:
                     current_path.rename(new_path)
@@ -363,10 +394,18 @@ class VideoManager:
                        SET current_full_path = ?,
                            current_favorite_level = ?,
                            needs_selection = 0,
+                           is_selection_completed = ?,
+                           watch_later = CASE WHEN ? = 1 THEN 0 ELSE watch_later END,
                            last_scanned_at = CURRENT_TIMESTAMP
                      WHERE id = ?
                     """,
-                    (str(new_path), db_level, video_id),
+                    (
+                        str(new_path),
+                        db_level,
+                        new_is_selection_completed,
+                        1 if clear_watch_later else 0,
+                        video_id,
+                    ),
                 )
 
                 rename_completed_at = datetime.now()
@@ -389,7 +428,7 @@ class VideoManager:
                         rename_completed_at,
                         rename_duration_ms,
                         video.storage_location,
-                        1 if video.needs_selection else 0,
+                        1 if (video.needs_selection or video.is_selection_completed) else 0,
                     ),
                 )
 
@@ -420,3 +459,17 @@ class VideoManager:
                     "operation=judgment video_id=%d reason=rename_error error=%s", video_id, str(e)
                 )
                 return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
+
+    def toggle_watch_later(self, video_id: int) -> bool:
+        """watch_later フラグを反転して新しい値を返す。動画不在は KeyError。"""
+        with get_db_connection() as conn:
+            rowcount = conn.execute(
+                "UPDATE videos SET watch_later = 1 - watch_later WHERE id = ? AND is_deleted = 0",
+                (video_id,),
+            ).rowcount
+            if rowcount == 0:
+                raise KeyError(video_id)
+            row = conn.execute(
+                "SELECT watch_later FROM videos WHERE id = ?", (video_id,)
+            ).fetchone()
+        return bool(row["watch_later"])

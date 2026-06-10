@@ -33,6 +33,24 @@ def _seed(tmp_path):
     _insert_video("gamma.mp4", str(tmp_path / "gamma.mp4"), -1, "P1")
 
 
+def _video_id(essential):
+    with database.get_db_connection() as conn:
+        return conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", (essential,)
+        ).fetchone()[0]
+
+
+def _insert_judgment(video_id, judged_at, selection=0):
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO judgment_history (video_id, old_level, new_level, judged_at, was_selection_judgment)
+            VALUES (?, -1, 1, ?, ?)
+            """,
+            (video_id, judged_at, selection),
+        )
+
+
 def test_list_videos_returns_available(tmp_db, tmp_path):
     """利用可能・未削除の動画が全件返る（既定フィルタ）。"""
     _seed(tmp_path)
@@ -121,3 +139,70 @@ def test_list_videos_derived_fields(tmp_db, tmp_path):
     # ファイル名が essential と異なる（プレフィックスあり）と is_judged=True
     assert by_name["alpha.mp4"]["is_judged"] is True   # ###_alpha.mp4 != alpha.mp4
     assert by_name["gamma.mp4"]["is_judged"] is False  # gamma.mp4 == gamma.mp4
+
+
+def test_get_videos_by_ids_preserves_order_and_reports_missing(tmp_db, tmp_path):
+    """POST /videos/by-ids は入力順を保持し、見つからないIDを missing_ids に返す（R1/R9）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+    a, g = _video_id("alpha.mp4"), _video_id("gamma.mp4")
+
+    body = client.post("/api/videos/by-ids", json={"ids": [g, a, 999999]}).json()
+
+    assert [it["essential_filename"] for it in body["items"]] == ["gamma.mp4", "alpha.mp4"]
+    assert body["missing_ids"] == [999999]
+
+
+def test_get_videos_by_ids_empty(tmp_db, tmp_path):
+    """空配列は items 空・missing 空を返す（リクエストは投げてよい）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+
+    body = client.post("/api/videos/by-ids", json={"ids": []}).json()
+
+    assert body == {"items": [], "missing_ids": []}
+
+
+def test_get_videos_by_ids_large_batch(tmp_db, tmp_path):
+    """1000件超のIDリストでも SQLite 変数上限に当たらず正常に返る（チャンク取得の検証）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+    a = _video_id("alpha.mp4")
+    # 存在する1件 + 存在しない999件 = 1000件（SQLite デフォルト上限 999 を超える）
+    nonexistent = list(range(900001, 901000))
+    ids = [a] + nonexistent
+
+    body = client.post("/api/videos/by-ids", json={"ids": ids}).json()
+
+    assert len(body["items"]) == 1
+    assert body["items"][0]["essential_filename"] == "alpha.mp4"
+    assert len(body["missing_ids"]) == len(nonexistent)
+    assert body["missing_ids"] == nonexistent
+
+
+def test_get_videos_by_ids_duplicate_ids(tmp_db, tmp_path):
+    """重複IDは1件のみ返り、missing_ids の重複も除去される（dedup 仕様の明示）。"""
+    _seed(tmp_path)
+    client = TestClient(app)
+    a = _video_id("alpha.mp4")
+
+    body = client.post("/api/videos/by-ids", json={"ids": [a, a, 999999, 999999]}).json()
+
+    assert len(body["items"]) == 1
+    assert body["items"][0]["essential_filename"] == "alpha.mp4"
+    assert body["missing_ids"] == [999999]
+
+
+def test_list_videos_sort_judged_at_tail_stable(tmp_db, tmp_path):
+    """sort=judged_at は Tier1 判定の最新で並び、未判定は asc/desc とも末尾固定。"""
+    _seed(tmp_path)  # alpha(3), beta(1), gamma(-1)
+    _insert_judgment(_video_id("alpha.mp4"), "2026-06-01 10:00:00", selection=0)
+    _insert_judgment(_video_id("beta.mp4"), "2026-06-08 10:00:00", selection=0)
+    # gamma は判定履歴なし → 常に末尾
+    client = TestClient(app)
+
+    desc = client.get("/api/videos", params={"sort": "judged_at", "order": "desc"}).json()
+    asc = client.get("/api/videos", params={"sort": "judged_at", "order": "asc"}).json()
+
+    assert [it["essential_filename"] for it in desc["items"]] == ["beta.mp4", "alpha.mp4", "gamma.mp4"]
+    assert [it["essential_filename"] for it in asc["items"]] == ["alpha.mp4", "beta.mp4", "gamma.mp4"]

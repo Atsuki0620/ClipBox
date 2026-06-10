@@ -5,7 +5,7 @@ ClipBox - VideoManagerのテスト
 from pathlib import Path
 
 import core.database as database
-from core.video_manager import VideoManager
+from core.video_manager import VideoManager, video_from_row
 
 
 def test_video_manager_initialization():
@@ -157,3 +157,229 @@ def test_set_favorite_level_updates_db_level(tmp_path, tmp_db):
             "SELECT current_favorite_level FROM videos WHERE id = ?", (video_id,)
         ).fetchone()
     assert row["current_favorite_level"] == 3, "判定後は DB の current_favorite_level が新しい値に更新される"
+
+
+def test_selection_judgment_syncs_column_and_clears_watch_later(tmp_path, tmp_db):
+    """セレクション動画(!)の判定で + 付与・is_selection_completed=1・needs_selection=0・watch_later 解除（R5）"""
+    selection_file = tmp_path / "!movie.mp4"
+    selection_file.write_text("dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, watch_later
+            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0, 1, 1)
+            """,
+            ("movie.mp4", str(selection_file)),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("movie.mp4",)
+        ).fetchone()[0]
+
+    result = VideoManager().set_favorite_level_with_rename(video_id, 3)
+    assert result["status"] == "success"
+
+    new_path = tmp_path / "+###_movie.mp4"
+    assert new_path.exists()
+
+    with database.get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT current_full_path, needs_selection, is_selection_completed, watch_later"
+            " FROM videos WHERE id = ?",
+            (video_id,),
+        ).fetchone()
+    assert Path(row["current_full_path"]).name == "+###_movie.mp4"
+    assert row["needs_selection"] == 0
+    assert row["is_selection_completed"] == 1, "+ 付与に合わせ列が同期される"
+    assert row["watch_later"] == 0, "選別完了で あとで見る が自動解除される"
+
+
+def test_non_selection_judgment_clears_watch_later_without_plus(tmp_path, tmp_db):
+    """通常動画の判定で watch_later 解除・is_selection_completed=0・+ なし"""
+    video_file = tmp_path / "clip.mp4"
+    video_file.write_text("dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, watch_later
+            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0, 0, 1)
+            """,
+            ("clip.mp4", str(video_file)),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("clip.mp4",)
+        ).fetchone()[0]
+
+    result = VideoManager().set_favorite_level_with_rename(video_id, 2)
+    assert result["status"] == "success"
+
+    with database.get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT current_full_path, is_selection_completed, watch_later"
+            " FROM videos WHERE id = ?",
+            (video_id,),
+        ).fetchone()
+    assert Path(row["current_full_path"]).name == "##_clip.mp4"
+    assert row["is_selection_completed"] == 0
+    assert row["watch_later"] == 0, "判定済み(level>=0)で あとで見る が自動解除される"
+
+
+def test_video_from_row_carries_watch_later(tmp_db):
+    """row→Video マッパーが watch_later を保持する（R8）"""
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, watch_later
+            ) VALUES (?, ?, 1, 'C_DRIVE', 1, 0, 1)
+            """,
+            ("wl.mp4", "C:/videos/#_wl.mp4"),
+        )
+        row = conn.execute(
+            "SELECT * FROM videos WHERE essential_filename = ?", ("wl.mp4",)
+        ).fetchone()
+
+    video = video_from_row(row)
+    assert video.watch_later is True
+
+
+def test_get_videos_watch_later_filter(tmp_db):
+    """get_videos の watch_later_filter で あとで見る動画のみ/以外を絞り込める（R8）"""
+    with database.get_db_connection() as conn:
+        conn.executemany(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, watch_later
+            ) VALUES (?, ?, 1, 'C_DRIVE', 1, 0, ?)
+            """,
+            [
+                ("later.mp4", "C:/videos/#_later.mp4", 1),
+                ("normal.mp4", "C:/videos/#_normal.mp4", 0),
+            ],
+        )
+
+    manager = VideoManager()
+    later_only = {v.essential_filename for v in manager.get_videos(watch_later_filter=True)}
+    rest_only = {v.essential_filename for v in manager.get_videos(watch_later_filter=False)}
+
+    assert later_only == {"later.mp4"}
+    assert "normal.mp4" in rest_only
+    assert "later.mp4" not in rest_only
+
+
+def test_get_latest_judged_at_map_tier_separation_and_latest(tmp_db):
+    """get_latest_judged_at_map が Tier 別に最新 judged_at を返す（PR1 判定日時ソート）"""
+    with database.get_db_connection() as conn:
+        conn.executemany(
+            """INSERT INTO videos (id, essential_filename, current_full_path,
+               current_favorite_level, storage_location, is_available, is_deleted)
+               VALUES (?, ?, ?, 1, 'C_DRIVE', 1, 0)""",
+            [
+                (1, "a.mp4", "C:/a.mp4"),
+                (2, "b.mp4", "C:/b.mp4"),
+            ],
+        )
+        conn.executemany(
+            """INSERT INTO judgment_history (video_id, new_level, judged_at, was_selection_judgment)
+               VALUES (?, ?, ?, ?)""",
+            [
+                (1, 1, "2026-06-01 10:00:00", 0),  # Tier1 旧
+                (1, 2, "2026-06-05 10:00:00", 0),  # Tier1 最新（こちらを採用）
+                (2, 1, "2026-06-03 10:00:00", 1),  # Tier2
+            ],
+        )
+
+    with database.get_db_connection() as conn:
+        tier1 = database.get_latest_judged_at_map(conn, selection=False)
+        tier2 = database.get_latest_judged_at_map(conn, selection=True)
+
+    assert tier1 == {1: "2026-06-05 10:00:00"}
+    assert tier2 == {2: "2026-06-03 10:00:00"}
+
+
+def test_toggle_watch_later_toggles_and_raises_for_missing(tmp_db):
+    """toggle_watch_later が値を反転し、不在IDで KeyError（論点2: アトミック UPDATE）"""
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, watch_later
+            ) VALUES (?, ?, 1, 'C_DRIVE', 1, 0, 0)
+            """,
+            ("wl_toggle.mp4", "C:/videos/wl_toggle.mp4"),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("wl_toggle.mp4",)
+        ).fetchone()[0]
+
+    manager = VideoManager()
+    assert manager.toggle_watch_later(video_id) is True
+    assert manager.toggle_watch_later(video_id) is False
+
+    import pytest
+    with pytest.raises(KeyError):
+        manager.toggle_watch_later(99999)
+
+
+def test_get_videos_by_ids_excludes_deleted(tmp_db):
+    """get_videos_by_ids が is_deleted=1 の動画を返さない（論点4）"""
+    with database.get_db_connection() as conn:
+        conn.executemany(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted
+            ) VALUES (?, ?, 1, 'C_DRIVE', 1, ?)
+            """,
+            [
+                ("alive.mp4", "C:/alive.mp4", 0),
+                ("dead.mp4",  "C:/dead.mp4",  1),
+            ],
+        )
+        rows = conn.execute(
+            "SELECT id, essential_filename FROM videos WHERE essential_filename IN (?, ?)",
+            ("alive.mp4", "dead.mp4"),
+        ).fetchall()
+        id_map = {row["essential_filename"]: row["id"] for row in rows}
+
+    result = VideoManager().get_videos_by_ids([id_map["alive.mp4"], id_map["dead.mp4"]])
+    result_filenames = {v.essential_filename for v in result}
+    assert result_filenames == {"alive.mp4"}
+
+
+def test_was_selection_judgment_for_completed_video(tmp_path, tmp_db):
+    """+ プレフィックス動画（is_selection_completed=True）の判定で was_selection_judgment=1（論点5）"""
+    completed_file = tmp_path / "+movie.mp4"
+    completed_file.write_text("dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, is_selection_completed
+            ) VALUES (?, ?, -1, 'C_DRIVE', 1, 0, 0, 1)
+            """,
+            ("movie.mp4", str(completed_file)),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("movie.mp4",)
+        ).fetchone()[0]
+
+    result = VideoManager().set_favorite_level_with_rename(video_id, 2)
+    assert result["status"] == "success"
+
+    with database.get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT was_selection_judgment FROM judgment_history WHERE video_id = ?",
+            (video_id,),
+        ).fetchone()
+    assert row["was_selection_judgment"] == 1

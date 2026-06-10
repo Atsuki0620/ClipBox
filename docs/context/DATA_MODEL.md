@@ -54,7 +54,8 @@ with get_db_connection() as conn:
 | `is_deleted` | BOOLEAN | DEFAULT 0 | 論理削除フラグ |
 | `is_judging` | BOOLEAN | DEFAULT 0 | 判定中フラグ（Phase 1 で機能 archived。互換性のためDB列のみ保持） |
 | `needs_selection` | BOOLEAN | DEFAULT 0 | !プレフィックス付き（セレクション未選別） |
-| `is_selection_completed` | BOOLEAN | DEFAULT 0 | +プレフィックス付き。概念名は「セレクション完了」、画面表示は「選別済み」。物理的な取り込み・移動完了を示す「ライブラリ取り込み済み」とは呼ばない |
+| `is_selection_completed` | BOOLEAN | DEFAULT 0 | +プレフィックス付き。概念名は「セレクション完了」、画面表示は「選別済み」。物理的な取り込み・移動完了を示す「ライブラリ取り込み済み」とは呼ばない。`set_favorite_level_with_rename` が + 有無に同期する（旧版は列を更新せず陳腐化していた） |
+| `watch_later` | BOOLEAN | DEFAULT 0 | あとで見るフラグ（DB永続）。判定済み(level≥0)化または選別完了(+付与)で `set_favorite_level_with_rename` が自動解除する |
 
 ### 2.2 viewing_history（視聴履歴）
 
@@ -167,6 +168,7 @@ counters （独立・archived）
 | videos | idx_is_deleted | is_deleted |
 | videos | idx_needs_selection | needs_selection |
 | videos | idx_is_selection_completed | is_selection_completed |
+| videos | idx_videos_watch_later | watch_later（部分インデックス: WHERE watch_later = 1） |
 | viewing_history | idx_video_id | video_id |
 | viewing_history | idx_viewed_at | viewed_at |
 | play_history | idx_play_history_file_path | file_path |
@@ -313,6 +315,7 @@ class ViewingHistory:
 | 2026-02-21 | likesテーブル追加（いいね機能） |
 | 2026-02-23 | needs_selection, was_selection_judgmentカラム追加 |
 | 2026-03-03 | is_selection_completedカラム追加（+プレフィックス動画の管理） |
+| 2026-06-09 | watch_laterカラム追加（あとで見る）。is_selection_completed の書込時同期(R5) + 既存分の冪等再同期 `resync_selection_completed`(R6)。スキーマ/データ移行は `scripts/run_migrations.py` が起動バッチから実行 |
 
 ---
 

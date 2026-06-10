@@ -28,7 +28,9 @@ import type {
   TrendItem,
   Video,
   VideoListParams,
+  VideosByIdsResponse,
   VideosResponse,
+  WatchLaterResponse,
 } from "./types";
 
 export const API_BASE =
@@ -103,6 +105,18 @@ export function getConfig(): Promise<Config> {
 
 export function getVideo(id: number): Promise<Video> {
   return request<Video>(`/videos/${id}`);
+}
+
+// 指定IDの動画を一括取得（入力順保持・削除済み含む）。missing_ids で欠損IDを返す。
+// 空配列はリクエストせず空レスポンスを返す。
+export function getVideosByIds(ids: number[]): Promise<VideosByIdsResponse> {
+  if (ids.length === 0) {
+    return Promise.resolve({ items: [], missing_ids: [] });
+  }
+  return request<VideosByIdsResponse>(`/videos/by-ids`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
 }
 
 export function getSelectionKpi(folder?: string): Promise<SelectionKpi> {
@@ -224,6 +238,10 @@ export function setLevel(id: number, level: number | null): Promise<StatusMessag
 
 export function likeVideo(id: number): Promise<LikeResponse> {
   return request<LikeResponse>(`/videos/${id}/like`, { method: "POST" });
+}
+
+export function toggleWatchLater(id: number): Promise<WatchLaterResponse> {
+  return request<WatchLaterResponse>(`/videos/${id}/watch-later/toggle`, { method: "POST" });
 }
 
 export function updateConfig(config: Config): Promise<StatusMessage> {
