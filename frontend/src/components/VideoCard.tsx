@@ -33,12 +33,14 @@ export function VideoCard({
   likeCount,
   viewCount,
   invalidateKeys = [],
+  displayContext = "tier1",
 }: {
   video: Video;
   likeCount: number;
   viewCount: number;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
+  displayContext?: "tier1" | "tier2";
 }) {
   const qc = useQueryClient();
   const id = video.id as number;
@@ -107,22 +109,29 @@ export function VideoCard({
           )}
           <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
           <Badge variant="outline">視聴 {viewCount}</Badge>
-          {video.is_selection_completed && <Badge variant="outline">選別済み</Badge>}
+          {displayContext === "tier2" && video.needs_selection && !video.is_selection_completed && (
+            <Badge variant="secondary">未選別</Badge>
+          )}
+          {displayContext === "tier2" && video.is_selection_completed && (
+            <Badge variant="outline">選別済み</Badge>
+          )}
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
         </div>
 
-        <label
-          className={`flex w-fit items-center gap-2 text-sm ${
-            avpDisabled ? "text-muted-foreground" : ""
-          }`}
-        >
-          <Checkbox
-            checked={isAvpSelected}
-            disabled={avpDisabled}
-            onCheckedChange={() => toggleAvpCandidateId(id)}
-          />
-          <span>AVP候補</span>
-        </label>
+        {displayContext !== "tier2" && (
+          <label
+            className={`flex w-fit items-center gap-2 text-sm ${
+              avpDisabled ? "text-muted-foreground" : ""
+            }`}
+          >
+            <Checkbox
+              checked={isAvpSelected}
+              disabled={avpDisabled}
+              onCheckedChange={() => toggleAvpCandidateId(id)}
+            />
+            <span>AVP候補</span>
+          </label>
+        )}
 
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -169,15 +178,17 @@ export function VideoCard({
             {likeCount}
           </Button>
 
-          <Button
-            size="sm"
-            variant={video.watch_later ? "default" : "outline"}
-            disabled={busy}
-            onClick={() => watchLaterM.mutate()}
-            title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
-          >
-            <Bookmark className="size-4" />
-          </Button>
+          {displayContext !== "tier2" && (
+            <Button
+              size="sm"
+              variant={video.watch_later ? "default" : "outline"}
+              disabled={busy}
+              onClick={() => watchLaterM.mutate()}
+              title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+            >
+              <Bookmark className="size-4" />
+            </Button>
+          )}
         </div>
 
         {error && (

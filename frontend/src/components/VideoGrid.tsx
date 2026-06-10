@@ -15,11 +15,13 @@ export function VideoGrid({
   emptyMessage = "条件に一致する動画がありません。",
   invalidateKeys = [],
   gridClassName,
+  displayContext = "tier1",
 }: {
   videos: Video[];
   emptyMessage?: string;
   invalidateKeys?: QueryKey[];
   gridClassName?: string;
+  displayContext?: "tier1" | "tier2";
 }) {
   const ids = useMemo(
     () => videos.map((v) => v.id as number).filter(Boolean),
@@ -53,6 +55,7 @@ export function VideoGrid({
           likeCount={likesQ.data?.[v.id as number] ?? 0}
           viewCount={viewCountsQ.data?.[v.id as number] ?? 0}
           invalidateKeys={invalidateKeys}
+          displayContext={displayContext}
         />
       ))}
     </div>

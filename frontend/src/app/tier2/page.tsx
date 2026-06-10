@@ -217,6 +217,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
                 videos={videosQ.data?.items ?? []}
                 emptyMessage="条件に合う動画はありません。"
                 invalidateKeys={[["selection-videos"], ["selection-kpi"]]}
+                displayContext="tier2"
               />
               {(videosQ.data?.total ?? 0) > 0 ? (
                 <Pagination
@@ -251,6 +252,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
             videos={randomVideos}
             emptyMessage="条件に合う未選別動画はありません。"
             invalidateKeys={[["selection-kpi"]]}
+            displayContext="tier2"
           />
         </RandomPanel>
       }
@@ -267,7 +269,7 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
           emptyMessageWhenNoTarget="対象の動画がありません。"
         >
           {fateQ.data ? (
-            <VideoGrid videos={[fateQ.data]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" />
+            <VideoGrid videos={[fateQ.data]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" displayContext="tier2" />
           ) : null}
         </FatePanel>
       }

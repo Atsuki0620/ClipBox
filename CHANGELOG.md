@@ -4,6 +4,25 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-10 — feat: PR6 — Tier2 カード表示改善（displayContext）
+
+**フロントエンド**:
+- **`frontend/src/components/VideoCard.tsx`**: `displayContext?: "tier1" | "tier2"` prop 追加。
+  Tier2 では AVP候補チェックボックスとあとで見るボタンを非表示。
+  `is_selection_completed` / `needs_selection` バッジを Tier2 専用に整理:
+  `needs_selection && !is_selection_completed` → 「未選別」バッジ、
+  `is_selection_completed` → 「選別済み」バッジ（いずれも Tier2 のみ表示）。
+- **`frontend/src/components/VideoGrid.tsx`**: `displayContext?: "tier1" | "tier2"` prop 追加。
+  VideoCard に透過渡し。
+- **`frontend/src/app/tier2/page.tsx`**: ライブラリ・ランダム・選別運命の全 VideoGrid に
+  `displayContext="tier2"` を追加。
+
+**バックエンド変更なし**（`needs_selection` は既存フィールド）。
+
+**検証**: tsc 0 errors / eslint 0 warnings。
+
+---
+
 ## 2026-06-10 — feat: PR5 — あとで見る（watch_later）
 
 **バックエンド**:
