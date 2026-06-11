@@ -51,6 +51,15 @@
 | **CI / test workflow** | ローカルで CI と同等のコマンドを実行 / 依存キャッシュや secrets に実データを要求しないことを確認 |
 | **起動バッチ / scripts** | 起動 → `/api/health` 200 → `/` 表示 を実機確認 / `startup_backup` が `data/` にバックアップ生成 / DB 未作成時に `init_database()` で作成される |
 
+### GitHub Actions CI の位置づけ
+
+`.github/workflows/ci.yml` は baseline の自動品質ゲートとして、Pull Request と `main` push で実行する。
+
+- CI で確認する範囲: Python 構文チェック（`py_compile`）、backend/API の `pytest`、Next.js production build（`npm run build`）。
+- CI では `requirements.txt` と `frontend/package-lock.json` を使う。`requirements-lock.txt` は Windows/ローカル由来の pin を含むため、GitHub Actions では使わない。
+- Windows ローカルで確認する範囲: 実プレイヤー起動、Streamlit/Next.js の書き込み検証、`ACCEPTANCE_CRITERIA.md` に沿った手動受け入れ。
+- Next.js 画面の挙動確認は、CI ではなく引き続き `ACCEPTANCE_CRITERIA.md` と本書 §3 の手動確認で行う。
+
 ---
 
 ## 3. 手動確認チェックリスト（3層・該当領域のみ）
