@@ -36,8 +36,8 @@
 | `streamlit_app.py` | legacy-active | 旧 Streamlit UI 入口。Phase 5 完了まで削除しない |
 | `ui/` | legacy-active | Streamlit UI 層。Phase 5 完了まで削除しない |
 | `run_clipbox.bat` | legacy-active | Streamlit 旧 UI 起動 |
-| `archive/` | legacy | 旧コード断片・歴史資料。現行コードから import しない |
-| `docs/archive/` | legacy | 移行作業の計画・記録 |
+| `archive/` | legacy | 旧コード断片・歴史資料。現行コードから import しない。扱いは `archive/README.md` を参照 |
+| `docs/archive/` | legacy | 移行作業の計画・記録。扱いは `docs/archive/README.md` を参照 |
 | `docs/reports/` | legacy | 日付付き診断・レビュー・作業記録 |
 | `data/` | local-only | DB、ユーザー設定、実データ。コミット対象にしない |
 | `artifacts/` | generated | 実行・確認で生成される成果物置き場 |
@@ -54,8 +54,21 @@
 
 - `archive/`: 実行対象ではない古いコード断片や旧設計資料を隔離する場所。ここから現行コードへ import / 参照してはならない。
 - `docs/archive/`: 移行計画や対応表など、作業記録として読む歴史資料を置く場所。
+- `archive/README.md`: ルート `archive/` の禁止事項、再利用前の確認観点、現行正本への導線。
+- `docs/archive/README.md`: `docs/archive/` の読み方と、現行正本ではないことの明示。
 
 どちらも現行仕様の正本ではない。現行仕様は `docs/context/` の正本台帳に従う。
+
+### 今回は物理移動しないもの
+
+`archive/*.py` と古い Markdown は、今回 `legacy-code/` や `legacy-docs/` へ移動しない。
+
+理由:
+- archive import 参照の検索では現行コードからの import は見つからないが、`streamlit_app.py` に `archive/setup_db.py` の表示文字列が残っている。
+- `docs/context/` や `docs/reports/` には `archive/*.py` への歴史資料参照が複数ある。
+- 物理移動は参照更新を伴うため、README 追加とは別の単独 PR に分ける。
+
+将来 `legacy-code/` / `legacy-docs/` に分ける場合は、参照更新、現行コードからの import 不在確認、DB バックアップ要否の確認を同じ PR で明記する。
 
 ---
 
@@ -71,5 +84,6 @@
 - 歴史資料は `docs/archive/` に寄せる。
 - 実行対象ではない古いコード断片は `archive/` 配下に明示的に隔離する。
 - `archive/` 配下のコードは、現行コードから import / 参照がないことを `rg` で確認してから移動・削除する。
+- `archive/` 配下の物理整理（例: `legacy-code/` / `legacy-docs/` への移動）は、参照更新を伴う別 PR とする。
 - `data/` 配下の実データ、`data/user_config.json`、DB ファイル、動画ファイルはコミットしない。
 - ルート直下に新しい一時ファイルや調査ファイルを増やさない。必要なら `docs/reports/` または `artifacts/` に置く。
