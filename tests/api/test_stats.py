@@ -105,8 +105,8 @@ def _add_like(video_id, liked_at="2026-05-01 00:00:00"):
 
 def test_ranking_composite_exact_score(client):
     """総合スコアの正確値を固定: 視聴日数2・いいね1・T1・T2 → round((2+3)*1.8*100)=900。"""
-    vid = _insert("a.mp4", "C:/x/###_a.mp4", 3)  # Lv3 → T1=1
-    _set_selection_completed(vid)                # T2=1
+    vid = _insert("a.mp4", "C:/x/+###_a.mp4", 3)  # Lv3＋選別済み(`+`) → T1=1
+    _set_selection_completed(vid)                 # T2=1（DBカラムをプレフィックスと同期）
     _add_view_day(vid, "2026-05-01 12:00:00")    # 異なる2日付 → view_days=2
     _add_view_day(vid, "2026-05-02 12:00:00")
     _add_like(vid)                               # like_count=1
