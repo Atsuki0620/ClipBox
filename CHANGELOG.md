@@ -4,6 +4,25 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-12 — chore: archive ディレクトリの扱いを明文化（挙動ゼロ変更）
+
+**目的**: ルート `archive/` と `docs/archive/` を現行仕様の正本と誤認しないよう、読み方・禁止事項・今後の物理整理条件を明文化する。
+
+**新規**:
+- **`archive/README.md`**: ルート `archive/` は実行対象ではなく、歴史資料・旧コード断片の保管場所であることを明記。`archive/*.py` の再利用前に import 参照、仕様差分、テスト、DB バックアップ要否を確認する方針を追加。
+- **`docs/archive/README.md`**: `docs/archive/` は移行作業・過去設計の記録であり、現行正本ではないことを明記。現行正本は `docs/context/` を参照する導線を追加。
+
+**更新**:
+- **`docs/context/REPO_STRUCTURE.md`**: 2つの README の役割、今回 `archive/*.py` / 古い Markdown を物理移動しない理由、将来 `legacy-code/` / `legacy-docs/` に分ける場合は参照更新を伴う別 PR にする方針を追記。
+
+**変更なし**:
+- 物理移動なし。`archive/*.py`、`archive/*.md`、Streamlit 関連 active files（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）は触れない。
+- UI挙動、API仕様、DBスキーマ、Next.js / FastAPI / Streamlit 実行コードには触れない。
+
+> 検証: docs/README のみ。参照検索、`git diff --check`、Python 構文チェック、`python -m pytest`、`cd frontend && npm run build` を実行。
+
+---
+
 ## 2026-06-11 — docs/chore: repo hygiene と Phase 5 archive 入口の明確化（挙動ゼロ変更）
 
 **目的**: Next.js + FastAPI 移行後のリポジトリ整理を、巨大PRにせず段階的に進めるため、ルート構成・Phase 5 条件・ドキュメント正本入口・検証ゲートを明確化する。
