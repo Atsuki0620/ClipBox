@@ -4,6 +4,22 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-12 — ci: add baseline quality gates
+
+**目的**: Pull Request と `main` push で最低限の自動品質ゲートを実行し、Python / backend API / Next.js build の回帰を早期検知する。
+
+**新規**:
+- **`.github/workflows/ci.yml`**: GitHub Actions の baseline CI を追加。Python 3.11 で `requirements.txt` をインストールし、`py_compile` と `python -m pytest` を実行。Node.js 20 で `frontend/package-lock.json` を使って `npm ci`、`npm run build` を実行。
+
+**更新**:
+- **`docs/context/TESTING.md`**: CI で確認する範囲、Windows ローカルで確認する範囲、Next.js 画面確認は引き続き `ACCEPTANCE_CRITERIA.md` を使うことを追記。
+- **`docs/context/AI_WORKFLOW.md`**: PR 前確認として GitHub Actions baseline CI の通過確認を追記。
+
+**変更なし**:
+- アプリ仕様、API、DB スキーマ、package の大幅更新、lint 導入、実データ追加は行わない。
+
+---
+
 ## 2026-06-12 — chore: archive ディレクトリの扱いを明文化（挙動ゼロ変更）
 
 **目的**: ルート `archive/` と `docs/archive/` を現行仕様の正本と誤認しないよう、読み方・禁止事項・今後の物理整理条件を明文化する。
