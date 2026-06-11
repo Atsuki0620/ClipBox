@@ -81,5 +81,5 @@
 ## 5. ドキュメント導線（正本台帳は `AGENTS.md`）
 
 - 作業前にまず本書 → `SPEC_NEXTJS.md`。
-- 用語=`GLOSSARY.md` / DB=`DATA_MODEL.md` / API=`API_SPEC.md` / 手動合否=`ACCEPTANCE_CRITERIA.md` / 構造=`IMPLEMENTATION_GUIDE.md` / 決定記録=`docs/decisions/`。
+- 用語=`GLOSSARY.md` / DB=`DATA_MODEL.md` / API=`API_SPEC.md` / 手動合否=`ACCEPTANCE_CRITERIA.md` / リポジトリ構成=`REPO_STRUCTURE.md` / Phase 5=`PHASE5_STREAMLIT_ARCHIVE.md` / 構造=`IMPLEMENTATION_GUIDE.md` / 決定記録=`docs/decisions/`。
 - 歴史資料（現行と誤認しない）: `PROJECT_OVERVIEW.md`、`docs/archive/`、`docs/reports/`。

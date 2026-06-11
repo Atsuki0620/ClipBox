@@ -4,6 +4,29 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — docs/chore: repo hygiene と Phase 5 archive 入口の明確化（挙動ゼロ変更）
+
+**目的**: Next.js + FastAPI 移行後のリポジトリ整理を、巨大PRにせず段階的に進めるため、ルート構成・Phase 5 条件・ドキュメント正本入口・検証ゲートを明確化する。
+
+**新規**:
+- **`docs/context/REPO_STRUCTURE.md`**: ルート直下の active / legacy-active / legacy / generated / local-only 分類、`archive/` と `docs/archive/` の違い、今後の整理ルールを明文化。
+- **`docs/context/PHASE5_STREAMLIT_ARCHIVE.md`**: Streamlit 旧 UI を即削除せず、全画面受け入れ完了後に archive へ移すための前提条件・移動候補・禁止事項を明文化。
+
+**更新**:
+- **`README.md`**: Next.js が現行 UI、FastAPI が API、Streamlit が旧 UI であること、各起動バッチの役割、Phase 5 は archive 条件付きであることを整理。
+- **`frontend/README.md`**: create-next-app 初期説明を ClipBox 専用の Next.js 現行 UI 説明へ置換。
+- **`docs/context/OVERVIEW.md`**: `REPO_STRUCTURE.md` / `PHASE5_STREAMLIT_ARCHIVE.md` への導線を追加。
+- **`docs/context/AI_WORKFLOW.md`**: docs only / repo structure cleanup / frontend / backend/API / Phase 5 archive / CI/test workflow の読む順を追加。
+- **`docs/context/TESTING.md`**: repo整理・docs-only・CI変更・Python構文・frontend build の確認コマンドを明記。
+- **`docs/context/ACCEPTANCE_CRITERIA.md`**: Phase 5 判定で本書の全画面シナリオ完了を前提にする位置づけを明記。
+
+**変更なし**:
+- UI挙動、API仕様、DBスキーマ、既存機能、Streamlit 実装には触れない。
+
+> 検証: docs/chore のみ。`git diff --check` / `python -m py_compile streamlit_app.py core/*.py api/*.py` / `cd frontend && npm run build` / `python -m pytest` を実行。
+
+---
+
 ## 2026-06-11 — docs: SQLite ロック待ち説明の実態合わせ（挙動ゼロ変更）
 
 **目的**: PR #33 で追記した「`busy_timeout`/WAL は意図的に未設定」「`SQLITE_BUSY` で即座に失敗」という説明が実挙動と矛盾していたため、文面のみを実態へ合わせる。コード挙動・`sqlite3.connect` の引数は変更しない。

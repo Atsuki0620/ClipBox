@@ -42,9 +42,13 @@
 | 変更種別 | 必須 |
 |---|---|
 | **どの変更でも** | 変更ファイルを Read 済み / 関連 docs と矛盾なし / `CHANGELOG.md` に追記 |
+| **docs only** | markdownリンク・参照先の存在確認 / `git diff --check` |
+| **repo structure cleanup** | `REPO_STRUCTURE.md` と整合 / `rg` による参照確認 / `git diff --check` / Python 実行経路に触れる場合は `python -m pytest` |
 | **backend `core/` / `api/`** | `python -m pytest`（全緑）。API I/O を変えたら `API_SPEC.md` を同一 PR で整合 |
+| **Python 構文影響** | `python -m py_compile streamlit_app.py core/*.py api/*.py` |
 | **DB スキーマ / migration** | `python -m pytest`（特に `test_migration.py`）/ `DATA_MODEL.md` 更新 / **DB バックアップ前提** / `scripts/run_migrations.py` を「API 停止状態」で実行確認 / archived 列（`is_judging`/`counters`）を誤復活させない |
-| **frontend** | `npm run typecheck` ＋ `npm run lint`（両方通過）/ `SPEC_NEXTJS.md` §0 の永続境界（DB↔localStorage）を移動しない / §3 の該当スモーク |
+| **frontend** | `npm run typecheck` ＋ `npm run lint` ＋ `npm run build`（通過）/ `SPEC_NEXTJS.md` §0 の永続境界（DB↔localStorage）を移動しない / §3 の該当スモーク |
+| **CI / test workflow** | ローカルで CI と同等のコマンドを実行 / 依存キャッシュや secrets に実データを要求しないことを確認 |
 | **起動バッチ / scripts** | 起動 → `/api/health` 200 → `/` 表示 を実機確認 / `startup_backup` が `data/` にバックアップ生成 / DB 未作成時に `init_database()` で作成される |
 
 ---
@@ -94,8 +98,10 @@
 ```bash
 python -m pytest                      # backend 全テスト
 python -m pytest tests/api            # API のみ（個別は python -m pytest tests/test_migration.py 等）
+python -m py_compile streamlit_app.py core/*.py api/*.py
 cd frontend && npm run typecheck      # = tsc --noEmit（strict）
 cd frontend && npm run lint           # = eslint
+cd frontend && npm run build          # Next.js production build
 run_dev.bat                           # startup_backup → run_migrations → FastAPI(8000)+Next.js(3000)
 run_api.bat                           # API のみ（前処理つき）
 python scripts\run_migrations.py      # migration 単体（API 稼働中は read-only チェック）

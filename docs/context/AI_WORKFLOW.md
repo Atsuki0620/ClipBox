@@ -22,6 +22,17 @@
 
 > 「AI向け仕様サマリ」を新設しない方針。意味の正本は上記であり、本書はそこへの導線に徹する。
 
+### 作業種別ごとの追加で読むもの
+
+| 作業種別 | 追加で読むもの |
+|---|---|
+| docs only | 変更対象 doc とリンク先。品質確認は `TESTING.md` §2 / §5 |
+| repo structure cleanup | `REPO_STRUCTURE.md`、`TESTING.md`、移動候補の参照検索結果 |
+| frontend behavior change | `SPEC_NEXTJS.md` の該当節、`frontend/AGENTS.md`、`TESTING.md` の frontend ゲート |
+| backend/API change | `API_SPEC.md`、`DATA_MODEL.md`（DBに触れる場合）、`TESTING.md` の backend ゲート |
+| Phase 5 archive | `PHASE5_STREAMLIT_ARCHIVE.md`、`ACCEPTANCE_CRITERIA.md`、`REPO_STRUCTURE.md` |
+| CI/test workflow change | `TESTING.md`、`.github/PULL_REQUEST_TEMPLATE.md`、既存の `requirements*.txt` / `frontend/package.json` |
+
 ---
 
 ## §B 計画必須か / 小修正OK か（着手前の判断）
