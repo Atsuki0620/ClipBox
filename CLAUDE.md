@@ -62,7 +62,8 @@ streamlit run streamlit_app.py    # 旧 UI（移行完了まで並走用）
 ## 詳細ドキュメント（docs/context/）
 
 正本（現行）:
-- `AI_WORKFLOW.md` — **AI のコード変更作業手順（読む順・テスト方針・PRチェック・スモーク）**
+- `AI_WORKFLOW.md` — **AI のコード変更作業手順（読む順・計画/小修正の境界・PRチェック）**
+- `TESTING.md` — **品質ゲート・回帰確認（テスト範囲・手動確認5/15/大型・完了条件）**
 - `SPEC_NEXTJS.md` — **Next.js 版 画面・状態の挙動仕様（正本）**
 - `OVERVIEW.md` — 現行の全体像・導線
 - `GLOSSARY.md` — 用語の正本

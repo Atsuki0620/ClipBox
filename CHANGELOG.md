@@ -4,6 +4,29 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — test+docs: 品質ゲート・回帰確認の整備（総合スコア式テスト＋TESTING.md）
+
+**目的**: Next.js 版に今後も AI 変更が入るため、変更のたびに壊れていないか確認できる品質ゲートを整える。
+調査の結果バックエンドの自動テストは既に手厚く（22 ファイル・API 全ルート/migration/watch_later 自動解除/AVP 履歴を網羅）、
+本対応は「テスト増」ではなく**(1) 現状の可視化と手順の明文化、(2) 唯一の未カバー領域＝総合スコア式に1件テスト追加**。
+
+**新規**:
+- **`docs/context/TESTING.md`**: 品質ゲート・回帰確認の正本。現状カバレッジ表 / 変更種別→必須ゲート / 手動確認3層（5分・15分・大型PR）/ 実コマンド / 完了条件（PR本文の書き方・未確認の明記）/ 自動テスト追加候補。
+
+**追加（テスト）**:
+- **`tests/api/test_stats.py`**: 総合（composite）スコア式テストを追加（SPEC_NEXTJS.md §9 の不変条件を固定）。
+  - `test_ranking_composite_exact_score`: 視聴日数2・いいね1・T1・T2 → `round((2+3)*1.8*100)=900` を固定。
+  - `test_ranking_composite_excludes_zero_score`: 履歴・いいね無し（score0）は結果から除外。
+  - `test_ranking_composite_bonus_ordering`: 未判定(100) < 判定済み(150) < 選別済み(180) のボーナス順。
+
+**更新**:
+- **`docs/context/AI_WORKFLOW.md`**: §E（テスト方針）/§F（スモーク）を要約＋`TESTING.md` へのリンクに整理し、品質ゲートの情報源を一本化（重複排除）。
+- **`AGENTS.md` / `CLAUDE.md`**: 正本台帳・詳細ドキュメント一覧に `TESTING.md`（品質ゲート）を追加。
+
+> 検証: `python -m pytest` 全緑（**146 passed**。新規 composite 3件を含む）。
+
+---
+
 ## 2026-06-11 — docs: AI 作業の足場整備（作業手順・PRテンプレート・テスト方針）
 
 **目的**: 仕様の正本は固定済み（前項）だが、「AI が安全に作業を進める手順」が AGENTS.md / CLAUDE.md / SPEC §12 に散在していた。

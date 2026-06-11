@@ -63,31 +63,25 @@
 
 ---
 
-## §E テスト方針（変更種別 → 必須チェック）
+## §E テスト方針・品質ゲート（正本: `TESTING.md`）
 
-| 変更種別 | `python -m pytest` | `npm run lint` | `npm run typecheck` | 手動スモーク(§F) | 追加確認 |
-|---|---|---|---|---|---|
-| `core/` ロジック | **必須** | - | - | 関連領域 | 既存テストが緑であること |
-| API（FastAPI / `api/`） | **必須**（core 経由） | - | - | 関連領域 | `API_SPEC.md` を同一 PR で整合 |
-| frontend 表示のみ | - | **必須** | **必須** | 関連領域 | - |
-| frontend 状態（zustand / TanStack Query） | - | **必須** | **必須** | 関連領域 | `SPEC_NEXTJS.md` §0 の永続境界と整合 |
-| DB スキーマ / migration | **必須** | - | - | DB移行＋関連 | `DATA_MODEL.md` 更新・**DB バックアップ**・archived 列を誤復活させない |
-| docs のみ | - | - | - | - | 相互リンク切れがないこと |
+**詳細は `docs/context/TESTING.md`（品質ゲート・回帰確認の正本）を見る。** ここは要点のみ。
 
-コマンド（フロントは `cd frontend` 後）:
-```bash
-python -m pytest
-cd frontend && npm run lint
-cd frontend && npm run typecheck   # = tsc --noEmit
-```
+| 変更種別 | 最低限のゲート |
+|---|---|
+| `core/` / API（FastAPI） | `python -m pytest`（全緑）。API I/O 変更時は `API_SPEC.md` 整合 |
+| frontend | `npm run typecheck` ＋ `npm run lint`（両方通過）＋ §F スモーク。`SPEC_NEXTJS.md` §0 の永続境界を移動しない |
+| DB スキーマ / migration | `python -m pytest` ＋ `DATA_MODEL.md` 更新 ＋ DB バックアップ前提 ＋ `run_migrations.py` を API 停止状態で確認 |
+| 起動バッチ / scripts | 起動→`/api/health` 200→`/` 表示＋`startup_backup` 生成を実機確認 |
+| docs のみ | 相互リンク切れがないこと |
 
-> frontend には自動テスト（Jest/Vitest 等）が無い。型チェック（typecheck）＋ lint ＋ §F の手動スモークで担保する。
+> frontend に自動テストランナーは無い（`npm test` は存在しない）。型チェック＋lint＋手動スモークで担保。コマンド一覧と層別の手動確認（5分/15分/大型）・完了条件は `TESTING.md` に集約。
 
 ---
 
 ## §F 変更後スモークチェック（軽量・該当領域のみ）
 
-フル手動受け入れは `ACCEPTANCE_CRITERIA.md`。ここは「happy path が壊れていないか」を素早く見る最小確認。
+フル基準は `ACCEPTANCE_CRITERIA.md`、層別（5分/15分/大型PR）の手順は `TESTING.md` §3。ここは「happy path が壊れていないか」の最小確認。
 
 ```markdown
 - [ ] 起動: run_dev.bat で FastAPI(8000)+Next.js(3000) が起動し / が表示される
@@ -98,8 +92,6 @@ cd frontend && npm run typecheck   # = tsc --noEmit
 - [ ] ランキング: 総合スコア降順で表示、score 0 が出ない
 - [ ] 分析: 各グラフ(Recharts)がエラーなく描画される
 - [ ] 設定: 設定保存 → スキャン → バックアップ実行
-- [ ] バックアップ: data/ にバックアップが生成される
-- [ ] DB移行: migration 追加時のみ → 初回起動で適用 ＋ DATA_MODEL.md と整合
 ```
 
 ---
