@@ -62,6 +62,7 @@ streamlit run streamlit_app.py    # 旧 UI（移行完了まで並走用）
 ## 詳細ドキュメント（docs/context/）
 
 正本（現行）:
+- `AI_WORKFLOW.md` — **AI のコード変更作業手順（読む順・テスト方針・PRチェック・スモーク）**
 - `SPEC_NEXTJS.md` — **Next.js 版 画面・状態の挙動仕様（正本）**
 - `OVERVIEW.md` — 現行の全体像・導線
 - `GLOSSARY.md` — 用語の正本
@@ -76,6 +77,8 @@ streamlit run streamlit_app.py    # 旧 UI（移行完了まで並走用）
 - `../archive/` — 移行作業の記録（MIGRATION_PLAN / MIGRATION_MAP）
 
 ## AIへのコード変更ルール
+
+> コード変更の作業手順（読む順・計画必須/小修正OKの境界・止まる条件・テスト方針・PRチェック・スモーク確認）は **`docs/context/AI_WORKFLOW.md` が正本**。着手前に必ず読むこと。
 
 1. 変更前にファイルを必ず Read する
 2. core/ を変更したら `pytest tests/` でテストを通す
