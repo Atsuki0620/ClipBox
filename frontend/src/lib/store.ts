@@ -1,5 +1,9 @@
-// Tier1 ライブラリの選択中フィルタ（クライアント横断状態）。
-// サーバー状態は TanStack Query が持ち、ここは API に依存しない UI 状態のみ。
+// クライアント状態（Zustand）の集約。サーバー状態は TanStack Query が持つ。
+// 永続境界は SPEC_NEXTJS.md §0 が正本。混同・移動は禁止:
+//   - useLibraryStore（フィルタ/ソート/ページ）= メモリのみ（persist なし・リロードで消える）
+//   - useAvpStore（AVP候補/再生対象）        = localStorage `clipbox-avp`（そのブラウザのみ）
+//   - usePlaybackStore（再生中ハイライト）     = localStorage `clipbox-playback`（そのブラウザのみ）
+// DB 永続状態（レベル/あとで見る/いいね）はここに置かない（API 経由で扱う）。
 
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";

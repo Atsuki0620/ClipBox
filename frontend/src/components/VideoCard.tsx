@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/tooltip";
 import { Bookmark, Heart, Play, X } from "lucide-react";
 
+// 共通の動画カード。`displayContext` で Tier1/Tier2/AVP の表示差を切り替える多態コンポーネント。
+//   - "tier1": AVP候補チェックボックスを表示（SPEC_NEXTJS.md §2 / 下記 :130-142）
+//   - "tier2": 「未選別」「選別済み」バッジを表示（SPEC §3 / :87-89, :121-126）
+//   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6 / :200-223）
+// 表示差は localStorage 由来（AVP候補/再生対象/再生中ハイライト）と DB 由来（レベル/あとで見る）が
+// 混在する。どちらの状態かは SPEC_NEXTJS.md §0 の永続境界を必ず参照すること。
+// 値は3値で固定。第4値を足す前に AI_WORKFLOW.md §C で停止する（SPEC §6）。
 export function VideoCard({
   video,
   likeCount,

@@ -4,6 +4,29 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — docs: リファクタリング診断 + 構造整理ガードレールの追記（挙動ゼロ変更）
+
+**目的**: Next.js 版の安定利用に向け、「今すぐ大きなリファクタをすべきか」を診断し、**コードは動かさず** AI 作業精度に効くドキュメント/コメントだけを追記する。
+**診断結論**: 大きなリファクタは時期尚早。ドキュメント正本（SPEC §0/§5/§9/§12）が AI の壊しやすい点を既に固定し、バックエンドも層分離が綺麗。フロントの痛み（`analysis/page.tsx` 959行・`VideoCard` 多態5分岐・queryKey 散在・手書き型ドリフト）は局所的で安定利用の障害ではない。当面は **B案（docs/ルール追記のみ）**。
+
+**新規**:
+- **`docs/reports/REFACTOR_DIAGNOSIS_20260611.md`**: 診断レポート（歴史資料）。総評 / 構造リスク一覧 / 今やる小整理 / 今はやらない整理 / 将来候補 / ディレクトリ整理の要否 / **リファクタリング開始条件**。
+
+**更新（挙動ゼロ変更・docs/コメントのみ）**:
+- **`docs/context/AI_WORKFLOW.md`**: 新節「§H リファクタ/移動 着手前チェック」（開始条件・移動は単独PR・**ルート `archive/` は import/参照禁止**）。§C に「`displayContext` 新値追加」「queryKey/invalidate 設計変更」を plan 必須として追加。
+- **`docs/context/SPEC_NEXTJS.md`**: §1 画面表に「主担当（page/状態）」列を追加（仕様→コードの入口を明示）。§6 に「`displayContext` は3値で固定」注記。
+- **`docs/context/IMPLEMENTATION_GUIDE.md`**: 冒頭に「UI 記述に Streamlit 期前提が残る／現行主 UI は Next.js・`SPEC_NEXTJS.md` が正本」注記（主 UI 誤認の防止）。
+- **`frontend/src/components/VideoCard.tsx`**: 冒頭コメントに `displayContext` 3値の意味と SPEC 出典、永続境界の注意を追記。
+- **`frontend/src/lib/store.ts`**: 冒頭コメントに3ストアの永続境界（メモリ / `clipbox-avp` / `clipbox-playback`）と SPEC §0 参照を追記。
+- **`core/database.py`**: `busy_timeout`/WAL を意図的に未設定としている理由（Streamlit 並走の同時書き込み回避）をコメントで明記。
+
+**削除**:
+- ルート `pr_body.md`（一時生成物の置き忘れ）。
+
+> 検証: コード変更はコメント/docstring のみ（挙動不変）。`python -m pytest` ＋ frontend `npm run typecheck`/`lint` で確認。
+
+---
+
 ## 2026-06-11 — test+docs: 品質ゲート・回帰確認の整備（総合スコア式テスト＋TESTING.md）
 
 **目的**: Next.js 版に今後も AI 変更が入るため、変更のたびに壊れていないか確認できる品質ゲートを整える。

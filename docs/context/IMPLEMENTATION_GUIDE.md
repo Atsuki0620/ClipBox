@@ -1,5 +1,10 @@
 # ClipBox 実装ガイド
 
+> **注意（現行との読み合わせ）**: 本書はシステム構造・実装マップの参照資料だが、**UI 層の記述に Streamlit 期の前提が残る**（下記「UI層 (Streamlit)」等）。
+> **現行の主 UI は Next.js（`localhost:3000`）+ FastAPI（`localhost:8000`）** であり、Streamlit は移行完了まで並走する旧 UI。
+> 画面・状態の挙動の正本は **`SPEC_NEXTJS.md`**、用語は `GLOSSARY.md`、競合時の優先順位は `AGENTS.md` の正本台帳に従う（現行＝正本 ＞ 歴史的記述）。
+> 並走期間の DB 書き込みは一方のサーバーのみ（同時書き込みは `SQLITE_BUSY`。`SPEC_NEXTJS.md` §11）。
+
 ---
 
 ## 1. システムアーキテクチャ
