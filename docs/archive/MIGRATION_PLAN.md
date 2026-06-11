@@ -1,5 +1,9 @@
 # 移行実装計画（Streamlit → FastAPI + Next.js）
 
+> **【歴史資料・正本ではない】** これは移行作業の計画記録です（`docs/context/` から `docs/archive/` へ移動）。
+> 完了済みの移行作業の経緯を残すためのもので、現行仕様の正本ではありません。
+> 現行の正本は `docs/context/SPEC_NEXTJS.md`（画面・状態）/ `OVERVIEW.md`（全体像）/ `DATA_MODEL.md` / `API_SPEC.md` を参照してください。
+
 Phase 2 で作成した移行仕様書（`API_SPEC.md` / `ACCEPTANCE_CRITERIA.md` / `MIGRATION_MAP.md`）を土台に、
 **FastAPI（バックエンドAPI）+ Next.js（フロントエンド）への移行を、Streamlit を動かしたまま安全に
 進めるための実装計画**をまとめる。本ドキュメントは**計画・提案のみ**で、実装は含まない。

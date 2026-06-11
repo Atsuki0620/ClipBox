@@ -1,5 +1,7 @@
 # ClipBox データモデル
 
+DB スキーマ・履歴の正本。画面・状態の挙動は `SPEC_NEXTJS.md`、用語は `GLOSSARY.md` を参照。
+
 ---
 
 ## 1. データベース概要
@@ -125,6 +127,20 @@ with get_db_connection() as conn:
 | `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 主キー |
 | `video_id` | INTEGER | NOT NULL, FK → videos(id) | 動画ID |
 | `liked_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | いいねした日時 |
+
+### 2.7 ファイル名プレフィックスと DB 状態の対応（二重持ち）
+
+状態は **DB カラム**と**ファイル名プレフィックス**の両方に存在する。**正本は DB**、ファイル名は写像。
+両者の同期は `set_favorite_level_with_rename()` が担い、`is_selection_completed` は起動時 `resync_selection_completed` でも補正する。
+
+| プレフィックス | DB 状態 |
+|---|---|
+| `####_` / `###_` / `##_` / `#_` / `_` | `current_favorite_level` = 4 / 3 / 2 / 1 / 0 |
+| なし | `current_favorite_level` = -1（未判定） |
+| `!` | `needs_selection = 1`, `is_selection_completed = 0` |
+| `+` | `is_selection_completed = 1`, `needs_selection = 0` |
+
+`!` とレベルは組み合わせ可（例 `!###_`）。`essential_filename` はすべてのプレフィックスを除去した不変の識別子（UNIQUE）。
 
 ---
 

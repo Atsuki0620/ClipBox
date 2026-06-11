@@ -30,6 +30,12 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # 辞書形式でアクセス可能
     # 外部キー制約を有効化（CASCADE を効かせる）
     conn.execute("PRAGMA foreign_keys = ON;")
+    # 注意: WAL は未設定（既定のロールバックジャーナル）。busy_timeout も明示設定していないが、
+    # sqlite3.connect() の timeout 既定 5.0 秒が busy timeout として効くため、ロック競合時は
+    # 最大約5秒待機し、解放されなければ OperationalError: database is locked（SQLITE_BUSY 相当）
+    # で失敗し得る（「即座に失敗」ではない）。即時失敗にしたい場合（timeout=0）は挙動変更のため別PRで扱う。
+    # いずれにせよ Streamlit と FastAPI の同時書き込みは運用上禁止（書き込みは一方のサーバーのみ）。
+    # （AGENTS.md / CLAUDE.md / SPEC_NEXTJS.md §11）
     try:
         yield conn
         conn.commit()

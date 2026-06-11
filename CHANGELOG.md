@@ -4,6 +4,121 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — docs: SQLite ロック待ち説明の実態合わせ（挙動ゼロ変更）
+
+**目的**: PR #33 で追記した「`busy_timeout`/WAL は意図的に未設定」「`SQLITE_BUSY` で即座に失敗」という説明が実挙動と矛盾していたため、文面のみを実態へ合わせる。コード挙動・`sqlite3.connect` の引数は変更しない。
+
+**背景（実態）**: `core/database.py` は `sqlite3.connect(DATABASE_PATH)` で接続し `timeout` を指定していない。Python `sqlite3` の `timeout` 既定は **5.0 秒**で、これが busy timeout（5000ms）として効く。したがって:
+- WAL は未設定（既定のロールバックジャーナル）… 記述は正しい。
+- busy_timeout は「未設定」ではなく **既定5秒が効く** … 誤記を訂正。
+- ロック競合時は「即座に失敗」ではなく **最大約5秒待機**し、解放されなければ `database is locked`（`SQLITE_BUSY` 相当）で失敗し得る。
+- 同時書き込みは引き続き**運用上禁止**（書き込みは一方のサーバーのみ）。
+
+**更新（docs/コメントのみ・挙動ゼロ変更）**:
+- **`core/database.py`**: `get_db_connection()` のコメントを実態へ訂正（WAL 未設定／既定5秒の busy timeout／即時失敗にしたい場合の `timeout=0` は別PR扱い／同時書き込み禁止）。
+- **`AGENTS.md` / `CLAUDE.md` / `docs/context/OVERVIEW.md` / `docs/context/SPEC_NEXTJS.md`（§11） / `README.md`**: 「`busy_timeout`/WAL 未設定」「`SQLITE_BUSY` になる」を「WAL 未設定。約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る」へ統一。
+- **`docs/reports/REFACTOR_DIAGNOSIS_20260611.md`**: PR #33 由来の同記述を訂正。
+
+> 対象外（歴史資料につき変更しない）: `archive/*`、`docs/archive/MIGRATION_PLAN.md`、`docs/decisions/003-sqlite-local.md`（busy_timeout 誤記なし）。
+> 検証: 変更はコメント/docs のみ（Python 実コードは無変更）。`git diff --check` / `python -m py_compile streamlit_app.py core/*.py api/*.py` を実行。
+
+---
+
+## 2026-06-11 — docs: リファクタリング診断 + 構造整理ガードレールの追記（挙動ゼロ変更）
+
+**目的**: Next.js 版の安定利用に向け、「今すぐ大きなリファクタをすべきか」を診断し、**コードは動かさず** AI 作業精度に効くドキュメント/コメントだけを追記する。
+**診断結論**: 大きなリファクタは時期尚早。ドキュメント正本（SPEC §0/§5/§9/§12）が AI の壊しやすい点を既に固定し、バックエンドも層分離が綺麗。フロントの痛み（`analysis/page.tsx` 959行・`VideoCard` 多態5分岐・queryKey 散在・手書き型ドリフト）は局所的で安定利用の障害ではない。当面は **B案（docs/ルール追記のみ）**。
+
+**新規**:
+- **`docs/reports/REFACTOR_DIAGNOSIS_20260611.md`**: 診断レポート（歴史資料）。総評 / 構造リスク一覧 / 今やる小整理 / 今はやらない整理 / 将来候補 / ディレクトリ整理の要否 / **リファクタリング開始条件**。
+
+**更新（挙動ゼロ変更・docs/コメントのみ）**:
+- **`docs/context/AI_WORKFLOW.md`**: 新節「§H リファクタ/移動 着手前チェック」（開始条件・移動は単独PR・**ルート `archive/` は import/参照禁止**）。§C に「`displayContext` 新値追加」「queryKey/invalidate 設計変更」を plan 必須として追加。
+- **`docs/context/SPEC_NEXTJS.md`**: §1 画面表に「主担当（page/状態）」列を追加（仕様→コードの入口を明示）。§6 に「`displayContext` は3値で固定」注記。
+- **`docs/context/IMPLEMENTATION_GUIDE.md`**: 冒頭に「UI 記述に Streamlit 期前提が残る／現行主 UI は Next.js・`SPEC_NEXTJS.md` が正本」注記（主 UI 誤認の防止）。
+- **`frontend/src/components/VideoCard.tsx`**: 冒頭コメントに `displayContext` 3値の意味と SPEC 出典、永続境界の注意を追記。
+- **`frontend/src/lib/store.ts`**: 冒頭コメントに3ストアの永続境界（メモリ / `clipbox-avp` / `clipbox-playback`）と SPEC §0 参照を追記。
+- **`core/database.py`**: WAL は未設定であること、busy_timeout は `sqlite3.connect()` の timeout 既定（5秒）が効くこと、同時書き込みは運用上禁止であることをコメントで明記。
+
+**削除**:
+- ルート `pr_body.md`（一時生成物の置き忘れ）。
+
+> 検証: コード変更はコメント/docstring のみ（挙動不変）。`python -m pytest` ＋ frontend `npm run typecheck`/`lint` で確認。
+
+---
+
+## 2026-06-11 — test+docs: 品質ゲート・回帰確認の整備（総合スコア式テスト＋TESTING.md）
+
+**目的**: Next.js 版に今後も AI 変更が入るため、変更のたびに壊れていないか確認できる品質ゲートを整える。
+調査の結果バックエンドの自動テストは既に手厚く（22 ファイル・API 全ルート/migration/watch_later 自動解除/AVP 履歴を網羅）、
+本対応は「テスト増」ではなく**(1) 現状の可視化と手順の明文化、(2) 唯一の未カバー領域＝総合スコア式に1件テスト追加**。
+
+**新規**:
+- **`docs/context/TESTING.md`**: 品質ゲート・回帰確認の正本。現状カバレッジ表 / 変更種別→必須ゲート / 手動確認3層（5分・15分・大型PR）/ 実コマンド / 完了条件（PR本文の書き方・未確認の明記）/ 自動テスト追加候補。
+
+**追加（テスト）**:
+- **`tests/api/test_stats.py`**: 総合（composite）スコア式テストを追加（SPEC_NEXTJS.md §9 の不変条件を固定）。
+  - `test_ranking_composite_exact_score`: 視聴日数2・いいね1・T1・T2 → `round((2+3)*1.8*100)=900` を固定。
+  - `test_ranking_composite_excludes_zero_score`: 履歴・いいね無し（score0）は結果から除外。
+  - `test_ranking_composite_bonus_ordering`: 未判定(100) < 判定済み(150) < 選別済み(180) のボーナス順。
+
+**更新**:
+- **`docs/context/AI_WORKFLOW.md`**: §E（テスト方針）/§F（スモーク）を要約＋`TESTING.md` へのリンクに整理し、品質ゲートの情報源を一本化（重複排除）。
+- **`AGENTS.md` / `CLAUDE.md`**: 正本台帳・詳細ドキュメント一覧に `TESTING.md`（品質ゲート）を追加。
+
+> 検証: `python -m pytest` 全緑（**146 passed**。新規 composite 3件を含む）。
+
+---
+
+## 2026-06-11 — docs: AI 作業の足場整備（作業手順・PRテンプレート・テスト方針）
+
+**目的**: 仕様の正本は固定済み（前項）だが、「AI が安全に作業を進める手順」が AGENTS.md / CLAUDE.md / SPEC §12 に散在していた。
+作業開始時に読む順・計画必須/小修正OKの境界・止まる条件・変更種別ごとのテスト方針・PR本文の必須項目・変更後スモークを**一本化**する。
+既存の禁止事項・用語・スコア式・フル受け入れ基準は再掲せずリンクで参照（重複回避）。**機能追加・リファクタは無し**。
+
+**新規**:
+- **`docs/context/AI_WORKFLOW.md`**: AI 作業の単一入口。§A 読む順 / §B 計画必須 vs 小修正OK の境界 / §C 止まってヒアリングする条件 /
+  §D 変更してはいけない挙動（要点＋禁止リストへのリンク）/ §E テスト方針マトリクス（変更種別→必須チェック）/ §F 軽量スモーク / §G PR チェックリスト。
+- **`.github/PULL_REQUEST_TEMPLATE.md`**: PR 本文テンプレート（目的/変更範囲/仕様との対応/DB・API・フロント影響/テスト結果/手動確認/未対応/リスク）。
+
+**更新**:
+- **`frontend/package.json`**: `scripts` に `"typecheck": "tsc --noEmit"` を追加（テスト方針を実行可能化。挙動への影響なし）。
+- **`AGENTS.md`**: 正本台帳に `AI_WORKFLOW.md` 行を追加。コード変更は AI_WORKFLOW に従う旨を明記。
+- **`CLAUDE.md`**: 「AIへのコード変更ルール」冒頭と詳細ドキュメント一覧に AI_WORKFLOW への導線を追加。
+- **`frontend/AGENTS.md`**: ClipBox フロント固有規約（作業手順の正本・状態の永続境界・localStorage キー・変更後チェック）を追記。
+
+---
+
+## 2026-06-11 — docs: Next.js 版の仕様固定（正本ドキュメント整備）
+
+**目的**: Next.js 版の現仕様がコード・PR本文・CHANGELOG に分散しており、AI が作業前に参照できる正本が無かった。
+特に Next.js 由来の新概念（あとで見る/AVP候補/再生対象/再生中ハイライト/判定日時ソート/総合スコア/localStorage 永続 vs DB 永続の境界）が
+どのドキュメントにも未定義だった。**コードは変更せず、既存実装の言語化と正本化のみ**（仕様変更なし。ランキング式等はコードと一致を確認済み）。
+
+**新規**:
+- **`docs/context/SPEC_NEXTJS.md`**: Next.js 版 画面・状態仕様の正本。状態の永続境界表（DB / localStorage / メモリ）、
+  Tier1/Tier2/AVP/あとで見る/再生中ハイライト/ランキングの概念固定、「操作で一覧から消える条件」表、
+  プレフィックス↔DBカラム対応、総合スコア式（`analysis_service.py:691-855` 出典）、AI 向け禁止リストを記載。
+- **`docs/context/OVERVIEW.md`**: 現行（Next.js+FastAPI）の全体像・3層アーキ図・ルート一覧・各正本への導線。
+
+**更新**:
+- **`AGENTS.md`**（ルート）: Streamlit 前提の全面記述を 3層構成へ改訂。正本台帳＋競合時の優先順位、必読導線、禁止事項を追加。
+- **`CLAUDE.md`**: 正本ルール（現行>歴史資料）と SPEC_NEXTJS への導線、設計原則に「並走書き込み禁止」「状態の永続先を移動しない」を追加。
+- **`GLOSSARY.md`**: Next.js 新用語（あとで見る/AVP候補/AVP再生対象/再生中ハイライト/判定日時ソート/総合スコア/クライアント vs サーバ状態）を追加。`performer` 登場人物フィルタの廃止を明記。
+- **`DATA_MODEL.md`**: 「ファイル名プレフィックスと DB 状態の対応」節を追加。SPEC_NEXTJS への相互リンク。
+- **`API_SPEC.md`**: 本文の旧表記「Flask」→「FastAPI」を訂正（内容は変更なし）。
+- **`README.md`**: 残作業表の `/analysis`・`/settings` を「未実装」→「完了」に訂正。`/avp` 行を追加。
+- **`PROJECT_OVERVIEW.md`**: 冒頭に【歴史資料（Streamlit 期）】バナーを追加（内容は温存）。
+
+**移動（歴史資料化）**:
+- `docs/context/MIGRATION_PLAN.md` → `docs/archive/MIGRATION_PLAN.md`（歴史バナー追加）
+- `docs/context/MIGRATION_MAP.md` → `docs/archive/MIGRATION_MAP.md`（歴史バナー追加）
+
+**関連ファイル**: `docs/context/{SPEC_NEXTJS,OVERVIEW,GLOSSARY,DATA_MODEL,API_SPEC,PROJECT_OVERVIEW}.md`,
+`docs/archive/{MIGRATION_PLAN,MIGRATION_MAP}.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`
+
+---
+
 ## 2026-06-11 — fix: PR31 マージ前整合（B-1/B-2/F-1/F-2/F-3/T-1）
 
 **バックエンド**:
