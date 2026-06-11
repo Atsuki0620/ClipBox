@@ -6,9 +6,9 @@
 
 | サーバー | URL | 役割 |
 |---|---|---|
-| Streamlit | `localhost:8501` | 現行 UI（移行完了まで並走） |
+| Next.js | `localhost:3000` | 現行 UI（フロントエンド） |
 | FastAPI | `localhost:8000` | バックエンド API |
-| Next.js | `localhost:3000` | 新フロントエンド（移行中） |
+| Streamlit | `localhost:8501` | 旧 UI（移行完了まで並走） |
 
 ## 起動方法
 
@@ -41,7 +41,7 @@ uvicorn api_app:app --host 127.0.0.1 --port 8000 --reload
 
 `http://localhost:8000/docs` で OpenAPI UI を確認できます。
 
-#### Next.js（新フロントエンド）
+#### Next.js（現行 UI）
 
 ```bash
 cd frontend
