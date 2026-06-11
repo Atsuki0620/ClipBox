@@ -1,5 +1,8 @@
 # 移行マップ（Streamlit → FastAPI + Next.js）
 
+> **【歴史資料・正本ではない】** Streamlit UI 関数と FastAPI エンドポイントの対応表（移行作業時の記録）。
+> `docs/context/` から `docs/archive/` へ移動。現行の API 正本は `docs/context/API_SPEC.md`、画面・状態は `SPEC_NEXTJS.md`。
+
 現行 Streamlit UI 関数 / 処理と、FastAPI エンドポイントの対応表。
 「現行のどの関数が、将来のどの API 呼び出しに置き換わるか」を画面単位で示す。
 

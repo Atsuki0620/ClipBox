@@ -85,9 +85,9 @@ npm install
 - Next.js の write 検証を行う際は **Streamlit を停止し、DB バックアップを取ってから** 実施してください。
 - 「再生」ボタンはサーバー機（FastAPI が動いているPC）上でプレイヤーを起動します。リモートブラウザからは操作できません。
 
-## 残作業（`feature/streamlit-ui-implementation`）
+## 移行ステータス
 
-詳細は `docs/context/MIGRATION_PLAN.md` タスク5 を参照。
+各画面の挙動仕様は `docs/context/SPEC_NEXTJS.md`、手動受け入れ基準は `docs/context/ACCEPTANCE_CRITERIA.md` を参照。
 
 | 画面 | ステータス |
 |---|---|
@@ -95,17 +95,9 @@ npm install
 | 検索 `/search` | ✅ 完了 |
 | Tier 2 セレクション `/tier2` | ✅ 完了 |
 | ランキング `/ranking` | ✅ 完了 |
-| 分析ダッシュボード `/analysis` | 🔲 未実装（プレースホルダ） |
-| 設定 `/settings` | 🔲 未実装（プレースホルダ） |
-| Phase 5: Streamlit archive | 🔲 全画面受け入れ完了後 |
+| 分析ダッシュボード `/analysis` | ✅ 完了（Recharts） |
+| 設定 `/settings` | ✅ 完了（設定編集・スキャン・バックアップ） |
+| AVP再生 `/avp` | ✅ 完了 |
+| Phase 5: Streamlit archive | 🔲 全画面の手動受け入れ完了後 |
 
-### 分析ダッシュボード `/analysis` の実装メモ
-
-- `GET /api/analysis/data`・`/analysis/viewing-history`・`/analysis/judgment-history`・`/analysis/response-time`・`/analysis/rankings`・`/analysis/selection-trend`・`/analysis/selection-distribution` を使う
-- チャートは **Recharts**（Next.js 環境で最も相性が良い）を推奨
-- 受け入れ条件は `docs/context/ACCEPTANCE_CRITERIA.md` の「分析ダッシュボード」節
-
-### 設定 `/settings` の実装メモ
-
-- `GET/PUT /api/config`・`POST /api/scan/library`・`POST /api/scan/selection`・`POST /api/backup` を使う
-- 受け入れ条件は `docs/context/ACCEPTANCE_CRITERIA.md` の「設定」節
+> 移行作業の計画・対応表（歴史資料）は `docs/archive/MIGRATION_PLAN.md` / `docs/archive/MIGRATION_MAP.md`。

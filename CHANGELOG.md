@@ -4,6 +4,36 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — docs: Next.js 版の仕様固定（正本ドキュメント整備）
+
+**目的**: Next.js 版の現仕様がコード・PR本文・CHANGELOG に分散しており、AI が作業前に参照できる正本が無かった。
+特に Next.js 由来の新概念（あとで見る/AVP候補/再生対象/再生中ハイライト/判定日時ソート/総合スコア/localStorage 永続 vs DB 永続の境界）が
+どのドキュメントにも未定義だった。**コードは変更せず、既存実装の言語化と正本化のみ**（仕様変更なし。ランキング式等はコードと一致を確認済み）。
+
+**新規**:
+- **`docs/context/SPEC_NEXTJS.md`**: Next.js 版 画面・状態仕様の正本。状態の永続境界表（DB / localStorage / メモリ）、
+  Tier1/Tier2/AVP/あとで見る/再生中ハイライト/ランキングの概念固定、「操作で一覧から消える条件」表、
+  プレフィックス↔DBカラム対応、総合スコア式（`analysis_service.py:691-855` 出典）、AI 向け禁止リストを記載。
+- **`docs/context/OVERVIEW.md`**: 現行（Next.js+FastAPI）の全体像・3層アーキ図・ルート一覧・各正本への導線。
+
+**更新**:
+- **`AGENTS.md`**（ルート）: Streamlit 前提の全面記述を 3層構成へ改訂。正本台帳＋競合時の優先順位、必読導線、禁止事項を追加。
+- **`CLAUDE.md`**: 正本ルール（現行>歴史資料）と SPEC_NEXTJS への導線、設計原則に「並走書き込み禁止」「状態の永続先を移動しない」を追加。
+- **`GLOSSARY.md`**: Next.js 新用語（あとで見る/AVP候補/AVP再生対象/再生中ハイライト/判定日時ソート/総合スコア/クライアント vs サーバ状態）を追加。`performer` 登場人物フィルタの廃止を明記。
+- **`DATA_MODEL.md`**: 「ファイル名プレフィックスと DB 状態の対応」節を追加。SPEC_NEXTJS への相互リンク。
+- **`API_SPEC.md`**: 本文の旧表記「Flask」→「FastAPI」を訂正（内容は変更なし）。
+- **`README.md`**: 残作業表の `/analysis`・`/settings` を「未実装」→「完了」に訂正。`/avp` 行を追加。
+- **`PROJECT_OVERVIEW.md`**: 冒頭に【歴史資料（Streamlit 期）】バナーを追加（内容は温存）。
+
+**移動（歴史資料化）**:
+- `docs/context/MIGRATION_PLAN.md` → `docs/archive/MIGRATION_PLAN.md`（歴史バナー追加）
+- `docs/context/MIGRATION_MAP.md` → `docs/archive/MIGRATION_MAP.md`（歴史バナー追加）
+
+**関連ファイル**: `docs/context/{SPEC_NEXTJS,OVERVIEW,GLOSSARY,DATA_MODEL,API_SPEC,PROJECT_OVERVIEW}.md`,
+`docs/archive/{MIGRATION_PLAN,MIGRATION_MAP}.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`
+
+---
+
 ## 2026-06-11 — fix: PR31 マージ前整合（B-1/B-2/F-1/F-2/F-3/T-1）
 
 **バックエンド**:
