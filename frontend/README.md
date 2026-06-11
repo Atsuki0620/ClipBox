@@ -1,36 +1,56 @@
-これは[`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app)で作成された[Next.js](https://nextjs.org)プロジェクトです。
+# ClipBox Frontend
 
-## はじめに
+ClipBox の現行 UI です。Next.js 16 App Router / React 19 / TypeScript で実装し、FastAPI（`localhost:8000`）をバックエンド API として利用します。
 
-まず、開発サーバーを起動します:
+## 役割
+
+- Tier1 / Tier2 / AVP / ランキング / 分析 / 検索 / 設定の現行 UI を提供する。
+- サーバー状態は FastAPI 経由で取得・更新する。
+- AVP 候補・再生対象・再生中ハイライトなど、ブラウザ限定の状態は Zustand + localStorage で保持する。
+
+画面・状態の正本は `../docs/context/SPEC_NEXTJS.md`、作業手順は `../docs/context/AI_WORKFLOW.md` を参照してください。
+
+## 前提
+
+- FastAPI が `http://localhost:8000` で起動していること。
+- API ベース URL は `NEXT_PUBLIC_API_BASE` で上書きできます。未設定時は `http://localhost:8000/api` を使います。
+- このアプリはローカル専用ツールの UI です。Vercel など外部ホスティングへのデプロイは運用前提ではありません。
+
+## 開発起動
 
 ```bash
 npm run dev
-# または
-yarn dev
-# または
-pnpm dev
-# または
-bun dev
 ```
 
-ブラウザで [http://localhost:3000](http://localhost:3000) を開くと、アプリの結果を確認できます。
+ブラウザで `http://localhost:3000` を開きます。
 
-`app/page.tsx`を編集することでページの内容を変更できます。ファイルを編集すると自動的にページが更新されます。
+## ビルド
 
-このプロジェクトは[`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)を使用して、Vercel の新しいフォントファミリーである[Geist](https://vercel.com/font)を自動的に最適化および読み込みします。
+```bash
+npm run build
+```
 
-## さらに学ぶ
+本番ビルドをローカルで起動する場合:
 
-Next.js についてもっと知りたい場合は、次のリソースをご覧ください:
+```bash
+npm run start
+```
 
-- [Next.js ドキュメント](https://nextjs.org/docs) - Next.js の機能と API について学べます。
-- [Learn Next.js](https://nextjs.org/learn) - インタラクティブな Next.js チュートリアルです。
+## 品質ゲート
 
-[Next.js の GitHub リポジトリ](https://github.com/vercel/next.js) もご覧ください。フィードバックや貢献を歓迎します！
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
 
-## Vercel へのデプロイ
+フロントエンドには自動テストランナーを導入していません。変更時は型チェック、lint、ビルドに加えて `../docs/context/TESTING.md` の手動確認範囲を確認してください。
 
-Next.js アプリをデプロイする最も簡単な方法は、Next.js の制作者による[Vercel プラットフォーム](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme)を使うことです。
+## 主要技術
 
-詳細については、[Next.js のデプロイメントドキュメント](https://nextjs.org/docs/app/building-your-application/deploying)をご確認ください。
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Zustand
+- TanStack Query
+- Recharts

@@ -4,17 +4,26 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
-## 2026-06-11 — docs: Repo hygiene / Phase 5 準備計画の追加（挙動ゼロ変更）
+## 2026-06-11 — docs/chore: repo hygiene と Phase 5 archive 入口の明確化（挙動ゼロ変更）
 
-**目的**: Next.js + FastAPI 移行後のリポジトリ整理を、巨大PRにせず段階的に進めるため、PR分割・禁止事項・検証ゲートを先に固定する。
+**目的**: Next.js + FastAPI 移行後のリポジトリ整理を、巨大PRにせず段階的に進めるため、ルート構成・Phase 5 条件・ドキュメント正本入口・検証ゲートを明確化する。
 
 **新規**:
-- **`docs/reports/REPO_HYGIENE_PHASE5_PLAN_20260611.md`**: ルート整理、Streamlit archive 準備、CI / 品質ゲート整備、ドキュメント正本圧縮の進め方を3PR構成で明文化。PR1は計画のみ、PR2はルート整理、PR3はCI追加とし、前PRがマージされるまで次PRを作らない方針を記載。
+- **`docs/context/REPO_STRUCTURE.md`**: ルート直下の active / legacy-active / legacy / generated / local-only 分類、`archive/` と `docs/archive/` の違い、今後の整理ルールを明文化。
+- **`docs/context/PHASE5_STREAMLIT_ARCHIVE.md`**: Streamlit 旧 UI を即削除せず、全画面受け入れ完了後に archive へ移すための前提条件・移動候補・禁止事項を明文化。
+
+**更新**:
+- **`README.md`**: Next.js が現行 UI、FastAPI が API、Streamlit が旧 UI であること、各起動バッチの役割、Phase 5 は archive 条件付きであることを整理。
+- **`frontend/README.md`**: create-next-app 初期説明を ClipBox 専用の Next.js 現行 UI 説明へ置換。
+- **`docs/context/OVERVIEW.md`**: `REPO_STRUCTURE.md` / `PHASE5_STREAMLIT_ARCHIVE.md` への導線を追加。
+- **`docs/context/AI_WORKFLOW.md`**: docs only / repo structure cleanup / frontend / backend/API / Phase 5 archive / CI/test workflow の読む順を追加。
+- **`docs/context/TESTING.md`**: repo整理・docs-only・CI変更・Python構文・frontend build の確認コマンドを明記。
+- **`docs/context/ACCEPTANCE_CRITERIA.md`**: Phase 5 判定で本書の全画面シナリオ完了を前提にする位置づけを明記。
 
 **変更なし**:
 - UI挙動、API仕様、DBスキーマ、既存機能、Streamlit 実装には触れない。
 
-> 検証: docsのみ。`git diff --check` を実行。
+> 検証: docs/chore のみ。`git diff --check` / `python -m py_compile streamlit_app.py core/*.py api/*.py` / `cd frontend && npm run build` / `python -m pytest` を実行。
 
 ---
 

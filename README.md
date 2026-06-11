@@ -10,6 +10,8 @@
 | FastAPI | `localhost:8000` | バックエンド API |
 | Streamlit | `localhost:8501` | 旧 UI（移行完了まで並走） |
 
+現在の主導線は **Next.js + FastAPI** です。Streamlit は旧 UI として残し、移行完了まで比較・退避用に並走します。Phase 5 は Streamlit の即削除ではなく、`docs/context/ACCEPTANCE_CRITERIA.md` の全画面手動受け入れ完了後に archive へ移す段階です。
+
 ## 起動方法
 
 ### 一括起動（推奨）
@@ -19,27 +21,20 @@ run_dev.bat
 ```
 
 FastAPI（8000）と Next.js dev サーバー（3000）を同時起動します。  
+起動時に DB バックアップとマイグレーション確認を行い、ヘルスチェック完了後に Web UI を開きます。
 **Streamlit は別途** 以下のコマンドで起動してください（移行期間中の並走用）。
 
 ---
 
 ### 個別起動
 
-#### Streamlit（旧 UI）
-
-```bash
-streamlit run streamlit_app.py
-```
-
-`http://localhost:8501` で開きます。
-
 #### FastAPI（バックエンド API）
 
-```bash
-uvicorn api_app:app --host 127.0.0.1 --port 8000 --reload
+```bat
+run_api.bat
 ```
 
-`http://localhost:8000/docs` で OpenAPI UI を確認できます。
+`http://localhost:8000/docs` で OpenAPI UI を確認できます。内部的には `api_app.py` を起動します。
 
 #### Next.js（現行 UI）
 
@@ -48,7 +43,7 @@ cd frontend
 npm run dev
 ```
 
-`http://localhost:3000` で開きます。
+`http://localhost:3000` で開きます。FastAPI（`localhost:8000`）が起動している前提です。
 
 本番ビルドで起動する場合:
 
@@ -57,6 +52,20 @@ cd frontend
 npm run build
 npm run start
 ```
+
+#### Streamlit（旧 UI）
+
+```bat
+run_clipbox.bat
+```
+
+または:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+`http://localhost:8501` で開きます。移行完了までの旧 UI であり、Next.js 側の write 検証時は停止してください。
 
 ## 前提環境
 
@@ -101,3 +110,12 @@ npm install
 | Phase 5: Streamlit archive | 🔲 全画面の手動受け入れ完了後 |
 
 > 移行作業の計画・対応表（歴史資料）は `docs/archive/MIGRATION_PLAN.md` / `docs/archive/MIGRATION_MAP.md`。
+
+## リポジトリ構成と整理方針
+
+- 現行仕様・作業手順の入口: `docs/context/OVERVIEW.md` / `docs/context/AI_WORKFLOW.md`
+- ルート構成の説明: `docs/context/REPO_STRUCTURE.md`
+- Phase 5 の Streamlit archive 条件: `docs/context/PHASE5_STREAMLIT_ARCHIVE.md`
+- フロントエンド固有の起動・技術情報: `frontend/README.md`
+
+実データ、個人設定、DBファイル、動画ファイルはコミット対象外です。`data/` 配下を扱う変更では、秘匿情報や実データが混入していないことを必ず確認してください。
