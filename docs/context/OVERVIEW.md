@@ -44,7 +44,7 @@
 ```
 
 - **Core 層は UI に依存しない**（`import streamlit` 禁止）。Next.js/FastAPI と Streamlit が同じ `core/` を共用する。
-- **書き込みは一方のサーバーのみ**（同時書き込みは SQLite `SQLITE_BUSY`。`busy_timeout`/WAL 未設定）。
+- **書き込みは一方のサーバーのみ**（WAL 未設定。同時書き込みは `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る）。
 
 技術スタック: Next.js 16 / React 19 / TypeScript / Zustand / TanStack Query / Recharts（フロント）、FastAPI / Python 3.11+（API）、SQLite（DB）。Core の分析は Pandas。
 

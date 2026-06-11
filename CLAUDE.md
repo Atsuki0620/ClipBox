@@ -23,7 +23,7 @@
 2. **DB接続は `get_db_connection()` 経由のみ** — `sqlite3.connect()` 直接呼び出し禁止
 3. **N+1クエリ禁止** — ループ内で DB 呼び出しをしない
 4. **論理削除を尊重** — クエリに `is_deleted = 0` を付ける
-5. **書き込みは一方のサーバーのみ** — Next.js(FastAPI) と Streamlit の同時書き込みは SQLite `SQLITE_BUSY`（`busy_timeout`/WAL 未設定）。Next.js の write 検証時は Streamlit を停止し DB バックアップを取る。
+5. **書き込みは一方のサーバーのみ** — Next.js(FastAPI) と Streamlit の同時書き込みは、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る。Next.js の write 検証時は Streamlit を停止し DB バックアップを取る。
 6. **状態の永続先を移動しない** — あとで見る/レベル/いいね=DB、AVP候補/再生対象/再生中ハイライト=localStorage（`SPEC_NEXTJS.md` §0）。
 
 ## プレフィックス規則

@@ -81,7 +81,7 @@ npm install
 ## 注意事項（移行期間中）
 
 - **書き込み操作（再生・判定・スキャン）は一方のサーバーのみで実行する**こと。  
-  Streamlit と Next.js（FastAPI）の両方から同時に書き込むと SQLite が `SQLITE_BUSY` になります。
+  Streamlit と Next.js（FastAPI）の両方から同時に書き込むと、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`（`SQLITE_BUSY` 相当）になり得ます。
 - Next.js の write 検証を行う際は **Streamlit を停止し、DB バックアップを取ってから** 実施してください。
 - 「再生」ボタンはサーバー機（FastAPI が動いているPC）上でプレイヤーを起動します。リモートブラウザからは操作できません。
 

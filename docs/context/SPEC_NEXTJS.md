@@ -215,7 +215,7 @@ archived（DB列/テーブルは残るが機能は停止。生きていると誤
 - UI は Streamlit（`localhost:8501`）→ **Next.js（`localhost:3000`）+ FastAPI（`localhost:8000`）**。`core/` は両者で共用。
 - **AVP候補/再生対象/再生中ハイライトは Next.js で新設**された localStorage 状態（Streamlit には無い概念）。
 - **あとで見る（watch_later）**・**総合ランキング（composite）**・**判定日時ソート**も移行期（PR0〜PR8）で追加。
-- 書き込みは**どちらか一方のサーバーのみ**で行う（同時書き込みは SQLite `SQLITE_BUSY`。`busy_timeout`/WAL は未設定）。Next.js の write 検証時は Streamlit を停止し DB バックアップを取ること（README 注意事項）。
+- 書き込みは**どちらか一方のサーバーのみ**で行う（WAL は未設定。busy_timeout は明示設定していないが `sqlite3.connect()` の timeout 既定 5 秒が効くため、同時書き込みは最大約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る。「即座に失敗」ではない）。Next.js の write 検証時は Streamlit を停止し DB バックアップを取ること（README 注意事項）。
 
 ---
 

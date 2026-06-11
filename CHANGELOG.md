@@ -4,6 +4,26 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-11 — docs: SQLite ロック待ち説明の実態合わせ（挙動ゼロ変更）
+
+**目的**: PR #33 で追記した「`busy_timeout`/WAL は意図的に未設定」「`SQLITE_BUSY` で即座に失敗」という説明が実挙動と矛盾していたため、文面のみを実態へ合わせる。コード挙動・`sqlite3.connect` の引数は変更しない。
+
+**背景（実態）**: `core/database.py` は `sqlite3.connect(DATABASE_PATH)` で接続し `timeout` を指定していない。Python `sqlite3` の `timeout` 既定は **5.0 秒**で、これが busy timeout（5000ms）として効く。したがって:
+- WAL は未設定（既定のロールバックジャーナル）… 記述は正しい。
+- busy_timeout は「未設定」ではなく **既定5秒が効く** … 誤記を訂正。
+- ロック競合時は「即座に失敗」ではなく **最大約5秒待機**し、解放されなければ `database is locked`（`SQLITE_BUSY` 相当）で失敗し得る。
+- 同時書き込みは引き続き**運用上禁止**（書き込みは一方のサーバーのみ）。
+
+**更新（docs/コメントのみ・挙動ゼロ変更）**:
+- **`core/database.py`**: `get_db_connection()` のコメントを実態へ訂正（WAL 未設定／既定5秒の busy timeout／即時失敗にしたい場合の `timeout=0` は別PR扱い／同時書き込み禁止）。
+- **`AGENTS.md` / `CLAUDE.md` / `docs/context/OVERVIEW.md` / `docs/context/SPEC_NEXTJS.md`（§11） / `README.md`**: 「`busy_timeout`/WAL 未設定」「`SQLITE_BUSY` になる」を「WAL 未設定。約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る」へ統一。
+- **`docs/reports/REFACTOR_DIAGNOSIS_20260611.md`**: PR #33 由来の同記述を訂正。
+
+> 対象外（歴史資料につき変更しない）: `archive/*`、`docs/archive/MIGRATION_PLAN.md`、`docs/decisions/003-sqlite-local.md`（busy_timeout 誤記なし）。
+> 検証: 変更はコメント/docs のみ（Python 実コードは無変更）。`git diff --check` / `python -m py_compile streamlit_app.py core/*.py api/*.py` を実行。
+
+---
+
 ## 2026-06-11 — docs: リファクタリング診断 + 構造整理ガードレールの追記（挙動ゼロ変更）
 
 **目的**: Next.js 版の安定利用に向け、「今すぐ大きなリファクタをすべきか」を診断し、**コードは動かさず** AI 作業精度に効くドキュメント/コメントだけを追記する。
@@ -18,7 +38,7 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 - **`docs/context/IMPLEMENTATION_GUIDE.md`**: 冒頭に「UI 記述に Streamlit 期前提が残る／現行主 UI は Next.js・`SPEC_NEXTJS.md` が正本」注記（主 UI 誤認の防止）。
 - **`frontend/src/components/VideoCard.tsx`**: 冒頭コメントに `displayContext` 3値の意味と SPEC 出典、永続境界の注意を追記。
 - **`frontend/src/lib/store.ts`**: 冒頭コメントに3ストアの永続境界（メモリ / `clipbox-avp` / `clipbox-playback`）と SPEC §0 参照を追記。
-- **`core/database.py`**: `busy_timeout`/WAL を意図的に未設定としている理由（Streamlit 並走の同時書き込み回避）をコメントで明記。
+- **`core/database.py`**: WAL は未設定であること、busy_timeout は `sqlite3.connect()` の timeout 既定（5秒）が効くこと、同時書き込みは運用上禁止であることをコメントで明記。
 
 **削除**:
 - ルート `pr_body.md`（一時生成物の置き忘れ）。
