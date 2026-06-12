@@ -1,0 +1,4 @@
+#!/bin/sh
+# 動画名・個人データの GitHub 漏洩防止チェック (layer 2)
+# setup: scripts/setup_guardrails.bat を実行して core.hooksPath を設定すること
+python scripts/check_notebook_outputs.py --staged

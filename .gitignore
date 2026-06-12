@@ -241,6 +241,18 @@ frontend/out/
 frontend/.env*
 frontend/next-env.d.ts
 
+# 分析エクスポートファイル（動画名が含まれる可能性があるため commit 禁止）
+notebooks/**/*.csv
+notebooks/**/*.xlsx
+notebooks/**/*.tsv
+notebooks/**/*.parquet
+docs/analysis/**/*.csv
+docs/analysis/**/*.xlsx
+docs/analysis/**/*.tsv
+docs/analysis/**/*.parquet
+notebooks/outputs/
+docs/analysis/outputs/
+
 # Temporary/untracked local files
 _ul
 demo.html
