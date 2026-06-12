@@ -2,10 +2,10 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getKpi, getUnratedFate, getUnratedRandom, listVideos } from "@/lib/api";
-import { useLibraryStore } from "@/lib/store";
+import { getConfig, getKpi, getUnratedFate, getUnratedRandom, getVideosByIds, listVideos, updateConfig } from "@/lib/api";
+import { useFatePickStore, useLibraryStore } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
 import type { VideoListParams } from "@/lib/types";
 import { FilterPanel } from "@/components/FilterPanel";
@@ -15,13 +15,22 @@ import { ErrorBox, VideoSkeleton } from "@/components/VideoState";
 import { LibraryWorkspace } from "@/components/LibraryWorkspace";
 import { Pagination } from "@/components/Pagination";
 import { VideoGrid } from "@/components/VideoGrid";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 
 const RANDOM_COUNTS = [5, 10, 15, 20];
 
 export default function Tier1Page() {
+  const queryClient = useQueryClient();
   const kpiQ = useQuery({ queryKey: ["kpi"], queryFn: getKpi });
+  const configQ = useQuery({ queryKey: ["config"], queryFn: getConfig });
   const store = useLibraryStore();
+  const tier1Pick = useFatePickStore((state) => state.tier1);
+  const setTier1Pick = useFatePickStore((state) => state.setTier1Pick);
+  const clearTier1Pick = useFatePickStore((state) => state.clearTier1Pick);
+  const recentlyUnwatchedPriority =
+    configQ.data?.fate_tier1_recently_unwatched_priority ?? false;
 
   const params: VideoListParams = useMemo(() => {
     // judgmentStatus を levels に写像。
@@ -67,9 +76,32 @@ export default function Tier1Page() {
 
   const [fateToken, setFateToken] = useState(0);
   const fateQ = useQuery({
-    queryKey: ["unrated-fate", fateToken],
-    queryFn: getUnratedFate,
+    queryKey: ["unrated-fate", recentlyUnwatchedPriority, fateToken],
+    queryFn: () => getUnratedFate(recentlyUnwatchedPriority),
     enabled: fateToken > 0,
+  });
+  const restoredFateQ = useQuery({
+    queryKey: ["unrated-fate-restored", tier1Pick?.video_id],
+    queryFn: async () => {
+      const pick = tier1Pick;
+      const id = pick?.video_id;
+      if (pick == null || id == null || pick.version !== 1) return null;
+      const response = await getVideosByIds([id]);
+      const video = response.items[0] ?? null;
+      if (
+        !video ||
+        video.id !== id ||
+        video.current_favorite_level !== -1 ||
+        video.needs_selection ||
+        video.is_selection_completed ||
+        !video.is_available ||
+        video.is_deleted
+      ) {
+        return null;
+      }
+      return video;
+    },
+    enabled: tier1Pick != null && fateToken === 0,
   });
 
   // 運命の1本は再抽選しないので invalidateKeys は空。再生中ハイライトは usePlayVideo が配線する。
@@ -79,9 +111,41 @@ export default function Tier1Page() {
     const id = fateQ.data?.id as number | undefined;
     if (id != null && id !== prevFateIdRef.current) {
       prevFateIdRef.current = id;
+      setTier1Pick(id);
       playFate(id);
+    } else if (fateToken > 0 && fateQ.data === null) {
+      clearTier1Pick();
     }
-  }, [fateQ.data, playFate]);
+  }, [clearTier1Pick, fateQ.data, fateToken, playFate, setTier1Pick]);
+
+  useEffect(() => {
+    if (restoredFateQ.isSuccess && tier1Pick != null && restoredFateQ.data == null) {
+      clearTier1Pick();
+    }
+  }, [clearTier1Pick, restoredFateQ.data, restoredFateQ.isSuccess, tier1Pick]);
+
+  const priorityMutation = useMutation({
+    mutationFn: (checked: boolean) =>
+      updateConfig({
+        library_roots: configQ.data?.library_roots ?? [],
+        default_player: configQ.data?.default_player ?? "vlc",
+        avp_exe_path: configQ.data?.avp_exe_path ?? null,
+        db_path: configQ.data?.db_path ?? null,
+        selection_folder: configQ.data?.selection_folder ?? null,
+        fate_tier1_recently_unwatched_priority: checked,
+        fate_tier2_recently_unwatched_priority:
+          configQ.data?.fate_tier2_recently_unwatched_priority ?? false,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
+  });
+
+  const fateVideo = fateQ.data ?? restoredFateQ.data ?? null;
+  const hasFateDrawn = fateToken > 0 || tier1Pick != null;
+  const clearFatePick = () => {
+    clearTier1Pick();
+    prevFateIdRef.current = null;
+    setFateToken(0);
+  };
 
   return (
     <LibraryWorkspace
@@ -137,17 +201,34 @@ export default function Tier1Page() {
       fate={
         <FatePanel
           drawLabel="運命の1本を引く"
-          hasDrawn={fateToken > 0}
+          hasDrawn={hasFateDrawn}
           onDraw={() => setFateToken((token) => token + 1)}
-          isLoading={fateQ.isFetching}
+          isLoading={fateQ.isFetching || restoredFateQ.isFetching}
           isError={fateQ.isError}
           error={fateQ.error}
           loadingCount={1}
           emptyMessageBeforeDraw="ボタンを押すと運命の1本を引きます。"
           emptyMessageWhenNoTarget="対象の動画がありません。"
+          actions={
+            <>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={recentlyUnwatchedPriority}
+                  disabled={configQ.isLoading || configQ.isError || priorityMutation.isPending}
+                  onCheckedChange={(checked) => priorityMutation.mutate(Boolean(checked))}
+                />
+                <span>最近見てない優先</span>
+              </label>
+              {tier1Pick && (
+                <Button size="sm" variant="outline" onClick={clearFatePick}>
+                  クリア
+                </Button>
+              )}
+            </>
+          }
         >
-          {fateQ.data ? (
-            <VideoGrid videos={[fateQ.data]} invalidateKeys={[]} gridClassName="grid grid-cols-1 gap-3" />
+          {fateVideo ? (
+            <VideoGrid videos={[fateVideo]} invalidateKeys={[]} gridClassName="grid grid-cols-1 gap-3" />
           ) : null}
         </FatePanel>
       }

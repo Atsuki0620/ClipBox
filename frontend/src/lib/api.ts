@@ -193,9 +193,17 @@ export function getUnratedRandom(n: number): Promise<Video[]> {
   return request<Video[]>(`/videos/unrated/random${toQuery({ n })}`);
 }
 
-// Tier1 運命の1本: 純ランダム1本。該当なしは 204 → null。
-export async function getUnratedFate(): Promise<Video | null> {
-  return (await request<Video | undefined>(`/videos/unrated/fate`)) ?? null;
+// Tier1 運命の1本: 1本抽選。該当なしは 204 → null。
+export async function getUnratedFate(
+  recentlyUnwatchedPriority = false,
+): Promise<Video | null> {
+  return (
+    (await request<Video | undefined>(
+      `/videos/unrated/fate${toQuery({
+        recently_unwatched_priority: recentlyUnwatchedPriority,
+      })}`,
+    )) ?? null
+  );
 }
 
 export function listSelectionVideos(
@@ -204,10 +212,16 @@ export function listSelectionVideos(
   return request<VideosResponse>(`/videos/selection${toQuery({ ...params })}`);
 }
 
-export async function getSelectionFate(folder: string): Promise<Video | null> {
+export async function getSelectionFate(
+  folder: string,
+  recentlyUnwatchedPriority = false,
+): Promise<Video | null> {
   return (
     (await request<Video | undefined>(
-      `/videos/selection/fate${toQuery({ folder })}`,
+      `/videos/selection/fate${toQuery({
+        folder,
+        recently_unwatched_priority: recentlyUnwatchedPriority,
+      })}`,
     )) ?? null
   );
 }

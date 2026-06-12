@@ -21,11 +21,6 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Bookmark, Heart, Play, X } from "lucide-react";
 
 // 共通の動画カード。`displayContext` で Tier1/Tier2/AVP の表示差を切り替える多態コンポーネント。
@@ -150,22 +145,15 @@ export function VideoCard({
         )}
 
         <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={mutateDisabled}
-                  onClick={() => playM.mutate(id)}
-                />
-              }
-            >
-              <Play className="size-4" />
-              再生
-            </TooltipTrigger>
-            <TooltipContent>サーバー機でプレイヤーが起動します</TooltipContent>
-          </Tooltip>
+          <Button
+            size="sm"
+            variant="default"
+            disabled={mutateDisabled}
+            onClick={() => playM.mutate(id)}
+          >
+            <Play className="size-4" />
+            再生
+          </Button>
 
           <Select
             value={String(displayLevel)}

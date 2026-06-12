@@ -10,6 +10,8 @@ def test_get_config_returns_defaults(client, tmp_path):
     cfg = client.get("/api/config").json()
     assert isinstance(cfg["library_roots"], list)
     assert cfg["default_player"] == "vlc"
+    assert cfg["fate_tier1_recently_unwatched_priority"] is False
+    assert cfg["fate_tier2_recently_unwatched_priority"] is False
 
 
 def test_put_then_get_config_roundtrips(client):
@@ -20,6 +22,8 @@ def test_put_then_get_config_roundtrips(client):
         "avp_exe_path": "C:/avp.exe",
         "db_path": "C:/db.sqlite",
         "selection_folder": "C:/selection",
+        "fate_tier1_recently_unwatched_priority": True,
+        "fate_tier2_recently_unwatched_priority": False,
     }
     assert client.put("/api/config", json=payload).status_code == 200
 
@@ -27,6 +31,8 @@ def test_put_then_get_config_roundtrips(client):
     assert cfg["default_player"] == "mpv"
     assert cfg["selection_folder"] == "C:/selection"
     assert cfg["library_roots"] == ["C:/videos"]
+    assert cfg["fate_tier1_recently_unwatched_priority"] is True
+    assert cfg["fate_tier2_recently_unwatched_priority"] is False
 
 
 def test_put_config_preserves_unmodeled_keys(client, tmp_path):

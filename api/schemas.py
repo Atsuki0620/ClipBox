@@ -244,6 +244,8 @@ class ConfigModel(BaseModel):
     avp_exe_path: Optional[str] = None
     db_path: Optional[str] = None
     selection_folder: Optional[str] = None
+    fate_tier1_recently_unwatched_priority: Optional[bool] = None
+    fate_tier2_recently_unwatched_priority: Optional[bool] = None
 
 
 # --- 分析 --------------------------------------------------------------------

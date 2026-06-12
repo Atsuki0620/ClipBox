@@ -7,7 +7,7 @@
 
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { JudgmentStatus, SortField, SortOrder } from "./types";
 
 // 利用可否の3択。API パラメータ（availability / show_unavailable）への写像は page.tsx 側。
@@ -46,6 +46,25 @@ interface AvpStore {
 }
 
 export const MAX_AVP_PLAY_TARGET = 4;
+
+export type FateTier1Pick = {
+  version: 1;
+  video_id: number;
+  picked_at: string;
+};
+
+export type FateTier2Pick = FateTier1Pick & {
+  selection_folder: string;
+};
+
+interface FatePickStore {
+  tier1: FateTier1Pick | null;
+  tier2: FateTier2Pick | null;
+  setTier1Pick: (videoId: number) => void;
+  setTier2Pick: (videoId: number, selectionFolder: string) => void;
+  clearTier1Pick: () => void;
+  clearTier2Pick: () => void;
+}
 
 // 既定は Streamlit 現行に寄せる（セレクション除外 ON・未判定含む全レベル・利用可能のみ）。
 const DEFAULTS: LibraryFilters = {
@@ -122,6 +141,39 @@ export const useAvpStore = create<AvpStore>()(
         }),
     }),
     { name: "clipbox-avp" },
+  ),
+);
+
+export const useFatePickStore = create<FatePickStore>()(
+  persist(
+    (set) => ({
+      tier1: null,
+      tier2: null,
+      setTier1Pick: (videoId) =>
+        set({
+          tier1: {
+            version: 1,
+            video_id: videoId,
+            picked_at: new Date().toISOString(),
+          },
+        }),
+      setTier2Pick: (videoId, selectionFolder) =>
+        set({
+          tier2: {
+            version: 1,
+            video_id: videoId,
+            picked_at: new Date().toISOString(),
+            selection_folder: selectionFolder,
+          },
+        }),
+      clearTier1Pick: () => set({ tier1: null }),
+      clearTier2Pick: () => set({ tier2: null }),
+    }),
+    {
+      name: "clipbox-fate-picks",
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({ tier1: state.tier1, tier2: state.tier2 }),
+    },
   ),
 );
 

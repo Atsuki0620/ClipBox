@@ -82,6 +82,7 @@ export interface FatePanelProps {
   loadingCount?: number;
   emptyMessageBeforeDraw: ReactNode;
   emptyMessageWhenNoTarget: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
 }
 
@@ -95,6 +96,7 @@ export function FatePanel({
   loadingCount = 1,
   emptyMessageBeforeDraw,
   emptyMessageWhenNoTarget,
+  actions,
   children,
 }: FatePanelProps) {
   const isEmpty = !hasDrawn || children == null;
@@ -102,10 +104,13 @@ export function FatePanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <Button size="lg" className="w-fit px-8 py-5 text-base" onClick={onDraw} disabled={isLoading}>
-        <Dices className="size-5" />
-        {drawLabel}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="lg" className="w-fit px-8 py-5 text-base" onClick={onDraw} disabled={isLoading}>
+          <Dices className="size-5" />
+          {drawLabel}
+        </Button>
+        {actions}
+      </div>
 
       {isLoading ? (
         <VideoSkeleton count={loadingCount} />
