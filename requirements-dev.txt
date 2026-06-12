@@ -1,0 +1,3 @@
+# 開発ツール（本番環境には不要）
+# セットアップ: scripts/setup_guardrails.bat を参照
+nbstripout>=0.7
