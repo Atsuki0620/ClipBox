@@ -65,7 +65,6 @@ export default function SettingsPage() {
   const [cardShowStorage, setCardShowStorage] = useState<boolean | null>(null);
   const [cardShowFileSize, setCardShowFileSize] = useState<boolean | null>(null);
   const [cardShowLastViewed, setCardShowLastViewed] = useState<boolean | null>(null);
-  const [cardShowPendingBadge, setCardShowPendingBadge] = useState<boolean | null>(null);
   const [cardShowScore, setCardShowScore] = useState<boolean | null>(null);
   const [cardShowFileModified, setCardShowFileModified] = useState<boolean | null>(null);
   const [cardTitleMaxLength, setCardTitleMaxLength] = useState<number | null>(null);
@@ -87,7 +86,6 @@ export default function SettingsPage() {
   const cardShowStorageValue = cardShowStorage ?? configQ.data?.card_show_storage ?? true;
   const cardShowFileSizeValue = cardShowFileSize ?? configQ.data?.card_show_file_size ?? false;
   const cardShowLastViewedValue = cardShowLastViewed ?? configQ.data?.card_show_last_viewed ?? false;
-  const cardShowPendingBadgeValue = cardShowPendingBadge ?? configQ.data?.card_show_pending_badge ?? true;
   const cardShowScoreValue = cardShowScore ?? configQ.data?.card_show_score ?? false;
   const cardShowFileModifiedValue = cardShowFileModified ?? configQ.data?.card_show_file_modified ?? false;
   const cardTitleMaxLengthValue = cardTitleMaxLength ?? configQ.data?.card_title_max_length ?? 0;
@@ -106,7 +104,6 @@ export default function SettingsPage() {
       card_show_storage: cardShowStorageValue,
       card_show_file_size: cardShowFileSizeValue,
       card_show_last_viewed: cardShowLastViewedValue,
-      card_show_pending_badge: cardShowPendingBadgeValue,
       card_show_score: cardShowScoreValue,
       card_show_file_modified: cardShowFileModifiedValue,
       card_title_max_length: cardTitleMaxLengthValue,
@@ -116,7 +113,6 @@ export default function SettingsPage() {
       cardShowStorageValue,
       cardShowFileSizeValue,
       cardShowLastViewedValue,
-      cardShowPendingBadgeValue,
       cardShowScoreValue,
       cardShowFileModifiedValue,
       cardTitleMaxLengthValue,
@@ -154,7 +150,6 @@ export default function SettingsPage() {
     setCardShowStorage(null);
     setCardShowFileSize(null);
     setCardShowLastViewed(null);
-    setCardShowPendingBadge(null);
     setCardShowScore(null);
     setCardShowFileModified(null);
     setCardTitleMaxLength(null);
@@ -281,7 +276,6 @@ export default function SettingsPage() {
               { label: "ストレージを表示",      value: cardShowStorageValue,      setter: setCardShowStorage },
               { label: "ファイルサイズを表示",  value: cardShowFileSizeValue,     setter: setCardShowFileSize },
               { label: "最終再生日を表示",      value: cardShowLastViewedValue,   setter: setCardShowLastViewed },
-              { label: "未判定 / 未選別を表示", value: cardShowPendingBadgeValue, setter: setCardShowPendingBadge },
               { label: "スコアを表示",          value: cardShowScoreValue,        setter: setCardShowScore },
               { label: "ファイル更新日を表示",  value: cardShowFileModifiedValue, setter: setCardShowFileModified },
             ] as { label: string; value: boolean; setter: (v: boolean) => void }[]

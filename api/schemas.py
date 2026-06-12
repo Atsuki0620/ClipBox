@@ -249,7 +249,6 @@ class ConfigModel(BaseModel):
     card_show_storage: Optional[bool] = None
     card_show_file_size: Optional[bool] = None
     card_show_last_viewed: Optional[bool] = None
-    card_show_pending_badge: Optional[bool] = None
     card_show_score: Optional[bool] = None
     card_show_file_modified: Optional[bool] = None
     card_title_max_length: Optional[int] = None

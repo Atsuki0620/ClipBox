@@ -67,7 +67,6 @@ export interface Config {
   card_show_storage?: boolean;
   card_show_file_size?: boolean;
   card_show_last_viewed?: boolean;
-  card_show_pending_badge?: boolean;
   card_show_score?: boolean;
   card_show_file_modified?: boolean;
   card_title_max_length?: number;

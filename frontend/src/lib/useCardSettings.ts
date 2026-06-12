@@ -7,7 +7,6 @@ export interface CardSettings {
   card_show_storage: boolean;
   card_show_file_size: boolean;
   card_show_last_viewed: boolean;
-  card_show_pending_badge: boolean;
   card_show_score: boolean;
   card_show_file_modified: boolean;
   card_title_max_length: number;
@@ -17,7 +16,6 @@ const DEFAULTS: CardSettings = {
   card_show_storage: true,
   card_show_file_size: false,
   card_show_last_viewed: false,
-  card_show_pending_badge: true,
   card_show_score: false,
   card_show_file_modified: false,
   card_title_max_length: 0,
@@ -30,7 +28,6 @@ export function useCardSettings(): CardSettings {
     card_show_storage: data.card_show_storage ?? DEFAULTS.card_show_storage,
     card_show_file_size: data.card_show_file_size ?? DEFAULTS.card_show_file_size,
     card_show_last_viewed: data.card_show_last_viewed ?? DEFAULTS.card_show_last_viewed,
-    card_show_pending_badge: data.card_show_pending_badge ?? DEFAULTS.card_show_pending_badge,
     card_show_score: data.card_show_score ?? DEFAULTS.card_show_score,
     card_show_file_modified: data.card_show_file_modified ?? DEFAULTS.card_show_file_modified,
     card_title_max_length: data.card_title_max_length ?? DEFAULTS.card_title_max_length,

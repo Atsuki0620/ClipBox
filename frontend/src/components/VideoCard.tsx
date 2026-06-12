@@ -171,7 +171,7 @@ export function VideoCard({
           {settings.card_show_file_modified && video.last_file_modified && (
             <Badge variant="outline">{formatDate(video.last_file_modified)}</Badge>
           )}
-          {displayContext === "tier2" && video.is_selection_completed && settings.card_show_pending_badge && (
+          {displayContext === "tier2" && video.is_selection_completed && (
             <Badge variant="outline">選別済み</Badge>
           )}
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}

@@ -23,7 +23,6 @@ def _default_config() -> Dict[str, Any]:
         "card_show_storage": True,
         "card_show_file_size": False,
         "card_show_last_viewed": False,
-        "card_show_pending_badge": True,
         "card_show_score": False,
         "card_show_file_modified": False,
         "card_title_max_length": 0,
