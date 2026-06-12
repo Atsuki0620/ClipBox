@@ -65,9 +65,7 @@ export default function SettingsPage() {
   const [cardShowStorage, setCardShowStorage] = useState<boolean | null>(null);
   const [cardShowFileSize, setCardShowFileSize] = useState<boolean | null>(null);
   const [cardShowLastViewed, setCardShowLastViewed] = useState<boolean | null>(null);
-  const [cardShowScore, setCardShowScore] = useState<boolean | null>(null);
   const [cardShowFileModified, setCardShowFileModified] = useState<boolean | null>(null);
-  const [cardTitleMaxLength, setCardTitleMaxLength] = useState<number | null>(null);
   const [result, setResult] = useState<ResultMessage | null>(null);
   const [lastBackup, setLastBackup] = useState<BackupResponse | null>(null);
 
@@ -86,9 +84,7 @@ export default function SettingsPage() {
   const cardShowStorageValue = cardShowStorage ?? configQ.data?.card_show_storage ?? true;
   const cardShowFileSizeValue = cardShowFileSize ?? configQ.data?.card_show_file_size ?? false;
   const cardShowLastViewedValue = cardShowLastViewed ?? configQ.data?.card_show_last_viewed ?? false;
-  const cardShowScoreValue = cardShowScore ?? configQ.data?.card_show_score ?? false;
   const cardShowFileModifiedValue = cardShowFileModified ?? configQ.data?.card_show_file_modified ?? false;
-  const cardTitleMaxLengthValue = cardTitleMaxLength ?? configQ.data?.card_title_max_length ?? 0;
 
   const draftConfig = useMemo<Config>(
     () => ({
@@ -104,18 +100,16 @@ export default function SettingsPage() {
       card_show_storage: cardShowStorageValue,
       card_show_file_size: cardShowFileSizeValue,
       card_show_last_viewed: cardShowLastViewedValue,
-      card_show_score: cardShowScoreValue,
       card_show_file_modified: cardShowFileModifiedValue,
-      card_title_max_length: cardTitleMaxLengthValue,
+      card_title_max_length: configQ.data?.card_title_max_length ?? 0,
     }),
     [
       avpExePathValue,
       cardShowStorageValue,
       cardShowFileSizeValue,
       cardShowLastViewedValue,
-      cardShowScoreValue,
       cardShowFileModifiedValue,
-      cardTitleMaxLengthValue,
+      configQ.data?.card_title_max_length,
       configQ.data?.fate_tier1_recently_unwatched_priority,
       configQ.data?.fate_tier2_recently_unwatched_priority,
       dbPath,
@@ -150,9 +144,7 @@ export default function SettingsPage() {
     setCardShowStorage(null);
     setCardShowFileSize(null);
     setCardShowLastViewed(null);
-    setCardShowScore(null);
     setCardShowFileModified(null);
-    setCardTitleMaxLength(null);
   };
 
   const saveMutation = useMutation({
@@ -276,7 +268,6 @@ export default function SettingsPage() {
               { label: "ストレージを表示",      value: cardShowStorageValue,      setter: setCardShowStorage },
               { label: "ファイルサイズを表示",  value: cardShowFileSizeValue,     setter: setCardShowFileSize },
               { label: "最終再生日を表示",      value: cardShowLastViewedValue,   setter: setCardShowLastViewed },
-              { label: "スコアを表示",          value: cardShowScoreValue,        setter: setCardShowScore },
               { label: "ファイル更新日を表示",  value: cardShowFileModifiedValue, setter: setCardShowFileModified },
             ] as { label: string; value: boolean; setter: (v: boolean) => void }[]
           ).map(({ label, value, setter }) => (
@@ -285,17 +276,6 @@ export default function SettingsPage() {
               <span>{label}</span>
             </label>
           ))}
-          <label className="flex items-center justify-between gap-2 text-sm">
-            <span>タイトル最大文字数（0 = 制限なし）</span>
-            <Input
-              type="number"
-              min={0}
-              max={200}
-              className="w-24"
-              value={cardTitleMaxLengthValue}
-              onChange={(e) => setCardTitleMaxLength(Number(e.target.value))}
-            />
-          </label>
         </div>
       </section>
 

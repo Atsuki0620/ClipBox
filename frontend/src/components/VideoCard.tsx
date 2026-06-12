@@ -69,7 +69,6 @@ export function VideoCard({
   likeCount,
   viewCount,
   lastViewed,
-  score,
   invalidateKeys = [],
   displayContext = "tier1",
   avpPlayTarget,
@@ -79,7 +78,6 @@ export function VideoCard({
   likeCount: number;
   viewCount: number;
   lastViewed?: string | null;
-  score?: number;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
   displayContext?: "tier1" | "tier2" | "avp";
@@ -163,7 +161,7 @@ export function VideoCard({
 
         {/* バッジ行: 先頭にAVP候補チェックボックス、続いて各バッジ */}
         <div className="flex flex-wrap items-center gap-1">
-          {displayContext !== "tier2" && displayContext !== "avp" && (
+          {displayContext !== "avp" && (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -213,11 +211,6 @@ export function VideoCard({
           {settings.card_show_last_viewed && lastViewed && (
             <TBadge tip={`最終再生日: ${formatDate(lastViewed)}`} variant="outline">
               {formatDate(lastViewed)}
-            </TBadge>
-          )}
-          {settings.card_show_score && score != null && (
-            <TBadge tip={`総合ランキングスコア: ${score}`} variant="outline">
-              Score {score}
             </TBadge>
           )}
           {settings.card_show_file_modified && video.last_file_modified && (

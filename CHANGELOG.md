@@ -4,6 +4,24 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — chore: card UX adjustments 2（Pull request #40 追加修正）
+
+**Tier2 AVP チェックボックス追加**:
+- Tier2 カードにも AVP 候補チェックボックスを表示するよう修正（条件を `displayContext !== "avp"` のみに緩和）。
+
+**スコアバッジ廃止**:
+- VideoCard から `score` prop とスコアバッジ表示ブロックを削除。
+- `useCardSettings` の `CardSettings` インターフェースと `DEFAULTS` から `card_show_score` を削除。
+- 設定画面の「動画カード表示」から「スコアを表示」トグルを削除（関連 state / computed も除去）。
+- ランキングページの `<VideoCard score={item.score} />` を削除。
+
+**設定 UI 整理**:
+- 設定画面の「タイトル最大文字数（0 = 制限なし）」入力欄を削除（バックエンド層・VideoCard ロジックは保持）。
+
+**変更ファイル**: `frontend/src/components/VideoCard.tsx`, `frontend/src/lib/useCardSettings.ts`, `frontend/src/app/settings/page.tsx`, `frontend/src/app/ranking/page.tsx`
+
+---
+
 ## 2026-06-13 — chore: card UX adjustments（Pull request #40 追加修正）
 
 **バッジ整理・tooltip・AVPチェックボックス移動**:
