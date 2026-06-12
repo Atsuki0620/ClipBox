@@ -21,10 +21,6 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 **変更ファイル**: `api/schemas.py`, `core/config_utils.py`, `frontend/src/lib/types.ts`, `frontend/src/lib/useCardSettings.ts`（新規）, `frontend/src/components/VideoCard.tsx`, `frontend/src/components/VideoGrid.tsx`, `frontend/src/app/settings/page.tsx`, `frontend/src/app/ranking/page.tsx`
 
-**GLOSSARY.md 競合の解消**:
-- 原因: feature ブランチ作業中に `main` へ「docs: add glossary」PR がマージされ、`docs/context/GLOSSARY.md` が詳細版（現行仕様・補足・設計方針の節を大量追加）に更新された。feature ブランチ側も同ファイルを参照していたため、`main` をマージした際に競合が発生。
-- 対応: feature ブランチ側のスリム版（定義と DB カラム名のみ）を採用し競合解消。詳細な「現行仕様」「設計方針」等の注釈は GLOSSARY.md ではなく `SPEC_NEXTJS.md` / `API_SPEC.md` 等の各正本ドキュメントに記載する方針のため、スリム版を維持する判断をした。
-
 ---
 
 ## 2026-06-12 — feat: improve fate pick state and playback UX
