@@ -6,7 +6,7 @@
 
 import { useMemo } from "react";
 import { useQuery, type QueryKey } from "@tanstack/react-query";
-import { getLikes, getViewCounts } from "@/lib/api";
+import { getLikes, getLastViewed, getViewCounts } from "@/lib/api";
 import type { Video } from "@/lib/types";
 import { VideoCard } from "@/components/VideoCard";
 
@@ -37,6 +37,10 @@ export function VideoGrid({
     queryKey: ["view-counts"],
     queryFn: getViewCounts,
   });
+  const lastViewedQ = useQuery({
+    queryKey: ["last-viewed"],
+    queryFn: getLastViewed,
+  });
 
   if (videos.length === 0) {
     return (
@@ -54,6 +58,7 @@ export function VideoGrid({
           video={v}
           likeCount={likesQ.data?.[v.id as number] ?? 0}
           viewCount={viewCountsQ.data?.[v.id as number] ?? 0}
+          lastViewed={lastViewedQ.data?.[v.id as number] ?? null}
           invalidateKeys={invalidateKeys}
           displayContext={displayContext}
         />

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DatabaseBackup,
@@ -61,6 +62,13 @@ export default function SettingsPage() {
   const [selectionFolder, setSelectionFolder] = useState<string | null>(null);
   const [defaultPlayer, setDefaultPlayer] = useState<string | null>(null);
   const [avpExePath, setAvpExePath] = useState<string | null>(null);
+  const [cardShowStorage, setCardShowStorage] = useState<boolean | null>(null);
+  const [cardShowFileSize, setCardShowFileSize] = useState<boolean | null>(null);
+  const [cardShowLastViewed, setCardShowLastViewed] = useState<boolean | null>(null);
+  const [cardShowPendingBadge, setCardShowPendingBadge] = useState<boolean | null>(null);
+  const [cardShowScore, setCardShowScore] = useState<boolean | null>(null);
+  const [cardShowFileModified, setCardShowFileModified] = useState<boolean | null>(null);
+  const [cardTitleMaxLength, setCardTitleMaxLength] = useState<number | null>(null);
   const [result, setResult] = useState<ResultMessage | null>(null);
   const [lastBackup, setLastBackup] = useState<BackupResponse | null>(null);
 
@@ -76,6 +84,14 @@ export default function SettingsPage() {
   const avpExePathValue = avpExePath ?? configQ.data?.avp_exe_path ?? "";
   const dbPath = configQ.data?.db_path ?? null;
 
+  const cardShowStorageValue = cardShowStorage ?? configQ.data?.card_show_storage ?? true;
+  const cardShowFileSizeValue = cardShowFileSize ?? configQ.data?.card_show_file_size ?? false;
+  const cardShowLastViewedValue = cardShowLastViewed ?? configQ.data?.card_show_last_viewed ?? false;
+  const cardShowPendingBadgeValue = cardShowPendingBadge ?? configQ.data?.card_show_pending_badge ?? true;
+  const cardShowScoreValue = cardShowScore ?? configQ.data?.card_show_score ?? false;
+  const cardShowFileModifiedValue = cardShowFileModified ?? configQ.data?.card_show_file_modified ?? false;
+  const cardTitleMaxLengthValue = cardTitleMaxLength ?? configQ.data?.card_title_max_length ?? 0;
+
   const draftConfig = useMemo<Config>(
     () => ({
       library_roots: parseLines(libraryRootsValue),
@@ -87,9 +103,23 @@ export default function SettingsPage() {
         configQ.data?.fate_tier1_recently_unwatched_priority ?? false,
       fate_tier2_recently_unwatched_priority:
         configQ.data?.fate_tier2_recently_unwatched_priority ?? false,
+      card_show_storage: cardShowStorageValue,
+      card_show_file_size: cardShowFileSizeValue,
+      card_show_last_viewed: cardShowLastViewedValue,
+      card_show_pending_badge: cardShowPendingBadgeValue,
+      card_show_score: cardShowScoreValue,
+      card_show_file_modified: cardShowFileModifiedValue,
+      card_title_max_length: cardTitleMaxLengthValue,
     }),
     [
       avpExePathValue,
+      cardShowStorageValue,
+      cardShowFileSizeValue,
+      cardShowLastViewedValue,
+      cardShowPendingBadgeValue,
+      cardShowScoreValue,
+      cardShowFileModifiedValue,
+      cardTitleMaxLengthValue,
       configQ.data?.fate_tier1_recently_unwatched_priority,
       configQ.data?.fate_tier2_recently_unwatched_priority,
       dbPath,
@@ -121,6 +151,13 @@ export default function SettingsPage() {
     setSelectionFolder(null);
     setDefaultPlayer(null);
     setAvpExePath(null);
+    setCardShowStorage(null);
+    setCardShowFileSize(null);
+    setCardShowLastViewed(null);
+    setCardShowPendingBadge(null);
+    setCardShowScore(null);
+    setCardShowFileModified(null);
+    setCardTitleMaxLength(null);
   };
 
   const saveMutation = useMutation({
@@ -231,6 +268,38 @@ export default function SettingsPage() {
               value={selectionFolderValue}
               onChange={(event) => setSelectionFolder(event.target.value)}
               spellCheck={false}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-md border p-4">
+        <h2 className="mb-3 text-sm font-semibold">動画カード表示</h2>
+        <div className="grid gap-3">
+          {(
+            [
+              { label: "ストレージを表示",      value: cardShowStorageValue,      setter: setCardShowStorage },
+              { label: "ファイルサイズを表示",  value: cardShowFileSizeValue,     setter: setCardShowFileSize },
+              { label: "最終再生日を表示",      value: cardShowLastViewedValue,   setter: setCardShowLastViewed },
+              { label: "未判定 / 未選別を表示", value: cardShowPendingBadgeValue, setter: setCardShowPendingBadge },
+              { label: "スコアを表示",          value: cardShowScoreValue,        setter: setCardShowScore },
+              { label: "ファイル更新日を表示",  value: cardShowFileModifiedValue, setter: setCardShowFileModified },
+            ] as { label: string; value: boolean; setter: (v: boolean) => void }[]
+          ).map(({ label, value, setter }) => (
+            <label key={label} className="flex cursor-pointer items-center gap-2 text-sm">
+              <Switch checked={value} onCheckedChange={setter} size="sm" />
+              <span>{label}</span>
+            </label>
+          ))}
+          <label className="flex items-center justify-between gap-2 text-sm">
+            <span>タイトル最大文字数（0 = 制限なし）</span>
+            <Input
+              type="number"
+              min={0}
+              max={200}
+              className="w-24"
+              value={cardTitleMaxLengthValue}
+              onChange={(e) => setCardTitleMaxLength(Number(e.target.value))}
             />
           </label>
         </div>

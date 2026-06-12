@@ -271,6 +271,7 @@ function RankingList({
               video={item.video}
               likeCount={likeCounts[id] ?? 0}
               viewCount={viewCounts[id] ?? 0}
+              score={item.score}
               invalidateKeys={[["ranking"]]}
             />
           </div>

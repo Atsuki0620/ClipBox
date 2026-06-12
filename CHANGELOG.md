@@ -4,6 +4,25 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — feat: align tier2 pending display and add card display settings
+
+**Tier2未選別表示の整合**:
+- `!###_` のような `!` プレフィックス付き動画（`needs_selection=true`）でレベルバッジと「未選別」バッジが二重表示されていた不具合を修正。
+- `isTier2Unselected = displayContext === "tier2" && video.needs_selection` を導入し、レベルに依らず Tier2 未選別はドロップダウンに「未選別」を表示するよう統一。
+- 重複していた「未選別」バッジを削除（ドロップダウンで既に示すため）。
+
+**動画カード表示設定**:
+- 設定画面に「動画カード表示」セクションを追加（ストレージ / ファイルサイズ / 最終再生日 / 未判定・未選別 / スコア / ファイル更新日 の ON/OFF スイッチ + タイトル最大文字数）。
+- `user_config.json` に `card_show_*` / `card_title_max_length` フィールドを追加。既存設定ファイルがない場合はデフォルト（現行表示に合わせた ON/OFF）を使用。
+- VideoCard にタイトルの tooltip（ホバーで実ファイル名を表示）と AVP チェックボックスの tooltip（「AVPで再生する候補に追加」）を追加。
+- `useCardSettings` フック新規作成（`["config"]` キャッシュ共有で複数カード間でリクエスト1回）。
+- VideoGrid に `lastViewed` クエリを追加。
+- ランキングページから `score` を VideoCard に渡すよう修正。
+
+**変更ファイル**: `api/schemas.py`, `core/config_utils.py`, `frontend/src/lib/types.ts`, `frontend/src/lib/useCardSettings.ts`（新規）, `frontend/src/components/VideoCard.tsx`, `frontend/src/components/VideoGrid.tsx`, `frontend/src/app/settings/page.tsx`, `frontend/src/app/ranking/page.tsx`
+
+---
+
 ## 2026-06-12 — feat: improve fate pick state and playback UX
 
 - 再生ボタンの「サーバー機でプレイヤーが起動します」tooltip を削除。
@@ -11,6 +30,20 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 - Fate タブに Tier1/Tier2 個別の「最近見てない優先」トグルを追加。値は `user_config.json` の hidden fields に保存し、設定画面には表示しない。
 - Fate API に `recently_unwatched_priority` を追加。OFF は純ランダム、ON は `weight = 1 + days / 90`（0..180日丸め、未再生は最大重み）で抽選。
 - 対象外: DB スキーマ、migration、AVP 上限、あとで見る自動解除条件、総合スコア式、設定画面の表示項目。
+
+---
+
+## 2026-06-12 — docs: add glossary for ClipBox operational concepts
+
+**目的**: ClipBox の運用概念・画面概念・状態概念を用語集に明文化し、Coding agent やレビュアーが現行仕様と予定仕様を取り違えないようにする。
+
+**更新**:
+- **`docs/context/GLOSSARY.md`**: Tier1 / Tier2、未判定 / 未選別、総合ランキング、発掘候補、運命の1本、最近見てない優先、あとで見る、あとで見る画面、あとで見る自動OFF、処理済み候補、確認・見直し、AVP、通常再生、AVP再生、動画カード表示設定、動画ファイル名、付けた場所、Claude Design による UI 方向性検討を追記・補足。
+- 既存実装で確認できる項目は「現行仕様」、今後の実装対象は「予定仕様」または「設計方針」、分析後に判断する項目は「検討中」として区別。
+
+**変更なし**:
+- アプリ本体コード、UI、API、DB スキーマ、テストコード、notebook は変更しない。
+- Pull request 作成や GitHub 操作は行わない。
 
 ---
 

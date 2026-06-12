@@ -10,6 +10,7 @@ import { likeVideo, setLevel, toggleWatchLater } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
 import { useAvpStore, useIsPlaying } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
+import { useCardSettings } from "@/lib/useCardSettings";
 import type { Video } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +22,32 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Bookmark, Heart, Play, X } from "lucide-react";
+
+function pathBasename(fullPath: string): string {
+  return fullPath.split(/[/\\]/).pop() ?? fullPath;
+}
+
+function formatDate(isoStr: string | null | undefined): string {
+  if (!isoStr) return "";
+  return isoStr.substring(0, 10).replace(/-/g, "/");
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "";
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
+}
 
 // 共通の動画カード。`displayContext` で Tier1/Tier2/AVP の表示差を切り替える多態コンポーネント。
 //   - "tier1": AVP候補チェックボックスを表示（SPEC_NEXTJS.md §2 / 下記 :130-142）
-//   - "tier2": 「未選別」「選別済み」バッジを表示（SPEC §3 / :87-89, :121-126）
+//   - "tier2": 「選別済み」バッジを表示（SPEC §3 / :87-89, :121-126）
 //   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6 / :200-223）
 // 表示差は localStorage 由来（AVP候補/再生対象/再生中ハイライト）と DB 由来（レベル/あとで見る）が
 // 混在する。どちらの状態かは SPEC_NEXTJS.md §0 の永続境界を必ず参照すること。
@@ -34,6 +56,8 @@ export function VideoCard({
   video,
   likeCount,
   viewCount,
+  lastViewed,
+  score,
   invalidateKeys = [],
   displayContext = "tier1",
   avpPlayTarget,
@@ -42,6 +66,8 @@ export function VideoCard({
   video: Video;
   likeCount: number;
   viewCount: number;
+  lastViewed?: string | null;
+  score?: number;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
   displayContext?: "tier1" | "tier2" | "avp";
@@ -52,6 +78,7 @@ export function VideoCard({
   const id = video.id as number;
   const avpCandidateIds = useAvpStore((state) => state.avpCandidateIds);
   const toggleAvpCandidateId = useAvpStore((state) => state.toggleAvpCandidateId);
+  const settings = useCardSettings();
 
   // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
@@ -85,10 +112,14 @@ export function VideoCard({
     onSettled: invalidate,
   });
 
-  const levelDisplay =
-    displayContext === "tier2" && video.needs_selection && displayLevel === -1
-      ? "未選別"
-      : levelName(displayLevel);
+  // Tier2 で needs_selection=true の動画はレベルに関わらず「未選別」と表示する。
+  const isTier2Unselected = displayContext === "tier2" && video.needs_selection;
+  const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
+
+  const displayTitle =
+    settings.card_title_max_length > 0
+      ? video.essential_filename.slice(0, settings.card_title_max_length)
+      : video.essential_filename;
 
   const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
@@ -105,43 +136,66 @@ export function VideoCard({
       }`}
     >
       <CardContent className="flex flex-col gap-1 py-1">
-        <div
-          className="line-clamp-2 break-all text-sm font-medium"
-          title={video.essential_filename}
-        >
-          {video.essential_filename}
-        </div>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <div className="line-clamp-2 break-all text-sm font-medium cursor-default" />
+            }
+          >
+            {displayTitle}
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-sm break-all">
+            {pathBasename(video.current_full_path)}
+          </TooltipContent>
+        </Tooltip>
 
         <div className="flex flex-wrap items-center gap-1">
-          {isJudged && (
+          {isJudged && !isTier2Unselected && (
             <Badge style={{ backgroundColor: levelColor(displayLevel) }}>
               {levelName(displayLevel)}
             </Badge>
           )}
-          <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
-          <Badge variant="outline">視聴 {viewCount}</Badge>
-          {displayContext === "tier2" && video.needs_selection && !video.is_selection_completed && (
-            <Badge variant="secondary">未選別</Badge>
+          {settings.card_show_storage && (
+            <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
           )}
-          {displayContext === "tier2" && video.is_selection_completed && (
+          <Badge variant="outline">視聴 {viewCount}</Badge>
+          {settings.card_show_file_size && video.file_size != null && (
+            <Badge variant="outline">{formatFileSize(video.file_size)}</Badge>
+          )}
+          {settings.card_show_last_viewed && lastViewed && (
+            <Badge variant="outline">{formatDate(lastViewed)}</Badge>
+          )}
+          {settings.card_show_score && score !== undefined && (
+            <Badge variant="outline">Score {score}</Badge>
+          )}
+          {settings.card_show_file_modified && video.last_file_modified && (
+            <Badge variant="outline">{formatDate(video.last_file_modified)}</Badge>
+          )}
+          {displayContext === "tier2" && video.is_selection_completed && settings.card_show_pending_badge && (
             <Badge variant="outline">選別済み</Badge>
           )}
           {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
         </div>
 
         {displayContext !== "tier2" && displayContext !== "avp" && (
-          <label
-            className={`flex w-fit items-center gap-2 text-sm ${
-              avpDisabled ? "text-muted-foreground" : ""
-            }`}
-          >
-            <Checkbox
-              checked={isAvpSelected}
-              disabled={avpDisabled}
-              onCheckedChange={() => toggleAvpCandidateId(id)}
-            />
-            <span>AVP候補</span>
-          </label>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <label
+                  className={`flex w-fit items-center gap-2 text-sm ${
+                    avpDisabled ? "text-muted-foreground" : ""
+                  }`}
+                />
+              }
+            >
+              <Checkbox
+                checked={isAvpSelected}
+                disabled={avpDisabled}
+                onCheckedChange={() => toggleAvpCandidateId(id)}
+              />
+            </TooltipTrigger>
+            <TooltipContent>AVPで再生する候補に追加</TooltipContent>
+          </Tooltip>
         )}
 
         <div className="flex items-center gap-2">
