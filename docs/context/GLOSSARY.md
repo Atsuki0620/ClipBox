@@ -118,7 +118,11 @@ DB カラム: `is_selection_completed BOOLEAN DEFAULT 0`
 ## 運命の1本 (fate video)
 
 ボタン操作で動画プールから1本をランダム選出し、即座に再生・判定するモード。
-Tier 1 では未判定動画から純粋ランダム選出、Tier 2 では経過日数重み付きで選出。
+Tier1/Tier2 とも既定は純ランダム選出。抽選結果は同じタブセッション内では `sessionStorage` に保持され、別画面へ移動して戻ってもカードを再表示する。復元表示では自動再生しない。
+
+## 最近見てない優先 (recently_unwatched_priority)
+
+運命の1本の任意トグル。ON のとき、最終視聴からの日数に応じて未再生・長く見ていない動画を少し出やすくする。重みは `weight = 1 + days / 90`、`days` は `0..180` に丸める。Tier1/Tier2 で別々に `user_config.json` の hidden fields に保存する。
 
 ---
 

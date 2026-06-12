@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect, useRef } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getConfig,
   getSelectionFate,
   getSelectionKpi,
+  getVideosByIds,
   listSelectionVideos,
+  updateConfig,
 } from "@/lib/api";
+import { useFatePickStore } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
 import type {
   SelectionStatus,
@@ -26,8 +29,10 @@ import { FatePanel, RandomPanel } from "@/components/VideoActionPanel";
 import { ErrorBox, EmptyBox, VideoSkeleton } from "@/components/VideoState";
 import { Pagination } from "@/components/Pagination";
 import { VideoGrid } from "@/components/VideoGrid";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 const RANDOM_COUNTS = [5, 10, 15, 20];
 const MAX_FETCH_PAGE_SIZE = 200;
@@ -70,6 +75,13 @@ export default function Tier2Page() {
 }
 
 function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
+  const queryClient = useQueryClient();
+  const configQ = useQuery({ queryKey: ["config"], queryFn: getConfig });
+  const tier2Pick = useFatePickStore((state) => state.tier2);
+  const setTier2Pick = useFatePickStore((state) => state.setTier2Pick);
+  const clearTier2Pick = useFatePickStore((state) => state.clearTier2Pick);
+  const recentlyUnwatchedPriority =
+    configQ.data?.fate_tier2_recently_unwatched_priority ?? false;
   const [status, setStatus] = useState<SelectionStatus>("all");
   const [keyword, setKeyword] = useState("");
   const [levels, setLevels] = useState<number[]>([]);
@@ -135,9 +147,36 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
   );
 
   const fateQ = useQuery({
-    queryKey: ["selection-fate", selectionFolder, fateToken],
-    queryFn: () => getSelectionFate(selectionFolder),
+    queryKey: ["selection-fate", selectionFolder, recentlyUnwatchedPriority, fateToken],
+    queryFn: () => getSelectionFate(selectionFolder, recentlyUnwatchedPriority),
     enabled: fateToken > 0,
+  });
+  const restoredFateQ = useQuery({
+    queryKey: ["selection-fate-restored", selectionFolder, tier2Pick?.video_id],
+    queryFn: async () => {
+      if (
+        tier2Pick == null ||
+        tier2Pick.version !== 1 ||
+        tier2Pick.selection_folder !== selectionFolder
+      ) {
+        return null;
+      }
+      const response = await getVideosByIds([tier2Pick.video_id]);
+      const video = response.items[0] ?? null;
+      if (
+        !video ||
+        video.id !== tier2Pick.video_id ||
+        !video.needs_selection ||
+        video.is_selection_completed ||
+        !video.is_available ||
+        video.is_deleted ||
+        !isPathWithin(video.current_full_path, selectionFolder)
+      ) {
+        return null;
+      }
+      return video;
+    },
+    enabled: tier2Pick != null && fateToken === 0,
   });
 
   // 選別運命の1本も再抽選しない（invalidateKeys 空）。再生中ハイライトは usePlayVideo が配線。
@@ -147,9 +186,41 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
     const id = fateQ.data?.id as number | undefined;
     if (id != null && id !== prevFateIdRef.current) {
       prevFateIdRef.current = id;
+      setTier2Pick(id, selectionFolder);
       playFate(id);
+    } else if (fateToken > 0 && fateQ.data === null) {
+      clearTier2Pick();
     }
-  }, [fateQ.data, playFate]);
+  }, [clearTier2Pick, fateQ.data, fateToken, playFate, selectionFolder, setTier2Pick]);
+
+  useEffect(() => {
+    if (restoredFateQ.isSuccess && tier2Pick != null && restoredFateQ.data == null) {
+      clearTier2Pick();
+    }
+  }, [clearTier2Pick, restoredFateQ.data, restoredFateQ.isSuccess, tier2Pick]);
+
+  const priorityMutation = useMutation({
+    mutationFn: (checked: boolean) =>
+      updateConfig({
+        library_roots: configQ.data?.library_roots ?? [],
+        default_player: configQ.data?.default_player ?? "vlc",
+        avp_exe_path: configQ.data?.avp_exe_path ?? null,
+        db_path: configQ.data?.db_path ?? null,
+        selection_folder: configQ.data?.selection_folder ?? selectionFolder,
+        fate_tier1_recently_unwatched_priority:
+          configQ.data?.fate_tier1_recently_unwatched_priority ?? false,
+        fate_tier2_recently_unwatched_priority: checked,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
+  });
+
+  const fateVideo = fateQ.data ?? restoredFateQ.data ?? null;
+  const hasFateDrawn = fateToken > 0 || tier2Pick != null;
+  const clearFatePick = () => {
+    clearTier2Pick();
+    prevFateIdRef.current = null;
+    setFateToken(0);
+  };
 
   const resetPage = () => setPage(1);
 
@@ -266,22 +337,46 @@ function Tier2Workspace({ selectionFolder }: { selectionFolder: string }) {
       fate={
         <FatePanel
           drawLabel="選別の1本を引く"
-          hasDrawn={fateToken > 0}
+          hasDrawn={hasFateDrawn}
           onDraw={() => setFateToken((token) => token + 1)}
-          isLoading={fateQ.isFetching}
+          isLoading={fateQ.isFetching || restoredFateQ.isFetching}
           isError={fateQ.isError}
           error={fateQ.error}
           loadingCount={1}
           emptyMessageBeforeDraw="ボタンを押すと選別の1本を引きます。"
           emptyMessageWhenNoTarget="対象の動画がありません。"
+          actions={
+            <>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={recentlyUnwatchedPriority}
+                  disabled={configQ.isLoading || configQ.isError || priorityMutation.isPending}
+                  onCheckedChange={(checked) => priorityMutation.mutate(Boolean(checked))}
+                />
+                <span>最近見てない優先</span>
+              </label>
+              {tier2Pick && (
+                <Button size="sm" variant="outline" onClick={clearFatePick}>
+                  クリア
+                </Button>
+              )}
+            </>
+          }
         >
-          {fateQ.data ? (
-            <VideoGrid videos={[fateQ.data]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" displayContext="tier2" />
+          {fateVideo ? (
+            <VideoGrid videos={[fateVideo]} invalidateKeys={[["selection-kpi"]]} gridClassName="grid grid-cols-1 gap-3" displayContext="tier2" />
           ) : null}
         </FatePanel>
       }
     />
   );
+}
+
+function isPathWithin(path: string, folder: string): boolean {
+  const normalize = (value: string) => value.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase();
+  const target = normalize(path);
+  const root = normalize(folder);
+  return target === root || target.startsWith(`${root}/`);
 }
 
 async function fetchAllSelectionVideos(

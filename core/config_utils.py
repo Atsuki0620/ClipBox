@@ -18,6 +18,8 @@ def _default_config() -> Dict[str, Any]:
         "default_player": "vlc",
         "avp_exe_path": r"C:\Program Files (x86)\Awesome Video Player\AVPlayer.exe",
         "db_path": str(DATABASE_PATH),
+        "fate_tier1_recently_unwatched_priority": False,
+        "fate_tier2_recently_unwatched_priority": False,
     }
 
 
@@ -52,6 +54,13 @@ def load_user_config() -> Dict[str, Any]:
 
     # db_path フォールバック
     config["db_path"] = config.get("db_path", str(DATABASE_PATH))
+
+    config["fate_tier1_recently_unwatched_priority"] = bool(
+        config.get("fate_tier1_recently_unwatched_priority", False)
+    )
+    config["fate_tier2_recently_unwatched_priority"] = bool(
+        config.get("fate_tier2_recently_unwatched_priority", False)
+    )
 
     return config
 

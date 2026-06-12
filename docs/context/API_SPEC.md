@@ -174,7 +174,10 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 ---
 
 ### GET /api/videos/unrated/fate
-**説明**: 未判定動画を**純ランダム**に1本返す（Tier1「運命の1本」）。
+**説明**: 未判定動画を1本返す（Tier1「運命の1本」）。
+
+**クエリパラメータ**:
+- `recently_unwatched_priority`: bool — デフォルト `false`。`false` は純ランダム。`true` は最終視聴からの日数を `0..180` に丸め、`weight = 1 + days / 90` で軽く重み付けする。未再生・日付なし・日付パース失敗は `days=180`、未来日は `days=0`。
 
 **レスポンス**: `Video`（200 OK）／ 該当なしのとき `204 No Content`。
 
@@ -204,9 +207,11 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 ---
 
 ### GET /api/videos/selection/fate
-**説明**: Tier2「運命の1本」。未選別動画から**最終視聴日からの経過日数で重み付け**して1本選出する。
+**説明**: Tier2「運命の1本」。指定フォルダ配下の未選別動画から1本選出する。
 
-**クエリパラメータ**: `folder`: str — セレクションフォルダパス。
+**クエリパラメータ**:
+- `folder`: str — セレクションフォルダパス。
+- `recently_unwatched_priority`: bool — デフォルト `false`。`false` は純ランダム。`true` は Tier1 と同じ `weight = 1 + days / 90` の軽い重み付け。
 
 **レスポンス**: `Video`（200 OK）／ 該当なしのとき `204 No Content`。
 
@@ -535,7 +540,7 @@ Streamlit 側キャッシュは `ui/cache.py:get_kpi_stats_cached()`。
 
 **レスポンス**（200 OK）:
 ```json
-{ "library_roots": ["C:/videos", "D:/videos"], "default_player": "...", "avp_exe_path": "...", "db_path": "...", "selection_folder": "D:/selection" }
+{ "library_roots": ["C:/videos", "D:/videos"], "default_player": "...", "avp_exe_path": "...", "db_path": "...", "selection_folder": "D:/selection", "fate_tier1_recently_unwatched_priority": false, "fate_tier2_recently_unwatched_priority": false }
 ```
 
 **現行対応関数**: `app_service.load_user_config()` → `config_utils.load_user_config()`。
@@ -545,7 +550,8 @@ Streamlit 側キャッシュは `ui/cache.py:get_kpi_stats_cached()`。
 ### PUT /api/config
 **説明**: ユーザー設定を保存する。
 
-**リクエストボディ**: 設定 dict（`library_roots` / `default_player` / `avp_exe_path` / `db_path` / `selection_folder`）。
+**リクエストボディ**: 設定 dict（`library_roots` / `default_player` / `avp_exe_path` / `db_path` / `selection_folder` / `fate_tier1_recently_unwatched_priority` / `fate_tier2_recently_unwatched_priority`）。
+Fate の2フィールドは hidden config で、設定画面には表示しない。PUT は既存設定へマージ保存し、省略された optional 値やモデル外キーを消さない。
 
 **レスポンス**: `{ "status": "success" }`（200 OK）
 

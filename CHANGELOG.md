@@ -4,6 +4,16 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-12 — feat: improve fate pick state and playback UX
+
+- 再生ボタンの「サーバー機でプレイヤーが起動します」tooltip を削除。
+- Tier1/Tier2 の運命の1本を `sessionStorage`（`clipbox-fate-picks`）に別スロット保持し、復元時は `by-ids` で再取得。不整合時は該当スロットのみクリア。復元表示では自動再生しない。
+- Fate タブに Tier1/Tier2 個別の「最近見てない優先」トグルを追加。値は `user_config.json` の hidden fields に保存し、設定画面には表示しない。
+- Fate API に `recently_unwatched_priority` を追加。OFF は純ランダム、ON は `weight = 1 + days / 90`（0..180日丸め、未再生は最大重み）で抽選。
+- 対象外: DB スキーマ、migration、AVP 上限、あとで見る自動解除条件、総合スコア式、設定画面の表示項目。
+
+---
+
 ## 2026-06-12 — ci: add baseline quality gates
 
 **目的**: Pull Request と `main` push で最低限の自動品質ゲートを実行し、Python / backend API / Next.js build の回帰を早期検知する。

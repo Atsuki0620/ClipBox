@@ -3,6 +3,7 @@ ClipBox - VideoManagerのテスト
 """
 
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import core.database as database
 from core.video_manager import VideoManager, video_from_row
@@ -115,6 +116,67 @@ def test_get_unrated_random_videos_excludes_nonexistent_files(tmp_path, tmp_db):
     filenames = [v.essential_filename for v in videos]
     assert "exists.mp4" in filenames, "実在ファイルは表示される"
     assert "missing.mp4" not in filenames, "不在ファイルは除外される"
+
+
+def test_recently_unwatched_weight_bounds():
+    """最近見てない優先の重みは 1..3 に丸める。"""
+    now = datetime(2026, 6, 12, 12, 0, 0)
+    manager = VideoManager()
+
+    assert manager._recently_unwatched_weight(now.isoformat(), now) == 1
+    assert manager._recently_unwatched_weight((now - timedelta(days=90)).isoformat(), now) == 2
+    assert manager._recently_unwatched_weight((now - timedelta(days=999)).isoformat(), now) == 3
+    assert manager._recently_unwatched_weight(None, now) == 3
+    assert manager._recently_unwatched_weight("not-a-date", now) == 3
+    assert manager._recently_unwatched_weight((now + timedelta(days=1)).isoformat(), now) == 1
+
+
+def test_get_unrated_fate_recently_unwatched_priority_uses_light_weights(tmp_path, tmp_db, monkeypatch):
+    """Tier1 運命の1本 ON は最終視聴日から 1 + days/90 の軽い重みを使う。"""
+    files = {
+        "recent.mp4": tmp_path / "recent.mp4",
+        "old.mp4": tmp_path / "old.mp4",
+        "unseen.mp4": tmp_path / "unseen.mp4",
+    }
+    for path in files.values():
+        path.write_text("x")
+
+    with database.get_db_connection() as conn:
+        for name, path in files.items():
+            conn.execute(
+                """INSERT INTO videos (essential_filename, current_full_path,
+                   current_favorite_level, storage_location, is_available, is_deleted)
+                   VALUES (?, ?, -1, 'C_DRIVE', 1, 0)""",
+                (name, str(path)),
+            )
+        rows = conn.execute(
+            "SELECT id, essential_filename FROM videos"
+        ).fetchall()
+        ids = {row["essential_filename"]: row["id"] for row in rows}
+        now = datetime.now()
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, 'APP_PLAYBACK')",
+            (ids["recent.mp4"], now.isoformat()),
+        )
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, 'APP_PLAYBACK')",
+            (ids["old.mp4"], (now - timedelta(days=180)).isoformat()),
+        )
+
+    captured = {}
+
+    def fake_choices(population, weights, k):
+        captured["weights"] = {
+            video.essential_filename: weight for video, weight in zip(population, weights)
+        }
+        return [population[0]]
+
+    monkeypatch.setattr("core.video_manager.random.choices", fake_choices)
+
+    assert VideoManager().get_unrated_fate_video(recently_unwatched_priority=True) is not None
+    assert captured["weights"]["recent.mp4"] == 1
+    assert captured["weights"]["old.mp4"] == 3
+    assert captured["weights"]["unseen.mp4"] == 3
 
 
 def test_set_favorite_level_updates_db_level(tmp_path, tmp_db):

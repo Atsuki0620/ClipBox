@@ -62,6 +62,8 @@ export interface Config {
   avp_exe_path: string | null;
   db_path: string | null;
   selection_folder: string | null;
+  fate_tier1_recently_unwatched_priority?: boolean | null;
+  fate_tier2_recently_unwatched_priority?: boolean | null;
 }
 
 export interface StatusMessage {

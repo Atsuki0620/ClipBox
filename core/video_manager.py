@@ -162,10 +162,16 @@ class VideoManager:
         return [id_to_video[vid] for vid in unique_ids if vid in id_to_video]
 
     def get_fate_video(self, folder_path_str: str = "") -> Optional[Video]:
-        """経過日数重み付きで未選別動画を1本選出する（運命の1本用）。
+        """未選別動画から純ランダムで1本選出する（旧呼び出し互換）。"""
+        return self.get_selection_fate_video(folder_path_str)
 
-        一度も視聴していない動画は経過日数=9999として扱い選出されやすくする。
-        """
+    def get_selection_fate_video(
+        self,
+        folder_path_str: str = "",
+        *,
+        recently_unwatched_priority: bool = False,
+    ) -> Optional[Video]:
+        """未選別動画を1本選出する（Tier2 運命の1本用）。"""
         videos = self.get_videos(
             needs_selection_filter=True,
             show_unavailable=False,
@@ -177,8 +183,16 @@ class VideoManager:
             videos = [v for v in videos if is_path_within(v.current_full_path, folder_path_str)]
         if not videos:
             return None
+        if not recently_unwatched_priority:
+            return random.choice(videos)
 
-        video_ids = [v.id for v in videos]
+        return self._choose_by_recently_unwatched_priority(videos)
+
+    def _choose_by_recently_unwatched_priority(self, videos: List[Video]) -> Optional[Video]:
+        """最終視聴日が古い/未再生の動画を軽く優先して1本選ぶ。"""
+        video_ids = [v.id for v in videos if v.id is not None]
+        if not video_ids:
+            return None
         placeholders = ",".join("?" * len(video_ids))
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -190,16 +204,24 @@ class VideoManager:
         last_viewed_map = {row["video_id"]: row["last_viewed"] for row in rows}
 
         today = datetime.now()
-        weights = []
+        weights: list[float] = []
         for v in videos:
             lv = last_viewed_map.get(v.id)
-            if lv:
-                days = (today - datetime.fromisoformat(lv.replace(" ", "T"))).days
-                weights.append(max(1, days))
-            else:
-                weights.append(9999)
+            weights.append(self._recently_unwatched_weight(lv, today))
 
         return random.choices(videos, weights=weights, k=1)[0]
+
+    @staticmethod
+    def _recently_unwatched_weight(last_viewed: Optional[str], now: datetime) -> float:
+        """0..180日に丸めて weight=1+days/90 を返す。未再生/不正日は最大重み。"""
+        days = 180
+        if last_viewed:
+            try:
+                days = (now - datetime.fromisoformat(last_viewed.replace(" ", "T"))).days
+            except ValueError:
+                days = 180
+        days = min(180, max(0, days))
+        return 1 + days / 90
 
     def get_unrated_random_videos(self, n: int) -> List[Video]:
         """未判定（内部値 -1）の動画をランダムに n 件取得して返す。
@@ -242,10 +264,40 @@ class VideoManager:
                     break
         return result
 
-    def get_unrated_fate_video(self) -> Optional[Video]:
-        """未判定動画から純粋ランダムで1本選出する（未判定ランダムタブの運命の1本用）。"""
-        videos = self.get_unrated_random_videos(1)
-        return videos[0] if videos else None
+    def get_unrated_fate_video(
+        self,
+        *,
+        recently_unwatched_priority: bool = False,
+    ) -> Optional[Video]:
+        """未判定動画から1本選出する（Tier1 運命の1本用）。"""
+        if not recently_unwatched_priority:
+            videos = self.get_unrated_random_videos(1)
+            return videos[0] if videos else None
+
+        with get_db_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM videos
+                WHERE current_favorite_level = -1
+                  AND is_available = 1
+                  AND is_deleted = 0
+                  AND needs_selection = 0
+                  AND is_selection_completed = 0
+                """
+            ).fetchall()
+
+        drive_cache: dict = {}
+        videos = []
+        for row in rows:
+            video = video_from_row(row)
+            path = Path(video.current_full_path)
+            drive = path.drive
+            if drive not in drive_cache:
+                drive_cache[drive] = Path(drive + "/").exists()
+            if drive_cache[drive] and path.exists():
+                videos.append(video)
+
+        return self._choose_by_recently_unwatched_priority(videos) if videos else None
 
     def play_video(
         self,

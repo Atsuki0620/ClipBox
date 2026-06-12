@@ -86,14 +86,23 @@ def get_unrated_random_videos(n: int) -> List[Video]:
     return create_video_manager().get_unrated_random_videos(n)
 
 
-def get_unrated_fate_video() -> Optional[Video]:
-    """未判定動画を純ランダムに1本返す。"""
-    return create_video_manager().get_unrated_fate_video()
+def get_unrated_fate_video(*, recently_unwatched_priority: bool = False) -> Optional[Video]:
+    """未判定動画を1本返す。"""
+    return create_video_manager().get_unrated_fate_video(
+        recently_unwatched_priority=recently_unwatched_priority
+    )
 
 
-def get_fate_video(folder_path_str: str = "") -> Optional[Video]:
-    """未選別動画から経過日数重み付けで1本返す（セレクション運命の1本）。"""
-    return create_video_manager().get_fate_video(folder_path_str)
+def get_fate_video(
+    folder_path_str: str = "",
+    *,
+    recently_unwatched_priority: bool = False,
+) -> Optional[Video]:
+    """未選別動画から1本返す（セレクション運命の1本）。"""
+    return create_video_manager().get_selection_fate_video(
+        folder_path_str,
+        recently_unwatched_priority=recently_unwatched_priority,
+    )
 
 
 def play_video(video_id: int, **kwargs) -> Dict[str, str]:

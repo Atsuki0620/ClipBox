@@ -83,9 +83,15 @@ export default function SettingsPage() {
       avp_exe_path: avpExePathValue.trim(),
       db_path: dbPath,
       selection_folder: selectionFolderValue.trim(),
+      fate_tier1_recently_unwatched_priority:
+        configQ.data?.fate_tier1_recently_unwatched_priority ?? false,
+      fate_tier2_recently_unwatched_priority:
+        configQ.data?.fate_tier2_recently_unwatched_priority ?? false,
     }),
     [
       avpExePathValue,
+      configQ.data?.fate_tier1_recently_unwatched_priority,
+      configQ.data?.fate_tier2_recently_unwatched_priority,
       dbPath,
       defaultPlayerValue,
       libraryRootsValue,
