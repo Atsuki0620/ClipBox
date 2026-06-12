@@ -1,0 +1,3 @@
+# nbstripout: git add 時に notebook の outputs を自動除去する
+# setup: scripts/setup_guardrails.bat を一度実行して filter を有効化すること
+*.ipynb filter=nbstripout diff=nbstripout
