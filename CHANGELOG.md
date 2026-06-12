@@ -4,6 +4,19 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — chore: card UX adjustments（Pull request #40 追加修正）
+
+**バッジ整理・tooltip・AVPチェックボックス移動**:
+- Tier2「選別済み」バッジを削除（プルダウンで状態が分かるため冗長）
+- スコアバッジ表示条件を `score != null` に修正（`null` / `undefined` 両方ガード）
+- 主要バッジに説明 tooltip を追加（ストレージ / 視聴回数 / ファイルサイズ / 最終再生日 / スコア / ファイル更新日 / レベル / 利用不可）
+- AVP候補チェックボックスを独立行からバッジ行の先頭へ移動（縦スペース削減）
+- `TBadge` ヘルパーコンポーネントを `VideoCard.tsx` 内に追加
+
+**変更ファイル**: `frontend/src/components/VideoCard.tsx`, `CHANGELOG.md`
+
+---
+
 ## 2026-06-13 — feat: align tier2 pending display and add card display settings
 
 **Tier2未選別表示の整合**:

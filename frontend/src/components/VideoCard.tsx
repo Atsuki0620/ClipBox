@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import {
   useMutation,
   useQueryClient,
@@ -45,10 +45,22 @@ function formatFileSize(bytes: number | null): string {
   return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
 }
 
+// tooltip 付きバッジ。tip に説明文を渡す。
+function TBadge({ tip, children, ...props }: ComponentProps<typeof Badge> & { tip: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span />}>
+        <Badge {...props}>{children}</Badge>
+      </TooltipTrigger>
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // 共通の動画カード。`displayContext` で Tier1/Tier2/AVP の表示差を切り替える多態コンポーネント。
-//   - "tier1": AVP候補チェックボックスを表示（SPEC_NEXTJS.md §2 / 下記 :130-142）
-//   - "tier2": 「選別済み」バッジを表示（SPEC §3 / :87-89, :121-126）
-//   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6 / :200-223）
+//   - "tier1": AVP候補チェックボックスをバッジ行先頭に表示（SPEC_NEXTJS.md §2）
+//   - "tier2": Tier2未選別はプルダウンで「未選別」表示。バッジ重複なし（SPEC §3）
+//   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6）
 // 表示差は localStorage 由来（AVP候補/再生対象/再生中ハイライト）と DB 由来（レベル/あとで見る）が
 // 混在する。どちらの状態かは SPEC_NEXTJS.md §0 の永続境界を必ず参照すること。
 // 値は3値で固定。第4値を足す前に AI_WORKFLOW.md §C で停止する（SPEC §6）。
@@ -149,54 +161,82 @@ export function VideoCard({
           </TooltipContent>
         </Tooltip>
 
+        {/* バッジ行: 先頭にAVP候補チェックボックス、続いて各バッジ */}
         <div className="flex flex-wrap items-center gap-1">
+          {displayContext !== "tier2" && displayContext !== "avp" && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <label
+                    className={`flex w-fit items-center gap-2 text-sm ${
+                      avpDisabled ? "text-muted-foreground" : ""
+                    }`}
+                  />
+                }
+              >
+                <Checkbox
+                  checked={isAvpSelected}
+                  disabled={avpDisabled}
+                  onCheckedChange={() => toggleAvpCandidateId(id)}
+                />
+              </TooltipTrigger>
+              <TooltipContent>AVPで再生する候補に追加</TooltipContent>
+            </Tooltip>
+          )}
           {isJudged && !isTier2Unselected && (
-            <Badge style={{ backgroundColor: levelColor(displayLevel) }}>
+            <TBadge
+              tip={`お気に入りレベル: ${levelName(displayLevel)}`}
+              style={{ backgroundColor: levelColor(displayLevel) }}
+            >
               {levelName(displayLevel)}
-            </Badge>
+            </TBadge>
           )}
           {settings.card_show_storage && (
-            <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
+            <TBadge
+              tip={`ストレージ: ${storageLabel(video.storage_location)}`}
+              variant="secondary"
+            >
+              {storageLabel(video.storage_location)}
+            </TBadge>
           )}
-          <Badge variant="outline">視聴 {viewCount}</Badge>
+          <TBadge tip={`視聴回数: ${viewCount}回`} variant="outline">
+            視聴 {viewCount}
+          </TBadge>
           {settings.card_show_file_size && video.file_size != null && (
-            <Badge variant="outline">{formatFileSize(video.file_size)}</Badge>
+            <TBadge
+              tip={`ファイルサイズ: ${formatFileSize(video.file_size)}`}
+              variant="outline"
+            >
+              {formatFileSize(video.file_size)}
+            </TBadge>
           )}
           {settings.card_show_last_viewed && lastViewed && (
-            <Badge variant="outline">{formatDate(lastViewed)}</Badge>
+            <TBadge tip={`最終再生日: ${formatDate(lastViewed)}`} variant="outline">
+              {formatDate(lastViewed)}
+            </TBadge>
           )}
-          {settings.card_show_score && score !== undefined && (
-            <Badge variant="outline">Score {score}</Badge>
+          {settings.card_show_score && score != null && (
+            <TBadge tip={`総合ランキングスコア: ${score}`} variant="outline">
+              Score {score}
+            </TBadge>
           )}
           {settings.card_show_file_modified && video.last_file_modified && (
-            <Badge variant="outline">{formatDate(video.last_file_modified)}</Badge>
-          )}
-          {displayContext === "tier2" && video.is_selection_completed && (
-            <Badge variant="outline">選別済み</Badge>
-          )}
-          {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
-        </div>
-
-        {displayContext !== "tier2" && displayContext !== "avp" && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <label
-                  className={`flex w-fit items-center gap-2 text-sm ${
-                    avpDisabled ? "text-muted-foreground" : ""
-                  }`}
-                />
-              }
+            <TBadge
+              tip={`ファイル更新日: ${formatDate(video.last_file_modified)}`}
+              variant="outline"
             >
-              <Checkbox
-                checked={isAvpSelected}
-                disabled={avpDisabled}
-                onCheckedChange={() => toggleAvpCandidateId(id)}
-              />
-            </TooltipTrigger>
-            <TooltipContent>AVPで再生する候補に追加</TooltipContent>
-          </Tooltip>
-        )}
+              {formatDate(video.last_file_modified)}
+            </TBadge>
+          )}
+          {!video.is_available && (
+            <TBadge
+              tip="ファイルが見つからない、または利用できない動画"
+              variant="destructive"
+            >
+              利用不可
+            </TBadge>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           <Button
