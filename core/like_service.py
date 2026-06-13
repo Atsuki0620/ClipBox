@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List
 
 from core.database import get_db_connection
+from core.watch_later_service import clear_processed_watch_later
 
 
 def add_like(video_id: int) -> int:
@@ -32,6 +33,7 @@ def add_like(video_id: int) -> int:
             (video_id,)
         )
         count = cursor.fetchone()[0]
+        clear_processed_watch_later(conn, [video_id])
 
     return count
 

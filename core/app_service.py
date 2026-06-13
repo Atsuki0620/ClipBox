@@ -19,6 +19,7 @@ from core.video_manager import VideoManager
 from core.models import Video, normalize_text
 from core import like_service
 from core import selection_service
+from core import watch_later_service
 
 
 # DB / 接続管理 -------------------------------------------------------------
@@ -115,6 +116,11 @@ def toggle_watch_later(video_id: int) -> bool:
     return create_video_manager().toggle_watch_later(video_id)
 
 
+def clear_watch_later(video_ids: List[int]) -> int:
+    """指定IDの watch_later を一括解除し、更新件数を返す。"""
+    return watch_later_service.clear_watch_later_for_ids(video_ids)
+
+
 def unselect_video(video_id: int) -> Dict[str, str]:
     """Tier2: レベルを維持したまま needs_selection=1 に戻す（VideoManager 委譲）。"""
     return create_video_manager().unselect_video(video_id)
@@ -131,6 +137,7 @@ def record_avp_viewing(video_ids: List[int]) -> None:
             " VALUES (?, ?, 'APP_PLAYBACK')",
             [(vid, viewed_at) for vid in video_ids],
         )
+        watch_later_service.clear_processed_watch_later(conn, video_ids)
 
 
 def detect_library_root(file_path: Path, active_roots: list) -> str:

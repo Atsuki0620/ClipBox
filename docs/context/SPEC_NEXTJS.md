@@ -124,16 +124,17 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 **目的**: 判定/選別の**先延ばし**。「今は決めないが後で見たい」動画のブックマーク。
 
 - **AVP候補ではない**: あとで見る（DB・全端末共通）と AVP候補（localStorage・そのブラウザのみ）は**別物**。混同しない。
-- **再生しただけでは解除しない**: `play_video()` は `watch_later` を変更しない。
+- **再生しただけでは解除しない**: 通常再生の `play_video()` は `watch_later` を変更しない。
 - **判定済み/選別済みで自動解除**: `set_favorite_level_with_rename()` が、判定（`level ≥ 0`）または選別完了（`+` 付与）で `watch_later = 0` にする（`videos.watch_later` の説明 / `DATA_MODEL.md:58`）。
+- **処理済み動画のいいね/AVP起動で自動解除**: `like_service.add_like()` と `record_avp_viewing()` は、いいね追加・AVP起動成功後の視聴履歴記録と同一トランザクション内で、処理済み条件を満たす動画の `watch_later` を解除する。処理済み条件は「Tier1判定済み通常動画（`current_favorite_level >= 0 AND needs_selection = 0`）」または「Tier2選別済み（`is_selection_completed = 1`）」。`needs_selection = 1` の Tier2 未選別は、レベル値が 0..4 でも解除しない。
 - **Tier1/Tier2 両方で使う**: どちらの画面のカードにもブックマークボタンがある（`VideoCard.tsx:190-198`、アイコンのみ・title 属性で説明）。
 - **DB 永続状態**: `videos.watch_later`（`toggle_watch_later` が 1↔0 反転、`is_deleted = 0` 条件付き）。
 - 絞り込み: 「あとで見るのみ」で `watch_later = true` の動画だけ表示。判定/選別完了するとそのフィルタから外れる（§7）。
 - **専用ページ**: `/watch-later` は `GET /api/videos?watch_later=true` を全ページ取得し、同じ `VideoCard` を再利用する。手動解除後は `["watch-later-videos"]` を invalidate し、対象動画は一覧から外れる。
 - **専用ページの分類**:
   - **未処理**: Tier1 未判定（`current_favorite_level = -1` の通常動画）または Tier2 未選別（`needs_selection = 1, is_selection_completed = 0`）。
-  - **確認・見直し**: Tier1 判定済み（`current_favorite_level >= 0` の通常動画）または Tier2 選別済み（`is_selection_completed = 1`）。
-  - **処理済み候補**: PR A では空枠のみ。最終再生日に基づく抽出と一括解除は後続 PR で扱う。
+  - **確認・見直し**: 処理済み状態だが、`/stats/last-viewed` に最終再生日が無い動画。
+  - **処理済み候補**: 処理済み状態かつ `/stats/last-viewed` に最終再生日がある動画。一括解除は `POST /api/videos/watch-later/bulk-clear` を使い、指定 ID の `watch_later` を解除する。
 
 ---
 
