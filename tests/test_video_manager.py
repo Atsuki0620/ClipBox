@@ -89,6 +89,88 @@ def test_set_favorite_level_file_not_found_leaves_db_unchanged(tmp_path, tmp_db)
         assert row["current_favorite_level"] == 2
 
 
+def test_unselect_video_adds_exclamation_prefix(tmp_path, tmp_db):
+    """unselect_video はファイルを ! プレフィックス付きにリネームし DB を更新する"""
+    src = tmp_path / "###_作品.mp4"
+    src.touch()
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, is_selection_completed
+            ) VALUES (?, ?, ?, ?, 1, 0, 0, 1)
+            """,
+            ("作品.mp4", str(src), 3, "C_DRIVE"),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("作品.mp4",)
+        ).fetchone()[0]
+
+    manager = VideoManager()
+    result = manager.unselect_video(video_id)
+
+    assert result["status"] == "success"
+    assert (tmp_path / "!###_作品.mp4").exists()
+    assert not src.exists()
+
+    with database.get_db_connection() as conn:
+        row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+        assert row["needs_selection"] == 1
+        assert row["is_selection_completed"] == 0
+        assert row["current_full_path"].endswith("!###_作品.mp4")
+        assert row["current_favorite_level"] == 3
+
+
+def test_unselect_video_level_minus1_no_level_prefix(tmp_path, tmp_db):
+    """unselect_video: 未判定（level=-1）動画は ! のみ付く（レベルプレフィックスなし）"""
+    src = tmp_path / "作品.mp4"
+    src.touch()
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, is_selection_completed
+            ) VALUES (?, ?, ?, ?, 1, 0, 0, 0)
+            """,
+            ("作品.mp4", str(src), -1, "C_DRIVE"),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("作品.mp4",)
+        ).fetchone()[0]
+
+    manager = VideoManager()
+    result = manager.unselect_video(video_id)
+
+    assert result["status"] == "success"
+    assert (tmp_path / "!作品.mp4").exists()
+
+
+def test_unselect_video_file_not_found_returns_error(tmp_path, tmp_db):
+    """unselect_video: ファイル不在時はエラーを返し DB を変更しない"""
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, is_selection_completed
+            ) VALUES (?, ?, ?, ?, 1, 0, 0, 1)
+            """,
+            ("作品.mp4", str(tmp_path / "missing.mp4"), 2, "C_DRIVE"),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("作品.mp4",)
+        ).fetchone()[0]
+
+    manager = VideoManager()
+    result = manager.unselect_video(video_id)
+
+    assert result["status"] == "error"
+
+
 def test_get_unrated_random_videos_excludes_nonexistent_files(tmp_path, tmp_db):
     """get_unrated_random_videos は実在しないファイルの動画を除外する（外付けHDD未接続想定）"""
     existing_file = tmp_path / "exists.mp4"

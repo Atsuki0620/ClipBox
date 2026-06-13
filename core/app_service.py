@@ -115,6 +115,11 @@ def toggle_watch_later(video_id: int) -> bool:
     return create_video_manager().toggle_watch_later(video_id)
 
 
+def unselect_video(video_id: int) -> Dict[str, str]:
+    """Tier2: レベルを維持したまま needs_selection=1 に戻す（VideoManager 委譲）。"""
+    return create_video_manager().unselect_video(video_id)
+
+
 def record_avp_viewing(video_ids: List[int]) -> None:
     """AVP 再生後に viewing_history を一括記録する（1 トランザクション・executemany）。"""
     if not video_ids:

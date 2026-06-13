@@ -22,6 +22,7 @@ export function usePlayVideo(invalidateKeys: QueryKey[] = []) {
       qc.invalidateQueries({ queryKey: ["kpi"] });
       qc.invalidateQueries({ queryKey: ["likes"] });
       qc.invalidateQueries({ queryKey: ["view-counts"] });
+      qc.invalidateQueries({ queryKey: ["last-viewed"] });
       // 画面別リストキー。ランダム/運命は [] を渡し再抽選を防ぐ。
       for (const key of invalidateKeys) {
         qc.invalidateQueries({ queryKey: key });

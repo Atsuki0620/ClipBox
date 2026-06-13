@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getLikes, getVideosByIds, getViewCounts, playAvp } from "@/lib/api";
+import { getLastViewed, getLikes, getVideosByIds, getViewCounts, playAvp } from "@/lib/api";
 import { MAX_AVP_PLAY_TARGET, useAvpStore, usePlaybackStore } from "@/lib/store";
 import { VideoCard } from "@/components/VideoCard";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,10 @@ export default function AvpPage() {
   const viewCountsQ = useQuery({
     queryKey: ["view-counts"],
     queryFn: getViewCounts,
+  });
+  const lastViewedQ = useQuery({
+    queryKey: ["last-viewed"],
+    queryFn: getLastViewed,
   });
 
   const launchMutation = useMutation({
@@ -119,6 +123,7 @@ export default function AvpPage() {
                   video={video}
                   likeCount={likesQ.data?.[id] ?? 0}
                   viewCount={viewCountsQ.data?.[id] ?? 0}
+                  lastViewed={lastViewedQ.data?.[id] ?? null}
                   displayContext="avp"
                   avpPlayTarget={{
                     checked: isTarget,

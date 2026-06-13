@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, setLevel, toggleWatchLater } from "@/lib/api";
+import { likeVideo, setLevel, toggleWatchLater, unselectVideo } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
 import { useAvpStore, useIsPlaying } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
@@ -92,6 +92,8 @@ export function VideoCard({
 
   // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
+  // Tier2: ランダム/運命は選別操作後もリスト再フェッチしないため props 固定では更新されない。
+  const [localNeedsSelection, setLocalNeedsSelection] = useState(video.needs_selection);
 
   // mutation 後は onSettled で invalidate する（成功・409 とも）。
   // 共通キー（kpi/likes/view-counts）は件数更新のみでリストの顔ぶれを変えない。
@@ -110,7 +112,15 @@ export function VideoCard({
   const isPlaying = useIsPlaying(id);
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
-    onSuccess: (_data, level) => setDisplayLevel(level),
+    onSuccess: (_data, level) => {
+      setDisplayLevel(level);
+      if (displayContext === "tier2") setLocalNeedsSelection(false);
+    },
+    onSettled: invalidate,
+  });
+  const unselectM = useMutation({
+    mutationFn: () => unselectVideo(id),
+    onSuccess: () => setLocalNeedsSelection(true),
     onSettled: invalidate,
   });
   const likeM = useMutation({
@@ -123,7 +133,7 @@ export function VideoCard({
   });
 
   // Tier2 で needs_selection=true の動画はレベルに関わらず「未選別」と表示する。
-  const isTier2Unselected = displayContext === "tier2" && video.needs_selection;
+  const isTier2Unselected = displayContext === "tier2" && localNeedsSelection;
   const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
 
   const displayTitle =
@@ -131,10 +141,10 @@ export function VideoCard({
       ? video.essential_filename.slice(0, settings.card_title_max_length)
       : video.essential_filename;
 
-  const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
+  const busy = playM.isPending || levelM.isPending || unselectM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
   const mutateDisabled = busy || !video.is_available;
-  const error = playM.error || levelM.error || likeM.error;
+  const error = playM.error || levelM.error || unselectM.error || likeM.error;
   const isJudged = displayLevel !== -1;
   const isAvpSelected = avpCandidateIds.includes(id);
   const avpDisabled = !video.is_available;
@@ -243,19 +253,33 @@ export function VideoCard({
           </Button>
 
           <Select
-            value={String(displayLevel)}
-            onValueChange={(v) => levelM.mutate(Number(v))}
+            value={isTier2Unselected ? "unselect" : String(displayLevel)}
+            onValueChange={(v) => {
+              if (v === "unselect") unselectM.mutate();
+              else levelM.mutate(Number(v));
+            }}
             disabled={mutateDisabled}
           >
             <SelectTrigger className="w-28" size="sm">
               <span>{levelDisplay}</span>
             </SelectTrigger>
             <SelectContent>
-              {LEVEL_OPTIONS.map((l) => (
-                <SelectItem key={l} value={String(l)}>
-                  {levelName(l)}
-                </SelectItem>
-              ))}
+              {displayContext === "tier2" ? (
+                <>
+                  <SelectItem value="unselect">未選別</SelectItem>
+                  {[0, 1, 2, 3, 4].map((l) => (
+                    <SelectItem key={l} value={String(l)}>
+                      {levelName(l)}
+                    </SelectItem>
+                  ))}
+                </>
+              ) : (
+                LEVEL_OPTIONS.map((l) => (
+                  <SelectItem key={l} value={String(l)}>
+                    {levelName(l)}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 

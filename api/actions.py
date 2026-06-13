@@ -67,6 +67,14 @@ def set_level(video_id: int, body: LevelRequest) -> StatusMessageResponse:
     return _map_mutation_result(video_id, result)
 
 
+@router.put("/videos/{video_id}/unselect", response_model=StatusMessageResponse)
+def unselect(video_id: int) -> StatusMessageResponse:
+    """Tier2: レベルを維持して未選別状態に戻す。"""
+    _ensure_exists(video_id)
+    result = app_service.unselect_video(video_id)
+    return _map_mutation_result(video_id, result)
+
+
 @router.post("/videos/{video_id}/watch-later/toggle", response_model=WatchLaterResponse)
 def toggle_watch_later(video_id: int) -> WatchLaterResponse:
     """あとで見るフラグを反転する。"""

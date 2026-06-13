@@ -250,6 +250,10 @@ export function setLevel(id: number, level: number | null): Promise<StatusMessag
   });
 }
 
+export function unselectVideo(id: number): Promise<StatusMessage> {
+  return request<StatusMessage>(`/videos/${id}/unselect`, { method: "PUT" });
+}
+
 export function likeVideo(id: number): Promise<LikeResponse> {
   return request<LikeResponse>(`/videos/${id}/like`, { method: "POST" });
 }

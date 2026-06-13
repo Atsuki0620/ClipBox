@@ -4,6 +4,30 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — fix: tier2 unselect action and last-viewed propagation（Pull request #40 フォローアップ）
+
+**Tier2「未選別に戻す」機能追加**:
+- `PUT /api/videos/{id}/unselect` エンドポイント追加（`api/actions.py`）。
+- `app_service.unselect_video()` → `VideoManager.unselect_video()` でファイルを `!{level_prefix}{essential_filename}` にリネームし `needs_selection=1, is_selection_completed=0` を更新。レベル値は変更しない。
+- Tier2 ドロップダウンの選択肢を「未選別 / Lv0..Lv4」に変更（「未判定」(-1) は除外）。「未選別」選択で `unselectM.mutate()`、Lv0..Lv4 選択で `levelM.mutate()` を呼ぶ。
+- `VideoCard` に `localNeedsSelection` ローカル state を追加。ランダム/運命カードがリスト再フェッチしなくても選別操作の結果を即時反映する。
+
+**`last-viewed` invalidate 修正**:
+- `usePlayVideo.ts` の `onSettled` に `qc.invalidateQueries({ queryKey: ["last-viewed"] })` を追加。再生直後に最終再生日バッジが更新されるようになった。
+
+**AVP ページへの `lastViewed` 追加**:
+- `avp/page.tsx` に `getLastViewed` クエリを追加し `VideoCard` に `lastViewed` prop を渡すよう修正。AVP 画面でも最終再生日バッジが表示される。
+
+**テスト追加**:
+- `tests/test_video_manager.py` に `unselect_video` 向け3テスト追加（正常リネーム / level=-1 のみ! / ファイル不在エラー）。
+
+**ドキュメント更新**:
+- `docs/context/SPEC_NEXTJS.md`: AVP候補チェックボックスが Tier2 でも表示される旨を更新。未選別/選別済みバッジ廃止と Tier2 ドロップダウン仕様（`PUT /unselect`）を追記。`card_show_*` 設定セクション（§10）を新規追加。セクション番号を繰り下げ調整。
+
+**変更ファイル**: `core/video_manager.py`, `core/app_service.py`, `api/actions.py`, `frontend/src/lib/api.ts`, `frontend/src/components/VideoCard.tsx`, `frontend/src/lib/usePlayVideo.ts`, `frontend/src/app/avp/page.tsx`, `tests/test_video_manager.py`, `docs/context/SPEC_NEXTJS.md`
+
+---
+
 ## 2026-06-13 — chore: card UX adjustments 2（Pull request #40 追加修正）
 
 **Tier2 AVP チェックボックス追加**:
