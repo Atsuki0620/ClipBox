@@ -149,6 +149,10 @@ DB カラム: `is_selection_completed BOOLEAN DEFAULT 0`。
 再生では解除されない。判定済み（level≥0）または選別完了（`+`）で自動解除される。
 AVP候補とは目的も保存先も別。
 
+Next.js 版の `/watch-later` は `watch_later=1` の動画をまとめて確認する専用ページ。
+分類は「未処理」（Tier1 未判定 / Tier2 未選別）、「確認・見直し」（Tier1 判定済み / Tier2 選別済み）、「処理済み候補」。
+処理済み候補は PR A では空枠のみで、最終再生日を使った抽出と一括解除は後続 PR の対象。
+
 ---
 
 ## いいね (likes)

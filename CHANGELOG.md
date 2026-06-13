@@ -4,6 +4,23 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — feat: add watch-later page foundation
+
+**あとで見る専用ページの土台追加**:
+- Next.js に `/watch-later` ページを追加し、`GET /api/videos?watch_later=true` の既存 API で対象動画を全ページ取得するようにした。
+- 表示を「未処理」「確認・見直し」「処理済み候補」の3セクションに分割。
+  PR A では処理済み候補は空枠のみで、最終再生日に基づく抽出と一括解除は後続 PR の対象。
+- 各カードは既存 `VideoCard` を再利用し、再生・レベル変更・いいね・AVP候補・あとで見る解除の既存操作を維持。
+- `SidebarNav` に「あとで見る」を追加し、手動解除後は `["watch-later-videos"]` を invalidate して一覧から外れるようにした。
+
+**ドキュメント更新**:
+- `SPEC_NEXTJS.md` / `GLOSSARY.md` / `ACCEPTANCE_CRITERIA.md` に専用ページの分類と PR A の範囲を追記。
+
+**変更なし**:
+- 新規 API、DB スキーマ、migration、あとで見るの永続先変更はなし。
+
+---
+
 ## 2026-06-13 — docs: GLOSSARY 用語集の現行化と API_SPEC 矛盾修正
 
 **用語集の現行化**:
