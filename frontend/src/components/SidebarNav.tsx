@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
+  Bookmark,
   ChevronDown,
   Film,
   Layers,
@@ -43,6 +44,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Tier 1", icon: Film },
   { href: "/tier2", label: "Tier 2", icon: Layers },
+  { href: "/watch-later", label: "あとで見る", icon: Bookmark },
   { href: "/ranking", label: "ランキング", icon: BarChart3 },
   { href: "/analysis", label: "分析", icon: LineChart },
   { href: "/search", label: "検索", icon: Search },

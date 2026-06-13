@@ -39,6 +39,7 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 |---|---|---|---|
 | `/` | Tier1 ライブラリ | 未判定動画の一次判定（ライブラリ/ランダム/運命の1本の3サブタブ） | `app/page.tsx` + `useLibraryStore`（メモリ）／カードは `displayContext="tier1"` |
 | `/tier2` | Tier2 セレクション | `!` 付きセレクション動画の選別（同3サブタブ）。`selection_folder` 必須 | `app/tier2/page.tsx` + ページ内 `useState`（store 化していない）／`displayContext="tier2"` |
+| `/watch-later` | あとで見る | `watch_later=1` の動画をまとめて確認し、未処理/確認・見直し/処理済み候補に分類する | `app/watch-later/page.tsx` + TanStack Query（DB 状態を既存 API で取得）／カードは既存3値の `displayContext` を使い分け |
 | `/avp` | AVP再生 | AVP候補の確認・再生対象（最大4本）選択・並列再生 | `app/avp/page.tsx` + `useAvpStore`（localStorage）／`displayContext="avp"` |
 | `/ranking` | ランキング | 視聴回数/視聴日数/いいね/総合 のランキング | `app/ranking/page.tsx` |
 | `/analysis` | 分析ダッシュボード | 期間別の視聴・判定トレンド、各種分布（Recharts） | `app/analysis/page.tsx` |
@@ -128,6 +129,11 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 - **Tier1/Tier2 両方で使う**: どちらの画面のカードにもブックマークボタンがある（`VideoCard.tsx:190-198`、アイコンのみ・title 属性で説明）。
 - **DB 永続状態**: `videos.watch_later`（`toggle_watch_later` が 1↔0 反転、`is_deleted = 0` 条件付き）。
 - 絞り込み: 「あとで見るのみ」で `watch_later = true` の動画だけ表示。判定/選別完了するとそのフィルタから外れる（§7）。
+- **専用ページ**: `/watch-later` は `GET /api/videos?watch_later=true` を全ページ取得し、同じ `VideoCard` を再利用する。手動解除後は `["watch-later-videos"]` を invalidate し、対象動画は一覧から外れる。
+- **専用ページの分類**:
+  - **未処理**: Tier1 未判定（`current_favorite_level = -1` の通常動画）または Tier2 未選別（`needs_selection = 1, is_selection_completed = 0`）。
+  - **確認・見直し**: Tier1 判定済み（`current_favorite_level >= 0` の通常動画）または Tier2 選別済み（`is_selection_completed = 1`）。
+  - **処理済み候補**: PR A では空枠のみ。最終再生日に基づく抽出と一括解除は後続 PR で扱う。
 
 ---
 
