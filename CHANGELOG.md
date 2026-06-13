@@ -4,6 +4,23 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — docs: GLOSSARY 用語集の現行化と API_SPEC 矛盾修正
+
+**用語集の現行化**:
+- `docs/context/GLOSSARY.md` を Next.js + FastAPI 版の用語正本として更新。
+- セレクションを `selection_folder` 配下の未選別 `!` / 選別済み `+` を含む概念として整理。
+- Tier2 ドロップダウン（`未選別 / Lv0..Lv4`）、`PUT /api/videos/{id}/unselect`、`未判定` を Tier2 選択肢に出さない点を明記。
+- `viewing_history` と `play_history`、`is_judged` 派生値、last-viewed、カード表示設定、AVP localStorage/sessionStorage 境界、`displayContext`、Runtime control などを補足。
+
+**API_SPEC の明確な矛盾修正**:
+- `POST /api/avp/play` の副作用を現行実装へ合わせ、AVP 起動成功後に `viewing_history(APP_PLAYBACK)` を記録し、`play_history` は記録しないことを明記。
+- `GET /api/config` のレスポンス例に `card_show_*` / `card_title_max_length` を反映し、`card_show_score` は廃止済み互換キーとして整理。
+
+**変更なし**:
+- docs-only。コード・API・DB の挙動変更なし。
+
+---
+
 ## 2026-06-13 — fix: code review findings 1〜5（feature/tier2-display-card-settings フォローアップ）
 
 **Finding 1 — AVP 再生後の invalidate 漏れ**:
