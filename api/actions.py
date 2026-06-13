@@ -26,7 +26,14 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from core import app_service
-from api.schemas import LevelRequest, PlayRequest, StatusMessageResponse, WatchLaterResponse
+from api.schemas import (
+    LevelRequest,
+    PlayRequest,
+    StatusMessageResponse,
+    WatchLaterBulkClearRequest,
+    WatchLaterBulkClearResponse,
+    WatchLaterResponse,
+)
 
 router = APIRouter()
 
@@ -88,4 +95,18 @@ def toggle_watch_later(video_id: int) -> WatchLaterResponse:
         status="success",
         message=f"あとで見るを{label}しました",
         watch_later=new_val,
+    )
+
+
+@router.post("/videos/watch-later/bulk-clear", response_model=WatchLaterBulkClearResponse)
+def bulk_clear_watch_later(body: WatchLaterBulkClearRequest) -> WatchLaterBulkClearResponse:
+    """指定動画のあとで見るを一括解除する。存在しないID・削除済み・重複は安全に無視する。"""
+    try:
+        updated_count = app_service.clear_watch_later(body.video_ids)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return WatchLaterBulkClearResponse(
+        status="success",
+        message=f"{updated_count}件のあとで見るを解除しました",
+        updated_count=updated_count,
     )

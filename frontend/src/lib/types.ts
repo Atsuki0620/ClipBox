@@ -156,6 +156,12 @@ export interface WatchLaterResponse {
   watch_later: boolean;
 }
 
+export interface WatchLaterBulkClearResponse {
+  status: string;
+  message: string;
+  updated_count: number;
+}
+
 export interface SelectionVideoListParams {
   folder: string;
   status?: SelectionStatus;

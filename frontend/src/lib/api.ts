@@ -30,6 +30,7 @@ import type {
   VideoListParams,
   VideosByIdsResponse,
   VideosResponse,
+  WatchLaterBulkClearResponse,
   WatchLaterResponse,
 } from "./types";
 
@@ -260,6 +261,13 @@ export function likeVideo(id: number): Promise<LikeResponse> {
 
 export function toggleWatchLater(id: number): Promise<WatchLaterResponse> {
   return request<WatchLaterResponse>(`/videos/${id}/watch-later/toggle`, { method: "POST" });
+}
+
+export function bulkClearWatchLater(videoIds: number[]): Promise<WatchLaterBulkClearResponse> {
+  return request<WatchLaterBulkClearResponse>(`/videos/watch-later/bulk-clear`, {
+    method: "POST",
+    body: JSON.stringify({ video_ids: videoIds }),
+  });
 }
 
 export function updateConfig(config: Config): Promise<StatusMessage> {
