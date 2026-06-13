@@ -512,6 +512,47 @@ class VideoManager:
                 )
                 return {'status': 'error', 'message': f'リネームに失敗しました: {e}'}
 
+    def unselect_video(self, video_id: int) -> Dict[str, str]:
+        """Tier2: レベルを維持したまま needs_selection=1 に戻す（ファイル先頭に ! を付与）。"""
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+            if not row:
+                return {"status": "error", "message": "動画が見つかりません"}
+
+            video = self._row_to_video(row)
+            current_path = Path(video.current_full_path)
+            if not current_path.exists():
+                conn.execute("UPDATE videos SET is_available = 0 WHERE id = ?", (video_id,))
+                logger.warning("operation=unselect video_id=%d reason=file_not_found", video_id)
+                return {"status": "error", "message": "ファイルが見つかりません。移動または削除された可能性があります"}
+
+            level = video.current_favorite_level
+            if level <= -1:
+                level_prefix = ""
+            elif level == 0:
+                level_prefix = "_"
+            else:
+                level_prefix = "#" * level + "_"
+
+            new_filename = f"!{level_prefix}{video.essential_filename}"
+            new_path = current_path.parent / new_filename
+
+            try:
+                if current_path != new_path:
+                    current_path.rename(new_path)
+
+                conn.execute(
+                    "UPDATE videos SET current_full_path=?, needs_selection=1, "
+                    "is_selection_completed=0, last_scanned_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (str(new_path), video_id),
+                )
+            except PermissionError:
+                return {"status": "error", "message": "ファイルが使用中、またはアクセス権がありません"}
+            except Exception as e:
+                return {"status": "error", "message": f"リネームに失敗しました: {e}"}
+
+        return {"status": "success", "message": "未選別に戻しました"}
+
     def toggle_watch_later(self, video_id: int) -> bool:
         """watch_later フラグを反転して新しい値を返す。動画不在は KeyError。"""
         with get_db_connection() as conn:

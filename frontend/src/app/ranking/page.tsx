@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getLikes, getRanking, getViewCounts } from "@/lib/api";
+import { getLastViewed, getLikes, getRanking, getViewCounts } from "@/lib/api";
 import { levelName } from "@/lib/levels";
 import type {
   RankingAvailability,
@@ -88,6 +88,10 @@ export default function RankingPage() {
     queryKey: ["view-counts"],
     queryFn: getViewCounts,
   });
+  const lastViewedQ = useQuery({
+    queryKey: ["last-viewed"],
+    queryFn: getLastViewed,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -121,6 +125,7 @@ export default function RankingPage() {
           type={type}
           likeCounts={likesQ.data ?? {}}
           viewCounts={viewCountsQ.data ?? {}}
+          lastViewed={lastViewedQ.data ?? {}}
         />
       )}
     </div>
@@ -229,11 +234,13 @@ function RankingList({
   type,
   likeCounts,
   viewCounts,
+  lastViewed,
 }: {
   items: RankingItem[];
   type: RankingType;
   likeCounts: Record<number, number>;
   viewCounts: Record<number, number>;
+  lastViewed: Record<number, string>;
 }) {
   if (items.length === 0) {
     return (
@@ -271,6 +278,7 @@ function RankingList({
               video={item.video}
               likeCount={likeCounts[id] ?? 0}
               viewCount={viewCounts[id] ?? 0}
+              lastViewed={lastViewed[id] ?? null}
               invalidateKeys={[["ranking"]]}
             />
           </div>

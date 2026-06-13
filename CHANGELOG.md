@@ -4,6 +4,104 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — fix: code review findings 1〜5（feature/tier2-display-card-settings フォローアップ）
+
+**Finding 1 — AVP 再生後の invalidate 漏れ**:
+- `avp/page.tsx` の `launchMutation` に `onSettled` を追加。`view-counts` / `last-viewed` を invalidate するようにした。
+
+**Finding 2 — API_SPEC.md 未記載エンドポイント・設定フィールド**:
+- `docs/context/API_SPEC.md` に `PUT /api/videos/{id}/unselect` セクションを追加。
+- `PUT /api/config` のリクエストボディ説明に `card_show_*` / `card_title_max_length` を追記。
+
+**Finding 3 — `unselect_video()` ファイル不在時に `is_available=0` を立てない**:
+- `core/video_manager.py` の `unselect_video()` にて、ファイル不在時に `is_available = 0` を更新するよう修正。
+  `play_video()` / `set_favorite_level_with_rename()` と同じパターンに統一。API 層が 409 を返せるようになった。
+
+**Finding 4 — SPEC_NEXTJS.md のデフォルト値誤記**:
+- `docs/context/SPEC_NEXTJS.md` §10 の `card_show_file_size` / `card_show_last_viewed` デフォルトを `true` → `false` に修正（実装と一致）。
+
+**Finding 5 — Tier2 ドロップダウンで `!` 付き動画が「未判定」表示**:
+- `VideoCard.tsx` の `isTier2Unselected` 判定に `|| displayLevel === -1` を追加。
+  `needs_selection=true` の場合のみならず、DB 不整合等で `level=-1` の Tier2 動画も「未選別」と表示する。
+
+**変更ファイル**: `core/video_manager.py`, `frontend/src/app/avp/page.tsx`, `frontend/src/components/VideoCard.tsx`, `docs/context/SPEC_NEXTJS.md`, `docs/context/API_SPEC.md`
+
+---
+
+## 2026-06-13 — fix: tier2 unselect action and last-viewed propagation（Pull request #40 フォローアップ）
+
+**Tier2「未選別に戻す」機能追加**:
+- `PUT /api/videos/{id}/unselect` エンドポイント追加（`api/actions.py`）。
+- `app_service.unselect_video()` → `VideoManager.unselect_video()` でファイルを `!{level_prefix}{essential_filename}` にリネームし `needs_selection=1, is_selection_completed=0` を更新。レベル値は変更しない。
+- Tier2 ドロップダウンの選択肢を「未選別 / Lv0..Lv4」に変更（「未判定」(-1) は除外）。「未選別」選択で `unselectM.mutate()`、Lv0..Lv4 選択で `levelM.mutate()` を呼ぶ。
+- `VideoCard` に `localNeedsSelection` ローカル state を追加。ランダム/運命カードがリスト再フェッチしなくても選別操作の結果を即時反映する。
+
+**`last-viewed` invalidate 修正**:
+- `usePlayVideo.ts` の `onSettled` に `qc.invalidateQueries({ queryKey: ["last-viewed"] })` を追加。再生直後に最終再生日バッジが更新されるようになった。
+
+**AVP ページへの `lastViewed` 追加**:
+- `avp/page.tsx` に `getLastViewed` クエリを追加し `VideoCard` に `lastViewed` prop を渡すよう修正。AVP 画面でも最終再生日バッジが表示される。
+
+**テスト追加**:
+- `tests/test_video_manager.py` に `unselect_video` 向け3テスト追加（正常リネーム / level=-1 のみ! / ファイル不在エラー）。
+
+**ドキュメント更新**:
+- `docs/context/SPEC_NEXTJS.md`: AVP候補チェックボックスが Tier2 でも表示される旨を更新。未選別/選別済みバッジ廃止と Tier2 ドロップダウン仕様（`PUT /unselect`）を追記。`card_show_*` 設定セクション（§10）を新規追加。セクション番号を繰り下げ調整。
+
+**変更ファイル**: `core/video_manager.py`, `core/app_service.py`, `api/actions.py`, `frontend/src/lib/api.ts`, `frontend/src/components/VideoCard.tsx`, `frontend/src/lib/usePlayVideo.ts`, `frontend/src/app/avp/page.tsx`, `tests/test_video_manager.py`, `docs/context/SPEC_NEXTJS.md`
+
+---
+
+## 2026-06-13 — chore: card UX adjustments 2（Pull request #40 追加修正）
+
+**Tier2 AVP チェックボックス追加**:
+- Tier2 カードにも AVP 候補チェックボックスを表示するよう修正（条件を `displayContext !== "avp"` のみに緩和）。
+
+**スコアバッジ廃止**:
+- VideoCard から `score` prop とスコアバッジ表示ブロックを削除。
+- `useCardSettings` の `CardSettings` インターフェースと `DEFAULTS` から `card_show_score` を削除。
+- 設定画面の「動画カード表示」から「スコアを表示」トグルを削除（関連 state / computed も除去）。
+- ランキングページの `<VideoCard score={item.score} />` を削除。
+
+**設定 UI 整理**:
+- 設定画面の「タイトル最大文字数（0 = 制限なし）」入力欄を削除（バックエンド層・VideoCard ロジックは保持）。
+
+**変更ファイル**: `frontend/src/components/VideoCard.tsx`, `frontend/src/lib/useCardSettings.ts`, `frontend/src/app/settings/page.tsx`, `frontend/src/app/ranking/page.tsx`
+
+---
+
+## 2026-06-13 — chore: card UX adjustments（Pull request #40 追加修正）
+
+**バッジ整理・tooltip・AVPチェックボックス移動**:
+- Tier2「選別済み」バッジを削除（プルダウンで状態が分かるため冗長）
+- スコアバッジ表示条件を `score != null` に修正（`null` / `undefined` 両方ガード）
+- 主要バッジに説明 tooltip を追加（ストレージ / 視聴回数 / ファイルサイズ / 最終再生日 / スコア / ファイル更新日 / レベル / 利用不可）
+- AVP候補チェックボックスを独立行からバッジ行の先頭へ移動（縦スペース削減）
+- `TBadge` ヘルパーコンポーネントを `VideoCard.tsx` 内に追加
+
+**変更ファイル**: `frontend/src/components/VideoCard.tsx`, `CHANGELOG.md`
+
+---
+
+## 2026-06-13 — feat: align tier2 pending display and add card display settings
+
+**Tier2未選別表示の整合**:
+- `!###_` のような `!` プレフィックス付き動画（`needs_selection=true`）でレベルバッジと「未選別」バッジが二重表示されていた不具合を修正。
+- `isTier2Unselected = displayContext === "tier2" && video.needs_selection` を導入し、レベルに依らず Tier2 未選別はドロップダウンに「未選別」を表示するよう統一。
+- 重複していた「未選別」バッジを削除（ドロップダウンで既に示すため）。
+
+**動画カード表示設定**:
+- 設定画面に「動画カード表示」セクションを追加（ストレージ / ファイルサイズ / 最終再生日 / スコア / ファイル更新日 の ON/OFF スイッチ + タイトル最大文字数）。
+- `user_config.json` に `card_show_*` / `card_title_max_length` フィールドを追加。既存設定ファイルがない場合はデフォルト（現行表示に合わせた ON/OFF）を使用。
+- VideoCard にタイトルの tooltip（ホバーで実ファイル名を表示）と AVP チェックボックスの tooltip（「AVPで再生する候補に追加」）を追加。
+- `useCardSettings` フック新規作成（`["config"]` キャッシュ共有で複数カード間でリクエスト1回）。
+- VideoGrid に `lastViewed` クエリを追加。
+- ランキングページから `score` を VideoCard に渡すよう修正。
+
+**変更ファイル**: `api/schemas.py`, `core/config_utils.py`, `frontend/src/lib/types.ts`, `frontend/src/lib/useCardSettings.ts`（新規）, `frontend/src/components/VideoCard.tsx`, `frontend/src/components/VideoGrid.tsx`, `frontend/src/app/settings/page.tsx`, `frontend/src/app/ranking/page.tsx`
+
+---
+
 ## 2026-06-12 — feat: improve fate pick state and playback UX
 
 - 再生ボタンの「サーバー機でプレイヤーが起動します」tooltip を削除。

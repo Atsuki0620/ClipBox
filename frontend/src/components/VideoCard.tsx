@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import {
   useMutation,
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, setLevel, toggleWatchLater } from "@/lib/api";
+import { likeVideo, setLevel, toggleWatchLater, unselectVideo } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
 import { useAvpStore, useIsPlaying } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
+import { useCardSettings } from "@/lib/useCardSettings";
 import type { Video } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +22,45 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Bookmark, Heart, Play, X } from "lucide-react";
 
+function pathBasename(fullPath: string): string {
+  return fullPath.split(/[/\\]/).pop() ?? fullPath;
+}
+
+function formatDate(isoStr: string | null | undefined): string {
+  if (!isoStr) return "";
+  return isoStr.substring(0, 10).replace(/-/g, "/");
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "";
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
+}
+
+// tooltip 付きバッジ。tip に説明文を渡す。
+function TBadge({ tip, children, ...props }: ComponentProps<typeof Badge> & { tip: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span />}>
+        <Badge {...props}>{children}</Badge>
+      </TooltipTrigger>
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // 共通の動画カード。`displayContext` で Tier1/Tier2/AVP の表示差を切り替える多態コンポーネント。
-//   - "tier1": AVP候補チェックボックスを表示（SPEC_NEXTJS.md §2 / 下記 :130-142）
-//   - "tier2": 「未選別」「選別済み」バッジを表示（SPEC §3 / :87-89, :121-126）
-//   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6 / :200-223）
+//   - "tier1": AVP候補チェックボックスをバッジ行先頭に表示（SPEC_NEXTJS.md §2）
+//   - "tier2": Tier2未選別はプルダウンで「未選別」表示。バッジ重複なし（SPEC §3）
+//   - "avp":   「再生対象」チェックと削除ボタンを表示（SPEC §6）
 // 表示差は localStorage 由来（AVP候補/再生対象/再生中ハイライト）と DB 由来（レベル/あとで見る）が
 // 混在する。どちらの状態かは SPEC_NEXTJS.md §0 の永続境界を必ず参照すること。
 // 値は3値で固定。第4値を足す前に AI_WORKFLOW.md §C で停止する（SPEC §6）。
@@ -34,6 +68,7 @@ export function VideoCard({
   video,
   likeCount,
   viewCount,
+  lastViewed,
   invalidateKeys = [],
   displayContext = "tier1",
   avpPlayTarget,
@@ -42,6 +77,7 @@ export function VideoCard({
   video: Video;
   likeCount: number;
   viewCount: number;
+  lastViewed?: string | null;
   // 画面別のリスト query key（例 [["videos"]]）。ランダム/運命は [] を渡し再抽選を防ぐ。
   invalidateKeys?: QueryKey[];
   displayContext?: "tier1" | "tier2" | "avp";
@@ -52,9 +88,12 @@ export function VideoCard({
   const id = video.id as number;
   const avpCandidateIds = useAvpStore((state) => state.avpCandidateIds);
   const toggleAvpCandidateId = useAvpStore((state) => state.toggleAvpCandidateId);
+  const settings = useCardSettings();
 
   // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
+  // Tier2: ランダム/運命は選別操作後もリスト再フェッチしないため props 固定では更新されない。
+  const [localNeedsSelection, setLocalNeedsSelection] = useState(video.needs_selection);
 
   // mutation 後は onSettled で invalidate する（成功・409 とも）。
   // 共通キー（kpi/likes/view-counts）は件数更新のみでリストの顔ぶれを変えない。
@@ -73,7 +112,15 @@ export function VideoCard({
   const isPlaying = useIsPlaying(id);
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
-    onSuccess: (_data, level) => setDisplayLevel(level),
+    onSuccess: (_data, level) => {
+      setDisplayLevel(level);
+      if (displayContext === "tier2") setLocalNeedsSelection(false);
+    },
+    onSettled: invalidate,
+  });
+  const unselectM = useMutation({
+    mutationFn: () => unselectVideo(id),
+    onSuccess: () => setLocalNeedsSelection(true),
     onSettled: invalidate,
   });
   const likeM = useMutation({
@@ -85,15 +132,19 @@ export function VideoCard({
     onSettled: invalidate,
   });
 
-  const levelDisplay =
-    displayContext === "tier2" && video.needs_selection && displayLevel === -1
-      ? "未選別"
-      : levelName(displayLevel);
+  // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。
+  const isTier2Unselected = displayContext === "tier2" && (localNeedsSelection || displayLevel === -1);
+  const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
 
-  const busy = playM.isPending || levelM.isPending || likeM.isPending || watchLaterM.isPending;
+  const displayTitle =
+    settings.card_title_max_length > 0
+      ? video.essential_filename.slice(0, settings.card_title_max_length)
+      : video.essential_filename;
+
+  const busy = playM.isPending || levelM.isPending || unselectM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
   const mutateDisabled = busy || !video.is_available;
-  const error = playM.error || levelM.error || likeM.error;
+  const error = playM.error || levelM.error || unselectM.error || likeM.error;
   const isJudged = displayLevel !== -1;
   const isAvpSelected = avpCandidateIds.includes(id);
   const avpDisabled = !video.is_available;
@@ -105,44 +156,90 @@ export function VideoCard({
       }`}
     >
       <CardContent className="flex flex-col gap-1 py-1">
-        <div
-          className="line-clamp-2 break-all text-sm font-medium"
-          title={video.essential_filename}
-        >
-          {video.essential_filename}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1">
-          {isJudged && (
-            <Badge style={{ backgroundColor: levelColor(displayLevel) }}>
-              {levelName(displayLevel)}
-            </Badge>
-          )}
-          <Badge variant="secondary">{storageLabel(video.storage_location)}</Badge>
-          <Badge variant="outline">視聴 {viewCount}</Badge>
-          {displayContext === "tier2" && video.needs_selection && !video.is_selection_completed && (
-            <Badge variant="secondary">未選別</Badge>
-          )}
-          {displayContext === "tier2" && video.is_selection_completed && (
-            <Badge variant="outline">選別済み</Badge>
-          )}
-          {!video.is_available && <Badge variant="destructive">利用不可</Badge>}
-        </div>
-
-        {displayContext !== "tier2" && displayContext !== "avp" && (
-          <label
-            className={`flex w-fit items-center gap-2 text-sm ${
-              avpDisabled ? "text-muted-foreground" : ""
-            }`}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <div className="line-clamp-2 break-all text-sm font-medium cursor-default" />
+            }
           >
-            <Checkbox
-              checked={isAvpSelected}
-              disabled={avpDisabled}
-              onCheckedChange={() => toggleAvpCandidateId(id)}
-            />
-            <span>AVP候補</span>
-          </label>
-        )}
+            {displayTitle}
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-sm break-all">
+            {pathBasename(video.current_full_path)}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* バッジ行: 先頭にAVP候補チェックボックス、続いて各バッジ */}
+        <div className="flex flex-wrap items-center gap-1">
+          {displayContext !== "avp" && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <label
+                    className={`flex w-fit items-center gap-2 text-sm ${
+                      avpDisabled ? "text-muted-foreground" : ""
+                    }`}
+                  />
+                }
+              >
+                <Checkbox
+                  checked={isAvpSelected}
+                  disabled={avpDisabled}
+                  onCheckedChange={() => toggleAvpCandidateId(id)}
+                />
+              </TooltipTrigger>
+              <TooltipContent>AVPで再生する候補に追加</TooltipContent>
+            </Tooltip>
+          )}
+          {isJudged && !isTier2Unselected && (
+            <TBadge
+              tip={`お気に入りレベル: ${levelName(displayLevel)}`}
+              style={{ backgroundColor: levelColor(displayLevel) }}
+            >
+              {levelName(displayLevel)}
+            </TBadge>
+          )}
+          {settings.card_show_storage && (
+            <TBadge
+              tip={`ストレージ: ${storageLabel(video.storage_location)}`}
+              variant="secondary"
+            >
+              {storageLabel(video.storage_location)}
+            </TBadge>
+          )}
+          <TBadge tip={`視聴回数: ${viewCount}回`} variant="outline">
+            視聴 {viewCount}
+          </TBadge>
+          {settings.card_show_file_size && video.file_size != null && (
+            <TBadge
+              tip={`ファイルサイズ: ${formatFileSize(video.file_size)}`}
+              variant="outline"
+            >
+              {formatFileSize(video.file_size)}
+            </TBadge>
+          )}
+          {settings.card_show_last_viewed && lastViewed && (
+            <TBadge tip={`最終再生日: ${formatDate(lastViewed)}`} variant="outline">
+              {formatDate(lastViewed)}
+            </TBadge>
+          )}
+          {settings.card_show_file_modified && video.last_file_modified && (
+            <TBadge
+              tip={`ファイル更新日: ${formatDate(video.last_file_modified)}`}
+              variant="outline"
+            >
+              {formatDate(video.last_file_modified)}
+            </TBadge>
+          )}
+          {!video.is_available && (
+            <TBadge
+              tip="ファイルが見つからない、または利用できない動画"
+              variant="destructive"
+            >
+              利用不可
+            </TBadge>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           <Button
@@ -156,19 +253,33 @@ export function VideoCard({
           </Button>
 
           <Select
-            value={String(displayLevel)}
-            onValueChange={(v) => levelM.mutate(Number(v))}
+            value={isTier2Unselected ? "unselect" : String(displayLevel)}
+            onValueChange={(v) => {
+              if (v === "unselect") unselectM.mutate();
+              else levelM.mutate(Number(v));
+            }}
             disabled={mutateDisabled}
           >
             <SelectTrigger className="w-28" size="sm">
               <span>{levelDisplay}</span>
             </SelectTrigger>
             <SelectContent>
-              {LEVEL_OPTIONS.map((l) => (
-                <SelectItem key={l} value={String(l)}>
-                  {levelName(l)}
-                </SelectItem>
-              ))}
+              {displayContext === "tier2" ? (
+                <>
+                  <SelectItem value="unselect">未選別</SelectItem>
+                  {[0, 1, 2, 3, 4].map((l) => (
+                    <SelectItem key={l} value={String(l)}>
+                      {levelName(l)}
+                    </SelectItem>
+                  ))}
+                </>
+              ) : (
+                LEVEL_OPTIONS.map((l) => (
+                  <SelectItem key={l} value={String(l)}>
+                    {levelName(l)}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 

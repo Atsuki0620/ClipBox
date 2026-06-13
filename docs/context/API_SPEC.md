@@ -282,6 +282,24 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 ---
 
+### PUT /api/videos/{id}/unselect
+**説明**: Tier2 選別済み動画をレベルを維持したまま未選別（`needs_selection=1`）に戻す。
+
+**副作用**:
+- ファイル先頭に `!` を付与してリネームし、`needs_selection=1` / `is_selection_completed=0` に更新する。
+- **ファイル不在時**: **`is_available = 0` に更新**し、エラーを返す（リネーム・状態更新は行わない）。
+
+**レスポンス**: `{ "status": "success", "message": "..." }`（200 OK）
+
+**エラーケース**:
+- 404: 動画が見つからない。
+- 409: ファイル不在 → `is_available=0` 更新 + `status: error`。
+- 500: リネーム失敗。
+
+**現行対応関数**: `app_service.unselect_video(video_id)` → `VideoManager.unselect_video()`。
+
+---
+
 ### POST /api/avp/play
 **説明**: 指定した動画を Awesome Video Player に渡して最大4本まで並列再生する。
 
@@ -550,7 +568,7 @@ Streamlit 側キャッシュは `ui/cache.py:get_kpi_stats_cached()`。
 ### PUT /api/config
 **説明**: ユーザー設定を保存する。
 
-**リクエストボディ**: 設定 dict（`library_roots` / `default_player` / `avp_exe_path` / `db_path` / `selection_folder` / `fate_tier1_recently_unwatched_priority` / `fate_tier2_recently_unwatched_priority`）。
+**リクエストボディ**: 設定 dict（`library_roots` / `default_player` / `avp_exe_path` / `db_path` / `selection_folder` / `fate_tier1_recently_unwatched_priority` / `fate_tier2_recently_unwatched_priority` / `card_show_storage` / `card_show_file_size` / `card_show_last_viewed` / `card_show_file_modified` / `card_title_max_length`）。
 Fate の2フィールドは hidden config で、設定画面には表示しない。PUT は既存設定へマージ保存し、省略された optional 値やモデル外キーを消さない。
 
 **レスポンス**: `{ "status": "success" }`（200 OK）

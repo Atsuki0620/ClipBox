@@ -246,6 +246,12 @@ class ConfigModel(BaseModel):
     selection_folder: Optional[str] = None
     fate_tier1_recently_unwatched_priority: Optional[bool] = None
     fate_tier2_recently_unwatched_priority: Optional[bool] = None
+    card_show_storage: Optional[bool] = None
+    card_show_file_size: Optional[bool] = None
+    card_show_last_viewed: Optional[bool] = None
+    card_show_score: Optional[bool] = None
+    card_show_file_modified: Optional[bool] = None
+    card_title_max_length: Optional[int] = None
 
 
 # --- 分析 --------------------------------------------------------------------
