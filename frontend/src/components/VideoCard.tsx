@@ -132,8 +132,8 @@ export function VideoCard({
     onSettled: invalidate,
   });
 
-  // Tier2 で needs_selection=true の動画はレベルに関わらず「未選別」と表示する。
-  const isTier2Unselected = displayContext === "tier2" && localNeedsSelection;
+  // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。
+  const isTier2Unselected = displayContext === "tier2" && (localNeedsSelection || displayLevel === -1);
   const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
 
   const displayTitle =

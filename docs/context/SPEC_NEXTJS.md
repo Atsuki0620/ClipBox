@@ -227,8 +227,8 @@ score = round(base × bonus × 100)               # 整数化
 | 設定キー | 説明 | デフォルト |
 |---|---|---|
 | `card_show_storage` | ストレージ（例: C / HDD）バッジ | `true` |
-| `card_show_file_size` | ファイルサイズバッジ | `true` |
-| `card_show_last_viewed` | 最終再生日バッジ（`last-viewed` クエリ） | `true` |
+| `card_show_file_size` | ファイルサイズバッジ | `false` |
+| `card_show_last_viewed` | 最終再生日バッジ（`last-viewed` クエリ） | `false` |
 | `card_show_file_modified` | ファイル更新日バッジ | `false` |
 
 - フロントは `useCardSettings` フック（`src/lib/useCardSettings.ts`）で取得。`[config]` クエリキャッシュを共有する。

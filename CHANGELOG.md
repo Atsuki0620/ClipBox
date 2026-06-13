@@ -4,6 +4,30 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — fix: code review findings 1〜5（feature/tier2-display-card-settings フォローアップ）
+
+**Finding 1 — AVP 再生後の invalidate 漏れ**:
+- `avp/page.tsx` の `launchMutation` に `onSettled` を追加。`view-counts` / `last-viewed` を invalidate するようにした。
+
+**Finding 2 — API_SPEC.md 未記載エンドポイント・設定フィールド**:
+- `docs/context/API_SPEC.md` に `PUT /api/videos/{id}/unselect` セクションを追加。
+- `PUT /api/config` のリクエストボディ説明に `card_show_*` / `card_title_max_length` を追記。
+
+**Finding 3 — `unselect_video()` ファイル不在時に `is_available=0` を立てない**:
+- `core/video_manager.py` の `unselect_video()` にて、ファイル不在時に `is_available = 0` を更新するよう修正。
+  `play_video()` / `set_favorite_level_with_rename()` と同じパターンに統一。API 層が 409 を返せるようになった。
+
+**Finding 4 — SPEC_NEXTJS.md のデフォルト値誤記**:
+- `docs/context/SPEC_NEXTJS.md` §10 の `card_show_file_size` / `card_show_last_viewed` デフォルトを `true` → `false` に修正（実装と一致）。
+
+**Finding 5 — Tier2 ドロップダウンで `!` 付き動画が「未判定」表示**:
+- `VideoCard.tsx` の `isTier2Unselected` 判定に `|| displayLevel === -1` を追加。
+  `needs_selection=true` の場合のみならず、DB 不整合等で `level=-1` の Tier2 動画も「未選別」と表示する。
+
+**変更ファイル**: `core/video_manager.py`, `frontend/src/app/avp/page.tsx`, `frontend/src/components/VideoCard.tsx`, `docs/context/SPEC_NEXTJS.md`, `docs/context/API_SPEC.md`
+
+---
+
 ## 2026-06-13 — fix: tier2 unselect action and last-viewed propagation（Pull request #40 フォローアップ）
 
 **Tier2「未選別に戻す」機能追加**:

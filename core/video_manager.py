@@ -522,7 +522,9 @@ class VideoManager:
             video = self._row_to_video(row)
             current_path = Path(video.current_full_path)
             if not current_path.exists():
-                return {"status": "error", "message": "ファイルが見つかりません"}
+                conn.execute("UPDATE videos SET is_available = 0 WHERE id = ?", (video_id,))
+                logger.warning("operation=unselect video_id=%d reason=file_not_found", video_id)
+                return {"status": "error", "message": "ファイルが見つかりません。移動または削除された可能性があります"}
 
             level = video.current_favorite_level
             if level <= -1:

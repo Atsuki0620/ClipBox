@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getLastViewed, getLikes, getVideosByIds, getViewCounts, playAvp } from "@/lib/api";
 import { MAX_AVP_PLAY_TARGET, useAvpStore, usePlaybackStore } from "@/lib/store";
 import { VideoCard } from "@/components/VideoCard";
@@ -26,6 +26,7 @@ export default function AvpPage() {
   } = useAvpStore();
   const setAvpPlaying = usePlaybackStore((state) => state.setAvpPlaying);
   const [result, setResult] = useState<ResultMessage | null>(null);
+  const qc = useQueryClient();
 
   const { data: candidateData, isLoading } = useQuery({
     queryKey: ["avp-candidates", avpCandidateIds],
@@ -65,6 +66,10 @@ export default function AvpPage() {
       setAvpPlaying(ids);
       clearAvpPlayTargetIds();
       setResult({ tone: "success", text: response.message });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["view-counts"] });
+      qc.invalidateQueries({ queryKey: ["last-viewed"] });
     },
     onError: (error) => {
       setResult({ tone: "error", text: errorMessage(error) });
