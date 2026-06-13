@@ -227,8 +227,8 @@ data/user_config.json
 .claude/scheduled_tasks.lock
 # Streamlit設定
 .streamlit/
-# 分析ノートブック（個人の動画情報が含まれるため）
-video_analysis.ipynb
+# 分析ノートブック（個人の動画パス・動画名称が含まれるため commit 禁止）
+*.ipynb
 # Playwright MCP（テスト用スクリーンショットなど）
 .playwright-mcp/
 # スクリーンショット専用フォルダ（git管理外）
