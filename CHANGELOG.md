@@ -4,6 +4,28 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 — feat: auto-clear processed watch-later items
+
+**処理済み動画のあとで見る自動解除**:
+- `like_service.add_like()` で、いいね追加成功と同一トランザクション内に処理済み動画の `watch_later` を解除。
+- `app_service.record_avp_viewing()` で、AVP 起動成功後の視聴履歴記録と同一トランザクション内に処理済み動画の `watch_later` を解除。
+- 通常再生 `play_video()` は変更せず、通常再生だけでは解除しない挙動を維持。
+- `needs_selection=1` の Tier2 未選別は、レベル値が 0..4 でも自動解除対象外にした。
+
+**処理済み候補と一括解除**:
+- `/watch-later` の「処理済み候補」を、処理済み状態かつ `/stats/last-viewed` に最終再生日がある動画として表示。
+- `POST /api/videos/watch-later/bulk-clear` を追加し、指定 ID の `watch_later` を一括解除できるようにした。
+- 空配列、重複ID、0以下のID、存在しないID、削除済みIDは安全に無視する。
+
+**テスト・docs**:
+- 判定/選別完了、いいね、AVP起動、通常再生、一括解除の watch_later 条件を API テストで追加。
+- `SPEC_NEXTJS.md` / `API_SPEC.md` / `GLOSSARY.md` / `ACCEPTANCE_CRITERIA.md` を更新。
+
+**変更なし**:
+- DB スキーマ、migration、watch_later の永続先、AVP候補/再生対象の localStorage 境界は変更なし。
+
+---
+
 ## 2026-06-13 — feat: add watch-later page foundation
 
 **あとで見る専用ページの土台追加**:

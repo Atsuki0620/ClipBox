@@ -4,15 +4,25 @@
 // 【設計制約】watch_later は DB 永続のまま扱い、AVP候補/再生対象の localStorage 境界を変更しない。
 // 【依存関係】既存の listVideos / VideoCard / TanStack Query キャッシュを使い、新規 API は追加しない。
 
-import { useMemo } from "react";
-import { useQuery, type QueryKey } from "@tanstack/react-query";
+import { useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 
-import { getLastViewed, getLikes, getViewCounts, listVideos } from "@/lib/api";
+import { bulkClearWatchLater, getLastViewed, getLikes, getViewCounts, listVideos } from "@/lib/api";
 import { levelName } from "@/lib/levels";
 import type { Video } from "@/lib/types";
 import { VideoCard } from "@/components/VideoCard";
 import { EmptyBox, ErrorBox, VideoSkeleton } from "@/components/VideoState";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { BookmarkX } from "lucide-react";
 
 const WATCH_LATER_QUERY_KEY: QueryKey = ["watch-later-videos"];
 const WATCH_LATER_PAGE_SIZE = 200;
@@ -25,9 +35,12 @@ type WatchLaterSectionData = {
   title: string;
   videos: Video[];
   emptyMessage: string;
+  action?: ReactNode;
 };
 
 export default function WatchLaterPage() {
+  const queryClient = useQueryClient();
+  const [bulkClearIds, setBulkClearIds] = useState<number[] | null>(null);
   const videosQ = useQuery({
     queryKey: WATCH_LATER_QUERY_KEY,
     queryFn: fetchAllWatchLaterVideos,
@@ -53,7 +66,28 @@ export default function WatchLaterPage() {
     queryFn: getLastViewed,
   });
 
-  const classified = useMemo(() => classifyWatchLaterVideos(videos), [videos]);
+  const lastViewed = useMemo(() => lastViewedQ.data ?? {}, [lastViewedQ.data]);
+  const classified = useMemo(
+    () => classifyWatchLaterVideos(videos, lastViewed),
+    [lastViewed, videos],
+  );
+  const processedIds = useMemo(
+    () => classified.processed.map((video) => video.id).filter((id): id is number => id != null),
+    [classified.processed],
+  );
+
+  const bulkClearM = useMutation({
+    mutationFn: (videoIds: number[]) => bulkClearWatchLater(videoIds),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: WATCH_LATER_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ["videos"] }),
+        queryClient.invalidateQueries({ queryKey: ["selection-videos"] }),
+      ]);
+      setBulkClearIds(null);
+    },
+  });
+
   const sections: WatchLaterSectionData[] = [
     {
       key: "unprocessed",
@@ -70,8 +104,21 @@ export default function WatchLaterPage() {
     {
       key: "processed",
       title: "処理済み候補",
-      videos: [],
+      videos: classified.processed,
       emptyMessage: "処理済み候補はありません。",
+      action:
+        processedIds.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={bulkClearM.isPending}
+            onClick={() => setBulkClearIds(processedIds)}
+          >
+            <BookmarkX className="size-4" />
+            一括解除
+          </Button>
+        ) : undefined,
     },
   ];
 
@@ -95,10 +142,22 @@ export default function WatchLaterPage() {
             section={section}
             likes={likesQ.data ?? {}}
             viewCounts={viewCountsQ.data ?? {}}
-            lastViewed={lastViewedQ.data ?? {}}
+            lastViewed={lastViewed}
           />
         ))
       )}
+      <BulkClearDialog
+        count={bulkClearIds?.length ?? 0}
+        open={bulkClearIds !== null}
+        pending={bulkClearM.isPending}
+        error={bulkClearM.error}
+        onOpenChange={(open) => {
+          if (!open && !bulkClearM.isPending) setBulkClearIds(null);
+        }}
+        onConfirm={() => {
+          if (bulkClearIds) bulkClearM.mutate(bulkClearIds);
+        }}
+      />
     </div>
   );
 }
@@ -136,22 +195,26 @@ async function getChunkedLikes(ids: number[]): Promise<Record<number, number>> {
   return Object.assign({}, ...maps) as Record<number, number>;
 }
 
-function classifyWatchLaterVideos(videos: Video[]): {
+function classifyWatchLaterVideos(videos: Video[], lastViewed: Record<number, string>): {
   unprocessed: Video[];
   review: Video[];
+  processed: Video[];
 } {
   const unprocessed: Video[] = [];
   const review: Video[] = [];
+  const processed: Video[] = [];
 
   for (const video of videos) {
     if (isUnprocessed(video)) {
       unprocessed.push(video);
+    } else if (isProcessedCandidate(video, lastViewed)) {
+      processed.push(video);
     } else if (isReviewTarget(video)) {
       review.push(video);
     }
   }
 
-  return { unprocessed, review };
+  return { unprocessed, review, processed };
 }
 
 function isUnprocessed(video: Video): boolean {
@@ -161,6 +224,11 @@ function isUnprocessed(video: Video): boolean {
 
 function isReviewTarget(video: Video): boolean {
   return video.is_selection_completed || video.current_favorite_level >= 0;
+}
+
+function isProcessedCandidate(video: Video, lastViewed: Record<number, string>): boolean {
+  if (!isReviewTarget(video) || video.id == null) return false;
+  return Boolean(lastViewed[video.id]);
 }
 
 function WatchLaterSection({
@@ -179,6 +247,7 @@ function WatchLaterSection({
       <div className="flex items-center gap-2 border-b pb-2">
         <h2 className="text-base font-semibold">{section.title}</h2>
         <Badge variant="secondary">{section.videos.length}</Badge>
+        {section.action ? <div className="ml-auto">{section.action}</div> : null}
       </div>
 
       {section.videos.length === 0 ? (
@@ -224,4 +293,47 @@ function statusLabel(video: Video): string {
 function formatLastViewed(value: string | null): string {
   if (!value) return "なし";
   return value.substring(0, 10).replace(/-/g, "/");
+}
+
+function BulkClearDialog({
+  count,
+  open,
+  pending,
+  error,
+  onOpenChange,
+  onConfirm,
+}: {
+  count: number;
+  open: boolean;
+  pending: boolean;
+  error: unknown;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>一括解除</DialogTitle>
+          <DialogDescription>
+            処理済み候補 {count} 本のあとで見るを解除しますか。
+          </DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error instanceof Error ? error.message : "一括解除に失敗しました"}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
+            キャンセル
+          </Button>
+          <Button type="button" variant="destructive" disabled={pending || count === 0} onClick={onConfirm}>
+            <BookmarkX className="size-4" />
+            {pending ? "解除中" : "解除する"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

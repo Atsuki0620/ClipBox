@@ -243,6 +243,7 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **副作用**:
 - **成功時**: `viewing_history`（`APP_PLAYBACK`）を記録。`player` 指定時は `play_history` も記録。
+- `watch_later` は変更しない（通常再生だけではあとで見るを解除しない）。
 - **ファイル不在時**: 当該動画を **`is_available = 0` に更新**し、エラーを返す（視聴履歴は記録しない）。
 
 **レスポンス**: `{ "status": "success", "message": "再生を開始しました" }`（200 OK）
@@ -300,6 +301,44 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 ---
 
+### POST /api/videos/{id}/watch-later/toggle
+**説明**: 動画のあとで見るフラグを反転し、更新後の値を返す。
+
+**副作用**:
+- `videos.watch_later` を `1 - watch_later` で更新する。
+- `is_deleted=0` の動画だけ対象。削除済み・存在しない動画は 404。
+
+**レスポンス**:
+```json
+{ "status": "success", "message": "あとで見るを登録しました", "watch_later": true }
+```
+
+**現行対応関数**: `app_service.toggle_watch_later(video_id)` → `VideoManager.toggle_watch_later()`。
+
+---
+
+### POST /api/videos/watch-later/bulk-clear
+**説明**: 指定 ID の動画のあとで見るを一括解除する。
+
+**リクエストボディ**:
+```json
+{ "video_ids": [1, 2, 3] }
+```
+
+**副作用**:
+- `is_deleted=0` かつ `watch_later=1` の対象だけ `watch_later=0` に更新する。
+- 空配列、重複ID、0以下のID、存在しないID、削除済みIDは安全に無視する。
+- 処理済み条件の判定はこの API では行わない。呼び出し側が解除対象を指定する。
+
+**レスポンス**:
+```json
+{ "status": "success", "message": "2件のあとで見るを解除しました", "updated_count": 2 }
+```
+
+**現行対応関数**: `app_service.clear_watch_later(video_ids)` → `watch_later_service.clear_watch_later_for_ids()`。
+
+---
+
 ### POST /api/avp/play
 **説明**: 指定した動画を Awesome Video Player に渡して最大4本まで並列再生する。
 
@@ -312,6 +351,9 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 - `subprocess.Popen([avp_exe_path, ...paths])` で FastAPI 実行マシン上の AVP を起動する。
 - AVP 起動成功後、指定 ID すべてに `viewing_history`（`APP_PLAYBACK`）を記録する。
 - `play_history` は記録しない。候補追加や再生対象チェックだけでは履歴を記録せず、AVP 起動成功時だけ記録する。
+- 視聴履歴記録と同一トランザクション内で、処理済み条件を満たす動画の `watch_later` を解除する。
+  処理済み条件は「Tier1判定済み通常動画（`current_favorite_level >= 0 AND needs_selection = 0`）」または「Tier2選別済み（`is_selection_completed = 1`）」。
+  `needs_selection = 1` の Tier2 未選別は、レベル値が 0..4 でも解除しない。
 - 評価・いいねは既存の `PUT /api/videos/{id}/level`・`POST /api/videos/{id}/like` を使う。
 
 **レスポンス**: `{ "status": "success", "message": "..." }`（200 OK）
@@ -330,6 +372,11 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 ### POST /api/videos/{id}/like
 **説明**: 動画にいいねを1件追加し、更新後のいいね数を返す。
+
+**副作用**:
+- `likes` に1行追加する。
+- いいね追加と同一トランザクション内で、処理済み条件を満たす動画の `watch_later` を解除する。
+  未判定動画、`needs_selection=1` の Tier2 未選別動画は解除しない。
 
 **レスポンス**: `{ "video_id": 123, "like_count": 5 }`（200 OK）
 

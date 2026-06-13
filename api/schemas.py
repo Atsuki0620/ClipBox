@@ -206,6 +206,20 @@ class WatchLaterResponse(BaseModel):
     watch_later: bool
 
 
+class WatchLaterBulkClearRequest(BaseModel):
+    """あとで見る一括解除リクエスト。"""
+
+    video_ids: List[int]
+
+
+class WatchLaterBulkClearResponse(BaseModel):
+    """あとで見る一括解除結果。"""
+
+    status: str
+    message: str
+    updated_count: int
+
+
 class ScanLibraryResponse(BaseModel):
     """ライブラリスキャン結果。"""
 

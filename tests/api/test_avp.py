@@ -9,15 +9,25 @@ from core import app_service
 from core.database import get_db_connection
 
 
-def _insert(essential, path, level=-1, *, available=1):
+def _insert(
+    essential,
+    path,
+    level=-1,
+    *,
+    available=1,
+    watch_later=0,
+    needs_selection=0,
+    is_selection_completed=0,
+):
     with get_db_connection() as conn:
         conn.execute(
             """
             INSERT INTO videos (essential_filename, current_full_path, current_favorite_level,
-                                storage_location, is_available, is_deleted)
-            VALUES (?, ?, ?, 'C_DRIVE', ?, 0)
+                                storage_location, is_available, is_deleted, watch_later,
+                                needs_selection, is_selection_completed)
+            VALUES (?, ?, ?, 'C_DRIVE', ?, 0, ?, ?, ?)
             """,
-            (essential, path, level, available),
+            (essential, path, level, available, watch_later, needs_selection, is_selection_completed),
         )
         return conn.execute(
             "SELECT id FROM videos WHERE essential_filename = ?", (essential,)
@@ -114,3 +124,44 @@ def test_avp_play_missing_file_returns_404(client, tmp_path):
 
     assert response.status_code == 404
     assert "動画ファイルが見つかりません" in response.json()["detail"]
+
+
+def test_avp_play_clears_watch_later_only_for_processed_videos(client, tmp_path, monkeypatch):
+    """AVP 起動成功時は判定済み・選別済みだけ watch_later を解除する。"""
+    avp_path = _configure_avp(tmp_path)
+    specs = [
+        ("judged.mp4", 2, 0, 0, 0),
+        ("unrated.mp4", -1, 0, 0, 1),
+        ("unselected.mp4", 3, 1, 0, 1),
+        ("completed.mp4", 3, 0, 1, 0),
+    ]
+    ids = []
+    for name, level, needs_selection, is_selection_completed, _expected in specs:
+        file_path = tmp_path / name
+        file_path.write_text("x", encoding="utf-8")
+        ids.append(
+            _insert(
+                name,
+                str(file_path),
+                level,
+                watch_later=1,
+                needs_selection=needs_selection,
+                is_selection_completed=is_selection_completed,
+            )
+        )
+
+    calls = []
+    monkeypatch.setattr("api.avp.subprocess.Popen", lambda args: calls.append(args))
+
+    response = client.post("/api/avp/play", json={"video_ids": ids})
+
+    assert response.status_code == 200
+    assert calls[0][0] == str(avp_path)
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, watch_later FROM videos WHERE id IN (?, ?, ?, ?)",
+            ids,
+        ).fetchall()
+    values = {row["id"]: row["watch_later"] for row in rows}
+    expected_by_id = {video_id: spec[-1] for video_id, spec in zip(ids, specs)}
+    assert values == expected_by_id
