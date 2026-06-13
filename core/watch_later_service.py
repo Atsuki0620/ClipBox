@@ -20,6 +20,8 @@ from typing import Iterable
 from core.database import get_db_connection
 
 
+_SQLITE_VAR_LIMIT = 900
+
 PROCESSED_WATCH_LATER_WHERE = """
 (
     (current_favorite_level >= 0 AND COALESCE(needs_selection, 0) = 0)
@@ -44,25 +46,33 @@ def normalize_video_ids(video_ids: Iterable[int]) -> list[int]:
     return normalized
 
 
+def _chunks(ids: list[int]) -> Iterable[list[int]]:
+    for index in range(0, len(ids), _SQLITE_VAR_LIMIT):
+        yield ids[index : index + _SQLITE_VAR_LIMIT]
+
+
 def clear_watch_later_for_ids(video_ids: Iterable[int]) -> int:
     """指定 ID の watch_later を解除する。削除済み・存在しない ID は無視する。"""
     ids = normalize_video_ids(video_ids)
     if not ids:
         return 0
 
-    placeholders = ",".join("?" for _ in ids)
+    updated_count = 0
     with get_db_connection() as conn:
-        cursor = conn.execute(
-            f"""
-            UPDATE videos
-               SET watch_later = 0
-             WHERE id IN ({placeholders})
-               AND is_deleted = 0
-               AND watch_later = 1
-            """,
-            ids,
-        )
-        return cursor.rowcount
+        for chunk in _chunks(ids):
+            placeholders = ",".join("?" for _ in chunk)
+            cursor = conn.execute(
+                f"""
+                UPDATE videos
+                   SET watch_later = 0
+                 WHERE id IN ({placeholders})
+                   AND is_deleted = 0
+                   AND watch_later = 1
+                """,
+                chunk,
+            )
+            updated_count += cursor.rowcount
+    return updated_count
 
 
 def clear_processed_watch_later(conn, video_ids: Iterable[int]) -> int:

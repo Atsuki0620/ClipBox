@@ -67,9 +67,14 @@ export default function AvpPage() {
       clearAvpPlayTargetIds();
       setResult({ tone: "success", text: response.message });
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["view-counts"] });
-      qc.invalidateQueries({ queryKey: ["last-viewed"] });
+    onSettled: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["view-counts"] }),
+        qc.invalidateQueries({ queryKey: ["last-viewed"] }),
+        qc.invalidateQueries({ queryKey: ["watch-later-videos"] }),
+        qc.invalidateQueries({ queryKey: ["videos"] }),
+        qc.invalidateQueries({ queryKey: ["selection-videos"] }),
+      ]);
     },
     onError: (error) => {
       setResult({ tone: "error", text: errorMessage(error) });

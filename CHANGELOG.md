@@ -4,6 +4,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-13 - fix: watch-later review follow-ups
+
+**あとで見る専用ページのレビュー指摘対応**:
+- `/watch-later` の処理済み候補分類で `/stats/last-viewed` の取得失敗を空データ扱いせず、エラー表示と取得中保留を行うようにした。
+- AVP 起動後に `watch_later` が自動解除される場合に備え、AVP 画面から `watch-later-videos` / `videos` / `selection-videos` も invalidate するようにした。
+- 一括解除ダイアログの過去エラーを開閉時にリセットし、一括解除 SQL を SQLite 変数上限に合わせてチャンク処理するようにした。
+
+---
+
 ## 2026-06-13 — feat: auto-clear processed watch-later items
 
 **処理済み動画のあとで見る自動解除**:

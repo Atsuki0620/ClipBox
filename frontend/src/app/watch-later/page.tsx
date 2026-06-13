@@ -38,6 +38,12 @@ type WatchLaterSectionData = {
   action?: ReactNode;
 };
 
+type WatchLaterClassification = {
+  unprocessed: Video[];
+  review: Video[];
+  processed: Video[];
+};
+
 export default function WatchLaterPage() {
   const queryClient = useQueryClient();
   const [bulkClearIds, setBulkClearIds] = useState<number[] | null>(null);
@@ -47,6 +53,8 @@ export default function WatchLaterPage() {
   });
 
   const videos = useMemo(() => videosQ.data ?? [], [videosQ.data]);
+  const videosLoaded = videosQ.data !== undefined && !videosQ.isError;
+  const needsLastViewed = videos.length > 0;
   const ids = useMemo(
     () => videos.map((video) => video.id).filter((id): id is number => id != null),
     [videos],
@@ -64,17 +72,21 @@ export default function WatchLaterPage() {
   const lastViewedQ = useQuery({
     queryKey: ["last-viewed"],
     queryFn: getLastViewed,
+    enabled: videosLoaded && needsLastViewed,
   });
 
   const lastViewed = useMemo(() => lastViewedQ.data ?? {}, [lastViewedQ.data]);
+  const canClassify = !needsLastViewed || lastViewedQ.data !== undefined;
   const classified = useMemo(
-    () => classifyWatchLaterVideos(videos, lastViewed),
-    [lastViewed, videos],
+    () => (canClassify ? classifyWatchLaterVideos(videos, lastViewed) : emptyClassification()),
+    [canClassify, lastViewed, videos],
   );
   const processedIds = useMemo(
     () => classified.processed.map((video) => video.id).filter((id): id is number => id != null),
     [classified.processed],
   );
+  const lastViewedLoading = videosLoaded && needsLastViewed && lastViewedQ.isLoading;
+  const lastViewedError = videosLoaded && needsLastViewed && lastViewedQ.isError;
 
   const bulkClearM = useMutation({
     mutationFn: (videoIds: number[]) => bulkClearWatchLater(videoIds),
@@ -87,6 +99,12 @@ export default function WatchLaterPage() {
       setBulkClearIds(null);
     },
   });
+
+  const handleBulkClearOpenChange = (open: boolean) => {
+    if (bulkClearM.isPending) return;
+    bulkClearM.reset();
+    if (!open) setBulkClearIds(null);
+  };
 
   const sections: WatchLaterSectionData[] = [
     {
@@ -113,7 +131,10 @@ export default function WatchLaterPage() {
             size="sm"
             variant="outline"
             disabled={bulkClearM.isPending}
-            onClick={() => setBulkClearIds(processedIds)}
+            onClick={() => {
+              bulkClearM.reset();
+              setBulkClearIds(processedIds);
+            }}
           >
             <BookmarkX className="size-4" />
             一括解除
@@ -131,10 +152,15 @@ export default function WatchLaterPage() {
         </div>
       </header>
 
-      {videosQ.isLoading ? (
+      {videosQ.isLoading || lastViewedLoading ? (
         <VideoSkeleton count={8} />
       ) : videosQ.isError ? (
         <ErrorBox error={videosQ.error} />
+      ) : lastViewedError ? (
+        <ErrorBox
+          error={lastViewedQ.error}
+          hint="処理済み候補の分類に必要な最終再生日を取得できませんでした。"
+        />
       ) : (
         sections.map((section) => (
           <WatchLaterSection
@@ -151,9 +177,7 @@ export default function WatchLaterPage() {
         open={bulkClearIds !== null}
         pending={bulkClearM.isPending}
         error={bulkClearM.error}
-        onOpenChange={(open) => {
-          if (!open && !bulkClearM.isPending) setBulkClearIds(null);
-        }}
+        onOpenChange={handleBulkClearOpenChange}
         onConfirm={() => {
           if (bulkClearIds) bulkClearM.mutate(bulkClearIds);
         }}
@@ -178,6 +202,7 @@ async function fetchAllWatchLaterVideos(): Promise<Video[]> {
     });
     items.push(...response.items);
     total = response.total;
+    if (response.items.length === 0) break;
     page += 1;
   } while (items.length < total);
 
@@ -195,11 +220,14 @@ async function getChunkedLikes(ids: number[]): Promise<Record<number, number>> {
   return Object.assign({}, ...maps) as Record<number, number>;
 }
 
-function classifyWatchLaterVideos(videos: Video[], lastViewed: Record<number, string>): {
-  unprocessed: Video[];
-  review: Video[];
-  processed: Video[];
-} {
+function emptyClassification(): WatchLaterClassification {
+  return { unprocessed: [], review: [], processed: [] };
+}
+
+function classifyWatchLaterVideos(
+  videos: Video[],
+  lastViewed: Record<number, string>,
+): WatchLaterClassification {
   const unprocessed: Video[] = [];
   const review: Video[] = [];
   const processed: Video[] = [];

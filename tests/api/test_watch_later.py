@@ -162,6 +162,43 @@ def test_bulk_clear_watch_later_updates_existing_non_deleted_only(client):
     assert _watch_later_value(deleted) == 1
 
 
+def test_bulk_clear_watch_later_chunks_large_id_list(client):
+    """一括解除は SQLite の変数上限を避けるため大量 ID をチャンク処理する。"""
+    rows = [
+        (f"bulk-large-{index}.mp4", f"/fake/bulk-large-{index}.mp4")
+        for index in range(905)
+    ]
+    with get_db_connection() as conn:
+        conn.executemany(
+            """
+            INSERT INTO videos (essential_filename, current_full_path, current_favorite_level,
+                                storage_location, is_available, is_deleted, watch_later,
+                                needs_selection, is_selection_completed)
+            VALUES (?, ?, -1, 'C_DRIVE', 1, 0, 1, 0, 0)
+            """,
+            rows,
+        )
+        ids = [
+            row["id"]
+            for row in conn.execute(
+                "SELECT id FROM videos WHERE essential_filename LIKE 'bulk-large-%' ORDER BY id"
+            ).fetchall()
+        ]
+
+    response = client.post(
+        "/api/videos/watch-later/bulk-clear",
+        json={"video_ids": ids},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["updated_count"] == len(ids)
+    with get_db_connection() as conn:
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM videos WHERE essential_filename LIKE 'bulk-large-%' AND watch_later = 1"
+        ).fetchone()[0]
+    assert remaining == 0
+
+
 def test_bulk_clear_watch_later_empty_array_succeeds(client):
     """空配列は0件更新で成功する。"""
     response = client.post("/api/videos/watch-later/bulk-clear", json={"video_ids": []})
