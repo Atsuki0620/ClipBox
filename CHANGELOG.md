@@ -4,6 +4,27 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-14 — feat(lab): add Variant G / I / H (Modern, dense, cool)
+
+**A〜Fのユーザー評価を反映したモダン3案を追加**（寒色・高密度・横長カード）:
+- `/lab/variant-g`（Modern Console・本命）: 目立つKPI（判定率バー）＋**タブとフィルタを1段に統合**＋
+  D流カード（**数値レベルボタン**/再生/その他の3グループ）。判定済みは薄く。
+- `/lab/variant-i`（Data Table Console）: 一覧を高機能テーブル化（行選択・**行内 数値レベル**・行メニュー(Popover)・
+  ページネーション・数値右寄せ・判定済み行は薄く）。`table`プリミティブ無のため semantic `<table>`。
+- `/lab/variant-h`（Library / Bookmark）: **ヒーロー検索**＋フィルタchip＋compact KPI＋高密度カード（"探す"志向）。
+- 反映したフィードバック: 縦に詰めた短いカード・文字小さめ高密度・**5列固定**・**寒色のみ**・タブ/フィルタ1段・
+  レベルは数値ボタンの単一表現（バッジ/濃淡ドットの重複を廃止）・**未判定の色付けはやめ判定済みを薄く**・
+  KPIの判定率はバー可視化で同一段に集約。
+- 新規共有部品: `_components/`（`ModernSidebar`/`ModernToolbar`/`LevelButtons`/`KpiBar`/`ModernCard`）。
+  既存 `MockSidebar`/`MockFilterBar`/`useMockCard`/`labMock` は無変更で reuse。
+- `LabFrame` の切替を A〜I に拡張、`/lab` 索引に G/I/H を追加（A〜F は無変更）。
+- 制約遵守: サムネ/画像枠なし・実DB/API/localStorage 非接続・本体と A〜F 無変更・重複バッジなし・
+  AVPはチェックボックス・運命の1本はTier1タブのまま・サイドバー7項目維持（見出しでグルーピングのみ）。
+- 確認: `npm run typecheck`/`lint` パス。G/I/H とも HTTP 200・`<img>`0・横スクロール無・G/H=5列・I=テーブル9列15行・
+  レベル数値ボタン群15・AVPチェックボックス・A〜F 回帰なし。
+
+---
+
 ## 2026-06-14 — chore(lab): add Variant F (doc recommended baseline)
 
 **参考ドック「ClipBox UI方向性 検討」の推奨案を再現した Variant F を追加**:

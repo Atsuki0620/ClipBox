@@ -49,6 +49,27 @@ const VARIANTS = [
     summary: "参考ドックの推奨案（標準改善）を再現。暖色ペーパー＋インディゴ、タイトル主役・メタ1行・アクション分離・統計サマリーバー。",
     points: ["実際に出荷しそうな堅実版", "学習コスト低め", "派手さより安定"],
   },
+  {
+    href: "/lab/variant-g",
+    badge: "G",
+    title: "Modern Console",
+    summary: "寒色・高密度・横長カードのモダン本命。目立つKPI(判定率バー)＋タブ/フィルタ1段＋数値レベルボタン。判定済みは薄く。",
+    points: ["モダン×高密度の本命", "数値ボタンで1クリック判定", "5列・縦に詰めた短いカード"],
+  },
+  {
+    href: "/lab/variant-i",
+    badge: "I",
+    title: "Data Table Console",
+    summary: "一覧を高機能テーブル化。行選択・行内レベル・行メニュー・ページネーション。最大密度でランキング/大量確認向け。",
+    points: ["1画面の情報量が最大", "テーブルで一括処理", "数値が揃って走査が速い"],
+  },
+  {
+    href: "/lab/variant-h",
+    badge: "H",
+    title: "Library / Bookmark",
+    summary: "検索を主役化した「探す」体験。ヒーロー検索＋フィルタchip＋高密度カード。再発見の手掛かりを前面に。",
+    points: ["探す・再発見に強い", "検索ファースト", "G と同じ高密度カード"],
+  },
 ];
 
 export default function LabIndexPage() {

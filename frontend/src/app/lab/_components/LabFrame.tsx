@@ -17,6 +17,9 @@ const VARIANTS = [
   { key: "d", href: "/lab/variant-d", label: "D ワークベンチ" },
   { key: "e", href: "/lab/variant-e", label: "E エディトリアル" },
   { key: "f", href: "/lab/variant-f", label: "F 推奨ベース" },
+  { key: "g", href: "/lab/variant-g", label: "G Console" },
+  { key: "i", href: "/lab/variant-i", label: "I テーブル" },
+  { key: "h", href: "/lab/variant-h", label: "H ライブラリ" },
 ] as const;
 
 export function LabFrame({
@@ -24,7 +27,7 @@ export function LabFrame({
   title,
   children,
 }: {
-  active: "a" | "b" | "c" | "d" | "e" | "f";
+  active: "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i";
   title: string;
   children: ReactNode;
 }) {
