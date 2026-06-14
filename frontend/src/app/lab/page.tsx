@@ -1,0 +1,104 @@
+// UIラボ 索引 → /lab
+// 【役割】3つの UI 改善案（Variant A/B/C）への入口。各案の狙いと、モック専用である旨の注意を示す。
+// 【設計制約】本体ルートからはリンクしない（URL 直打ち専用）。API/DB に接続しない。
+// 【依存関係】next/link と lucide のみ。
+
+import Link from "next/link";
+import { ArrowRight, FlaskConical } from "lucide-react";
+
+const VARIANTS = [
+  {
+    href: "/lab/variant-a",
+    badge: "A",
+    title: "現行寄せ",
+    summary: "現行構成をほぼ維持し、色・余白・バッジ・日付ラベルだけを洗練。",
+    points: ["移行コスト最小", "現行ユーザーが迷わない", "改善幅は控えめ"],
+  },
+  {
+    href: "/lab/variant-b",
+    badge: "B",
+    title: "暖色ニュートラル",
+    summary: "暖色・低コントラスト・純黒を抑制。統計をコンパクト化し 5 列カードで長時間でも疲れにくく。",
+    points: ["長時間の判定作業向き", "やわらかい印象", "情報密度は中程度"],
+  },
+  {
+    href: "/lab/variant-c",
+    badge: "C",
+    title: "高密度",
+    summary: "横 5〜6 列を強く維持し一覧性重視。メタ情報を整理して詰め、大量確認・ランキング向けの密度。",
+    points: ["一覧性が最大", "スクロール量を削減", "1枚あたりの余白は最小"],
+  },
+  {
+    href: "/lab/variant-d",
+    badge: "D",
+    title: "判定ワークベンチ",
+    summary: "判定作業に全振り。レベルをカード上の大セグメントで1クリック判定し、判定状態でカードを色分け（未判定を前面化）。",
+    points: ["未判定が一目で分かる", "1クリックで判定", "本体と明確に別物"],
+  },
+  {
+    href: "/lab/variant-e",
+    badge: "E",
+    title: "ボールド・エディトリアル",
+    summary: "暖色を発展させ、雑誌風の強いタイポ階層とテラコッタ1アクセント。カード上端のレベル色帯が主役。",
+    points: ["見た目で本体と別物", "上質だが実用的", "密度はやや控えめ"],
+  },
+  {
+    href: "/lab/variant-f",
+    badge: "F",
+    title: "推奨ベースライン",
+    summary: "参考ドックの推奨案（標準改善）を再現。暖色ペーパー＋インディゴ、タイトル主役・メタ1行・アクション分離・統計サマリーバー。",
+    points: ["実際に出荷しそうな堅実版", "学習コスト低め", "派手さより安定"],
+  },
+];
+
+export default function LabIndexPage() {
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 py-2">
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="size-5 text-primary" />
+          <h1 className="text-2xl font-semibold">UI Lab</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          動画情報カード（サムネなし）と周辺 UI の改善案を、モックデータだけで見比べるための実験ページです。
+          実 DB / API には一切接続しません。本体画面には影響しません。
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {VARIANTS.map((variant) => (
+          <Link
+            key={variant.href}
+            href={variant.href}
+            className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm ring-1 ring-foreground/5 transition-colors hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+                {variant.badge}
+              </span>
+              <span className="text-lg font-semibold">{variant.title}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">{variant.summary}</p>
+            <ul className="flex flex-col gap-1 text-sm">
+              {variant.points.map((point) => (
+                <li key={point} className="flex items-start gap-1.5">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+            <span className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+              プレビューを開く
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        これは見た目比較用のサンプルです。表示データはすべてモックで、再生 / レベル / いいね /
+        あとで見る / AVP の操作は画面内のローカル状態だけが変化します（保存されません）。
+      </div>
+    </div>
+  );
+}
