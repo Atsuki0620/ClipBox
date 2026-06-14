@@ -20,6 +20,7 @@ const VARIANTS = [
   { key: "g", href: "/lab/tier1-library/variant-g", label: "G Console" },
   { key: "i", href: "/lab/tier1-library/variant-i", label: "I テーブル" },
   { key: "h", href: "/lab/tier1-library/variant-h", label: "H ライブラリ" },
+  { key: "j", href: "/lab/tier1-library/variant-j", label: "J 統合" },
 ] as const;
 
 export function LabFrame({
@@ -27,7 +28,7 @@ export function LabFrame({
   title,
   children,
 }: {
-  active: "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i";
+  active: "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j";
   title: string;
   children: ReactNode;
 }) {

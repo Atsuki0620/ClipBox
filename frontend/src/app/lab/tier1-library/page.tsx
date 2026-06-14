@@ -71,6 +71,13 @@ const VARIANTS = [
     summary: "検索を主役化した「探す」体験。ヒーロー検索＋フィルタchip＋高密度カード。再発見の手掛かりを前面に。",
     points: ["探す・再発見に強い", "検索ファースト", "G と同じ高密度カード"],
   },
+  {
+    href: "/lab/tier1-library/variant-j",
+    badge: "J",
+    title: "ライブラリ・コンソール（統合）",
+    summary: "G/I/H レビュー反映の最終統合。KPI(率=右バー/本日=折れ線)＋タブ強調1段＋検索=虫眼鏡/フィルタ=漏斗Popover/2段並び替え＋カード⇄テーブル切替。",
+    points: ["G主軸＋Iを表示モード内包", "フィルタはPopoverに集約", "判定済み/利用不可をしっかり薄く"],
+  },
 ];
 
 export default function LabIndexPage() {
