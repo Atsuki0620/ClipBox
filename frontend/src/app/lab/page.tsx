@@ -1,0 +1,88 @@
+// UIラボ ハブ索引 → /lab
+// 【役割】UI 検討の「探索エリア」への入口。エリアごとに機能スコープ（タブ/メニュー）を束ね、その配下に Variant を置く。
+//   現在は Tier1 ライブラリタブのみ。今後は他タブ/メニューを AREAS に追加していく。
+// 【設計制約】本体ルートからはリンクしない（URL 直打ち専用）。API/DB に接続しない。モック専用。
+// 【依存関係】next/link と lucide のみ。
+
+import Link from "next/link";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings } from "lucide-react";
+
+const AREAS = [
+  {
+    href: "/lab/tier1-library",
+    icon: Library,
+    title: "Tier1 ライブラリタブ",
+    summary: "動画情報カード（サムネなし）と周辺 UI の改善案。Variant A〜J を見比べる。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/tier1-random",
+    icon: Shuffle,
+    title: "Tier1 ランダムタブ",
+    summary: "「引く（シャッフル）／入れ替える／判定する」の主導線。ライブラリ J と同テイストの Variant J。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/tier1-fate",
+    icon: Dices,
+    title: "Tier1 運命の1本タブ",
+    summary: "1本を引く体験＋「最近見てない優先」トグル・選出理由・前回引いた1本。Variant J。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/settings",
+    icon: Settings,
+    title: "設定画面",
+    summary:
+      "設定メニューを「迷わない・危険と日常が分かれる」モダン UI に再設計。左カテゴリレール＋右フォームの Variant J。",
+    status: "検討中",
+  },
+  // 今後ここに他タブ/メニューの探索エリアを追加する（例: ランキング …）。
+];
+
+export default function LabHubPage() {
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 py-2">
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="size-5 text-primary" />
+          <h1 className="text-2xl font-semibold">UI Lab</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          UI 改善案をモックデータだけで見比べるための実験スペースです。機能（タブ/メニュー）ごとに探索エリアを分けています。
+          実 DB / API には一切接続しません。本体画面には影響しません。
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {AREAS.map((area) => (
+          <Link
+            key={area.href}
+            href={area.href}
+            className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm ring-1 ring-foreground/5 transition-colors hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <area.icon className="size-4" />
+              </span>
+              <span className="text-lg font-semibold">{area.title}</span>
+              <span className="ml-auto rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                {area.status}
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">{area.summary}</p>
+            <span className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+              エリアを開く
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        これは見た目比較用のサンプル置き場です。表示データはすべてモックで、各 Variant の操作は画面内のローカル状態だけが
+        変化します（保存されません）。
+      </div>
+    </div>
+  );
+}

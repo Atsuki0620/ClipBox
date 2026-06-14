@@ -4,6 +4,142 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-14 — fix(lab): UIラボのモバイル幅プレビューを補正
+
+- `/lab` 配下の共通フレームで Variant 切替リンクを折り返し可能にし、狭幅でラベルが縦に潰れないようにした。
+- ラボ内のモックサイドバー（`MockSidebar` / `ModernSidebar`）は `lg` 未満で非表示にし、本体サイドバーと二重表示になって本文幅が不足する問題を解消。
+- カードグリッドと KPI バーは狭幅で1列から始め、`sm` / `md` 以降で列数を戻すように調整。
+- 本体導線・実 API/DB/localStorage・モックデータ・既存本体画面の仕様は変更なし。
+
+---
+
+## 2026-06-14 — feat(lab): 設定画面 Variant J（設定コンソール）追加
+
+**設定メニューをライブラリ J と同テイストで再設計**（モック専用・本体無変更）: `/lab/settings/variant-j`。
+- 現行の素朴な縦積み（ライブラリ/動画カード表示/再生/DB ＋下部アクション）を、**左カテゴリレール＋右フォーム**に再編。
+  カテゴリ: 基本設定／ライブラリ・パス／スキャン／表示・カード／AVP・再生／バックアップ／Runtime・サーバー／危険操作。
+- **現行機能は全維持**（ライブラリルート/セレクションフォルダ/デフォルトプレイヤー/AVPパス/DBパス読取専用/カード表示4トグル/
+  保存・再読込・バックアップ・セレクションスキャン・**ライブラリスキャン＝セッション内バックアップ必須ガード**・amber警告）。
+- **状態サマリーを ConsoleKpi** で（動画数/最終スキャン/最終バックアップ/設定更新日時）。helper text と確認ダイアログを重視。
+- **UI 検討（現行機能なし or 別所在）を明記して追加**: バックアップ履歴/スキャン履歴テーブル、表示密度・既定表示モード、
+  Runtime・サーバー（現行は SidebarNav に実在＝3層の状態ランプ＋停止）、危険操作 danger zone（リセット/キャッシュ削除）。
+- **共有部品3つを新設**（`lab/_components/`）: `SettingsSection`／`SettingsField`（＋`LabBadge`）／`DangerRow`。
+  設定モックは `lab/_data/settingsMock.ts`（合成パス・履歴・Runtime状態。決定論的）。`ConsoleKpi`/`ModernSidebar`/`LabFrame` は read-only 再利用。
+- 索引 `lab/settings/page.tsx` と `_review/COMPARISON_J.md`＋`SETTINGS_REFERENCE_RESEARCH.md`（参考サイト厳選）を追加。`/lab` ハブに設定エリアを追記。
+  実 DB/API/localStorage 非接続・サムネ無し・寒色 THEME 流用。`npm run typecheck`／`lint` クリーン。
+
+## 2026-06-14 — feat(lab): Tier1「ランダム」「運命の1本」Variant J 追加
+
+**ライブラリ J と同テイストで Tier1 残り2タブの UI 案をラボ化**（モック専用・本体無変更）:
+- **ランダム** `/lab/tier1-random/variant-j`: タブ左強調＋右クラスタに **本数（5/10/15/20）・シャッフル・条件 Popover**
+  （未判定を優先/レベル/保存先/再生可のみ/あとで見るを含める）。候補は**ライブラリと同一カード**＋右上に **個別入れ替え（↻）**。
+  「引く（シャッフル）／入れ替える／判定する」の主導線を前面化。乱数不使用＝トークン回転で決定論的（ハイドレーション安全）。
+- **運命の1本** `/lab/tier1-fate/variant-j`: 右に **「最近見てない優先」トグル・運命の1本を引く・クリア**。
+  主役カードは**控えめな特別感**（上端アクセント帯＋淡い ring・「今日の運命」見出し・**選出理由**チップ）。
+  隣に **選出理由/最近見ていない候補** の補助パネル、下に **「前回引いた1本」＋保持キャプション**（画面遷移で消えない想定をモック表現）。
+- **共有部品3つを新設**（`lab/_components/`）: `ConsoleCard`（J カードの抽出・`featured`/`corner`/`footer` スロット）、
+  `ConsoleKpi`（簡略 KPI・セル可変＋バー/スパークライン）、`Tier1AreaTabs`（ライブラリ/ランダム/運命の1本＝エリア間リンク）。
+- **`LabFrame` を後方互換で一般化**（`variants`/`indexHref`/`indexLabel` を追加・既定は現行と完全同一）。既存 A〜J は無変更で動作確認済み。
+- 各エリアに**索引ページ**（`tier1-random/page.tsx`・`tier1-fate/page.tsx`）と **`_review/COMPARISON_J.md` ＋ `COMPARISON_J/`（画像）** を追加。
+  `/lab` ハブに2エリアを追記。実 DB/API/localStorage 非接続・サムネ無し・寒色 THEME 流用。`npm run typecheck`／`lint` クリーン。
+
+## 2026-06-14 — feat(lab): add Variant J（ライブラリ・コンソール＝最終統合）
+
+**G/I/H のレビューを反映した最終統合案** `/lab/tier1-library/variant-j`（G 主軸＋I をモード内包＋H の chip 概念）:
+- **KPI**: 配置は G 踏襲のまま、**判定率＝数値の右に横バー**／**本日の判定＝数値の右に直近30日の折れ線（スパークライン）**／高さを少し縮小。
+- **ツールバー（1段）**: **タブを左に分離・強調**（セグメント塗り）。右クラスタは
+  **検索＝虫眼鏡アイコンのみ（Popover で入力）**／**フィルタ＝漏斗→Popover**（レベル/保存先/状態の chip＋再生可＋**「判定済みを薄くする」トグル**・有効数バッジ）／
+  **並び替え＝2段 Popover（項目＋昇順/降順・日本語）**／**カード⇄テーブルの表示モード切替**。あとで見るフィルタは廃止。
+- **カード**: 高さを圧縮（縦に詰める）。判定済み/利用不可を**しっかり薄く**（opacity≈45、判定済みはトグル連動）。
+  **あとで見るボタンと AVP ボタンを同サイズ**（等幅）・**あとで見る→「あとで」ラベル**。
+- **テーブルモード**: I 相当の高機能テーブル（9列・行選択・行内レベル・行メニュー・ページネーション）を**ライブラリの表示モードとして内包**。薄表示は両モードに反映。
+- 実装: `variant-j/`（`page.tsx`＋`shared.ts`＋`JKpiBar`/`JToolbar`/`JContent`）。**共有 Modern\* と A〜I は無変更**で `ModernSidebar`/`LevelButtons`/`useMockCard`/`labMock` を read-only 再利用。
+  フィルタ/ソート/表示モード/薄表示は**コンポーネント内ローカル state**（DB/API/localStorage 非接続・サムネ無し・寒色）。
+- `LabFrame` の切替に J を追加、索引（`/lab/tier1-library`）に J カードを追加（I/H 単体も継続展示）。
+
+## 2026-06-14 — chore(lab): tier1-library にスコープ化 + _review を再編
+
+**UIラボを機能スコープで整理**（今は Tier1 ライブラリタブのみ／今後の他タブ追加に備える）:
+- ルートを移動: `lab/variant-{a..i}/` → **`lab/tier1-library/variant-{a..i}/`**。
+  URL は `/lab/tier1-library/variant-x` に変更（旧 `/lab/variant-x` は廃止）。
+- 索引を2層化: `/lab` を**探索エリアのハブ**に作り替え、Variant カード一覧は `/lab/tier1-library`（旧 `/lab` の内容を移植）。
+- `_review/` を **`tier1-library/_review/` 配下**へ移動し再編。方針＝**md は直下に平置き＋同名フォルダに参照画像を格納**:
+  - `COMPARISON_A-F.md` ＋ `COMPARISON_A-F/`（A〜F フル6枚）
+  - `COMPARISON_G-I-H.md` ＋ `COMPARISON_G-I-H/`（G/I/H フル3＋切り抜き9）
+  - `MODERN_UI_DESIGN_BRIEF.md` ＋ `MODERN_UI_DESIGN_BRIEF/`（参考10＋切り抜き15＋brief参照のA〜F複製6）
+  - 日付サフィックスを除去してリネーム、旧 `_review/modern/` は廃止。md 内の画像/URL リンクを全て追従修正。
+- 共有部品 `_components/`・`_data/labMock.ts` は **lab/ 直下のまま**（全タブで再利用）。本体・各 Variant の UI 実装内容は無変更。
+
+## 2026-06-14 — feat(lab): add Variant G / I / H (Modern, dense, cool)
+
+**A〜Fのユーザー評価を反映したモダン3案を追加**（寒色・高密度・横長カード）:
+- `/lab/variant-g`（Modern Console・本命）: 目立つKPI（判定率バー）＋**タブとフィルタを1段に統合**＋
+  D流カード（**数値レベルボタン**/再生/その他の3グループ）。判定済みは薄く。
+- `/lab/variant-i`（Data Table Console）: 一覧を高機能テーブル化（行選択・**行内 数値レベル**・行メニュー(Popover)・
+  ページネーション・数値右寄せ・判定済み行は薄く）。`table`プリミティブ無のため semantic `<table>`。
+- `/lab/variant-h`（Library / Bookmark）: **ヒーロー検索**＋フィルタchip＋compact KPI＋高密度カード（"探す"志向）。
+- 反映したフィードバック: 縦に詰めた短いカード・文字小さめ高密度・**5列固定**・**寒色のみ**・タブ/フィルタ1段・
+  レベルは数値ボタンの単一表現（バッジ/濃淡ドットの重複を廃止）・**未判定の色付けはやめ判定済みを薄く**・
+  KPIの判定率はバー可視化で同一段に集約。
+- 新規共有部品: `_components/`（`ModernSidebar`/`ModernToolbar`/`LevelButtons`/`KpiBar`/`ModernCard`）。
+  既存 `MockSidebar`/`MockFilterBar`/`useMockCard`/`labMock` は無変更で reuse。
+- `LabFrame` の切替を A〜I に拡張、`/lab` 索引に G/I/H を追加（A〜F は無変更）。
+- 制約遵守: サムネ/画像枠なし・実DB/API/localStorage 非接続・本体と A〜F 無変更・重複バッジなし・
+  AVPはチェックボックス・運命の1本はTier1タブのまま・サイドバー7項目維持（見出しでグルーピングのみ）。
+- 確認: `npm run typecheck`/`lint` パス。G/I/H とも HTTP 200・`<img>`0・横スクロール無・G/H=5列・I=テーブル9列15行・
+  レベル数値ボタン群15・AVPチェックボックス・A〜F 回帰なし。
+
+---
+
+## 2026-06-14 — chore(lab): add Variant F (doc recommended baseline)
+
+**参考ドック「ClipBox UI方向性 検討」の推奨案を再現した Variant F を追加**:
+- `/lab/variant-f`（推奨ベースライン・デザイン寄り堅実版）: ドックの「案B 標準改善（推奨ベースライン）」を再現。
+  暖色ペーパー（ストーン/トープ）＋純黒抑制のインクグレー＋**インディゴ・アクセント(#4f46e5)**。
+  タイトル主役・**メタ1行ミュート**（同系色レベルドット付き）・日付ラベル（最終再生/更新）・**アクション分離**・
+  統計は**コンパクトなサマリーバー**に集約。AVP のツールチップはドック準拠の「AVPで再生する候補に追加」。
+- 共有 `_components/LabFrame.tsx` の切替を A〜F の6つに拡張、`/lab` 索引にも F カードを追加（A〜E は無変更）。
+- 制約遵守: サムネ/画像枠/16:9 なし・実DB/API/localStorage 非接続・本体画面と既存 Variant は無変更・
+  状態の重複バッジなし（レベルはプルダウン、AVP はチェックボックスのみ）・運命の1本は Tier1 タブのまま。
+- 参考HTML内のモックに実在作品タイトルが含まれていたが、規約によりラボへは持ち込まず合成プレースホルダのまま。
+- 確認: `npm run typecheck` / `npm run lint` パス。7 ルートとも HTTP 200・ラボ発の API 呼び出しなし。
+
+---
+
+## 2026-06-14 — chore(lab): add Variant D / E (aggressive variants)
+
+**UIラボに本体から大きく離れた2案を追加**（A/B/C が本体に近すぎたため、レイアウト/カード形/操作設計を大胆に変更）:
+- `/lab/variant-d`（判定ワークベンチ・UX戦略寄り）: 統計を「未判定→0 への進捗バー」に再構成。
+  レベルを**カード上の大セグメント（未/0/1/2/3/4）**で1クリック判定。**ステータス・レーン**で判定状態を色分け
+  （未判定=注意色で前面化 / 判定済み=レベル色の左帯 / 利用不可=グレー＋斜線）。
+- `/lab/variant-e`（ボールド・エディトリアル・デザイン寄り）: 暖色テラコッタ1アクセント・純黒抑制・角丸大・柔らかい影。
+  雑誌風タイポ階層（見出しはシステム明朝/セリフのフォールバックで表情付け・英字小ラベルは大文字トラッキング）。
+  カード上端に**レベル色の無地カラーバンド**（暖色1色スケール／画像枠ではない）。
+- 共有 `_components/LabFrame.tsx` の切替を A〜E の5つに拡張、`/lab` 索引にも D/E カードを追加（A/B/C は無変更）。
+- 制約遵守: サムネ/画像枠/16:9 なし・実DB/API/localStorage 非接続・本体画面と A/B/C は無変更・状態の重複バッジなし・
+  運命の1本は Tier1 タブのまま・サイドバー項目据え置き。
+- 確認: `npm run typecheck` / `npm run lint` パス。6 ルートとも HTTP 200・ラボ発の API 呼び出しなし。
+  ※A〜E の本格比較・スクショ比較は次ステップで実施。
+
+---
+
+## 2026-06-14 — chore(lab): add UI lab for card-design comparison
+
+**UIラボ（モック専用・本体非影響）を追加**:
+- `frontend/src/app/lab/` 配下に新ルートを追加。URL 直打ち専用（本体ナビからはリンクしない）。
+  - `/lab`（索引）, `/lab/variant-a`（現行寄せ）, `/lab/variant-b`（暖色ニュートラル）, `/lab/variant-c`（高密度）。
+- 動画カードはサムネなしの情報カード方式。3案で 色・余白・統計・密度・カード構成 を見比べる。
+- 各 Variant は **ルート div の CSS 変数上書き**でテーマを分離（`globals.css` は変更しない）。
+- 共通部品: `_components/`（LabFrame / MockSidebar / MockFilterBar / useMockCard）, `_data/labMock.ts`。
+
+**設計制約（厳守済み）**:
+- 実 DB / API / localStorage に一切接続しない（モック固定データとローカル state のみ）。
+- 既存ファイルは無変更（`layout.tsx` / `globals.css` / `SidebarNav.tsx` / 各 page・component）。
+- モックのファイル名は合成プレースホルダのみ（実タイトルを置かない）。
+- 確認: `npm run typecheck` / `npm run lint` パス。4 ルートとも HTTP 200・ラボ発の API 呼び出しなし。
+
+---
+
 ## 2026-06-13 - fix: watch-later review follow-ups
 
 **あとで見る専用ページのレビュー指摘対応**:
