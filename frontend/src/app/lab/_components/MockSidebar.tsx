@@ -45,7 +45,7 @@ export function MockSidebar({
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex",
         compact ? "w-52 gap-0.5 p-2" : "w-60 gap-1 p-3",
       )}
     >

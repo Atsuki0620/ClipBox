@@ -58,7 +58,7 @@ export default function VariantGPage() {
           <Tabs value={tab} onValueChange={(value) => setTab(value as string)} className="gap-3">
             <ModernToolbar />
             <TabsContent value="library">
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {LAB_VIDEOS.map((video) => (
                   <ModernCard key={video.id} video={video} />
                 ))}

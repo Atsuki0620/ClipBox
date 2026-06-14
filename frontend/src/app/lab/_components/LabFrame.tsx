@@ -45,19 +45,19 @@ export function LabFrame({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-baseline gap-3">
+      <header className="sticky top-0 z-20 flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-background/95 px-4 py-3 backdrop-blur sm:items-center">
+        <div className="flex min-w-0 items-baseline gap-3">
           <span className="text-sm font-semibold">UI Lab</span>
           <span className="text-sm text-muted-foreground">{title}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-2 sm:justify-end">
+          <div className="flex max-w-full flex-wrap items-center gap-1 rounded-lg border bg-muted/40 p-1">
             {variants.map((variant) => (
               <Link
                 key={variant.key}
                 href={variant.href}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-sm transition-colors",
+                  "whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition-colors",
                   variant.key === active
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-foreground hover:bg-muted",
@@ -69,7 +69,7 @@ export function LabFrame({
           </div>
           <Link
             href={indexHref}
-            className="rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {indexLabel}
           </Link>

@@ -45,7 +45,7 @@ export function ModernSidebar({
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex",
         compact ? "w-52 gap-3 p-2.5" : "w-56 gap-4 p-3",
       )}
     >

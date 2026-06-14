@@ -184,7 +184,7 @@ export default function FateVariantJPage() {
                   別タブに切り替えても保持されます（モック表現）
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {historyVideos.map((video) => (
                   <div key={video.id} className="opacity-70">
                     <ConsoleCard video={video} />

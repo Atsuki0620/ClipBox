@@ -62,7 +62,7 @@ export function KpiBar({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-y-2 divide-border rounded-lg border bg-card sm:grid-cols-4 sm:divide-x",
+        "grid grid-cols-1 gap-y-2 divide-border rounded-lg border bg-card sm:grid-cols-2 sm:divide-x md:grid-cols-4",
         compact ? "py-2" : "py-3",
         className,
       )}

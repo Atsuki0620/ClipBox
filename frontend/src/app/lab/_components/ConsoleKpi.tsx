@@ -70,7 +70,7 @@ export function ConsoleKpi({ cells, className }: { cells: KpiCell[]; className?:
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-y-2 divide-border rounded-lg border bg-card py-2 sm:grid-cols-3 sm:divide-x",
+        "grid grid-cols-1 gap-y-2 divide-border rounded-lg border bg-card py-2 sm:grid-cols-2 sm:divide-x md:grid-cols-3",
         className,
       )}
     >

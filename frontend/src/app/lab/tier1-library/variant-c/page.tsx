@@ -81,7 +81,7 @@ export default function VariantCPage() {
 
             <TabsContent value="library" className="flex flex-col gap-2.5">
               <MockFilterBar density="compact" />
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
                 {LAB_VIDEOS.map((video) => (
                   <VideoInfoCard key={video.id} video={video} />
                 ))}
