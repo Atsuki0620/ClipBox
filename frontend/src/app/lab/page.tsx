@@ -5,17 +5,39 @@
 // 【依存関係】next/link と lucide のみ。
 
 import Link from "next/link";
-import { ArrowRight, FlaskConical, Library } from "lucide-react";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings } from "lucide-react";
 
 const AREAS = [
   {
     href: "/lab/tier1-library",
     icon: Library,
     title: "Tier1 ライブラリタブ",
-    summary: "動画情報カード（サムネなし）と周辺 UI の改善案。Variant A〜I を見比べる。",
+    summary: "動画情報カード（サムネなし）と周辺 UI の改善案。Variant A〜J を見比べる。",
     status: "検討中",
   },
-  // 今後ここに他タブ/メニューの探索エリアを追加する（例: ランダム / 運命の1本 / ランキング / 設定 …）。
+  {
+    href: "/lab/tier1-random",
+    icon: Shuffle,
+    title: "Tier1 ランダムタブ",
+    summary: "「引く（シャッフル）／入れ替える／判定する」の主導線。ライブラリ J と同テイストの Variant J。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/tier1-fate",
+    icon: Dices,
+    title: "Tier1 運命の1本タブ",
+    summary: "1本を引く体験＋「最近見てない優先」トグル・選出理由・前回引いた1本。Variant J。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/settings",
+    icon: Settings,
+    title: "設定画面",
+    summary:
+      "設定メニューを「迷わない・危険と日常が分かれる」モダン UI に再設計。左カテゴリレール＋右フォームの Variant J。",
+    status: "検討中",
+  },
+  // 今後ここに他タブ/メニューの探索エリアを追加する（例: ランキング …）。
 ];
 
 export default function LabHubPage() {

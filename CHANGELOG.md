@@ -4,6 +4,36 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-14 — feat(lab): 設定画面 Variant J（設定コンソール）追加
+
+**設定メニューをライブラリ J と同テイストで再設計**（モック専用・本体無変更）: `/lab/settings/variant-j`。
+- 現行の素朴な縦積み（ライブラリ/動画カード表示/再生/DB ＋下部アクション）を、**左カテゴリレール＋右フォーム**に再編。
+  カテゴリ: 基本設定／ライブラリ・パス／スキャン／表示・カード／AVP・再生／バックアップ／Runtime・サーバー／危険操作。
+- **現行機能は全維持**（ライブラリルート/セレクションフォルダ/デフォルトプレイヤー/AVPパス/DBパス読取専用/カード表示4トグル/
+  保存・再読込・バックアップ・セレクションスキャン・**ライブラリスキャン＝セッション内バックアップ必須ガード**・amber警告）。
+- **状態サマリーを ConsoleKpi** で（動画数/最終スキャン/最終バックアップ/設定更新日時）。helper text と確認ダイアログを重視。
+- **UI 検討（現行機能なし or 別所在）を明記して追加**: バックアップ履歴/スキャン履歴テーブル、表示密度・既定表示モード、
+  Runtime・サーバー（現行は SidebarNav に実在＝3層の状態ランプ＋停止）、危険操作 danger zone（リセット/キャッシュ削除）。
+- **共有部品3つを新設**（`lab/_components/`）: `SettingsSection`／`SettingsField`（＋`LabBadge`）／`DangerRow`。
+  設定モックは `lab/_data/settingsMock.ts`（合成パス・履歴・Runtime状態。決定論的）。`ConsoleKpi`/`ModernSidebar`/`LabFrame` は read-only 再利用。
+- 索引 `lab/settings/page.tsx` と `_review/COMPARISON_J.md`＋`SETTINGS_REFERENCE_RESEARCH.md`（参考サイト厳選）を追加。`/lab` ハブに設定エリアを追記。
+  実 DB/API/localStorage 非接続・サムネ無し・寒色 THEME 流用。`npm run typecheck`／`lint` クリーン。
+
+## 2026-06-14 — feat(lab): Tier1「ランダム」「運命の1本」Variant J 追加
+
+**ライブラリ J と同テイストで Tier1 残り2タブの UI 案をラボ化**（モック専用・本体無変更）:
+- **ランダム** `/lab/tier1-random/variant-j`: タブ左強調＋右クラスタに **本数（5/10/15/20）・シャッフル・条件 Popover**
+  （未判定を優先/レベル/保存先/再生可のみ/あとで見るを含める）。候補は**ライブラリと同一カード**＋右上に **個別入れ替え（↻）**。
+  「引く（シャッフル）／入れ替える／判定する」の主導線を前面化。乱数不使用＝トークン回転で決定論的（ハイドレーション安全）。
+- **運命の1本** `/lab/tier1-fate/variant-j`: 右に **「最近見てない優先」トグル・運命の1本を引く・クリア**。
+  主役カードは**控えめな特別感**（上端アクセント帯＋淡い ring・「今日の運命」見出し・**選出理由**チップ）。
+  隣に **選出理由/最近見ていない候補** の補助パネル、下に **「前回引いた1本」＋保持キャプション**（画面遷移で消えない想定をモック表現）。
+- **共有部品3つを新設**（`lab/_components/`）: `ConsoleCard`（J カードの抽出・`featured`/`corner`/`footer` スロット）、
+  `ConsoleKpi`（簡略 KPI・セル可変＋バー/スパークライン）、`Tier1AreaTabs`（ライブラリ/ランダム/運命の1本＝エリア間リンク）。
+- **`LabFrame` を後方互換で一般化**（`variants`/`indexHref`/`indexLabel` を追加・既定は現行と完全同一）。既存 A〜J は無変更で動作確認済み。
+- 各エリアに**索引ページ**（`tier1-random/page.tsx`・`tier1-fate/page.tsx`）と **`_review/COMPARISON_J.md` ＋ `COMPARISON_J/`（画像）** を追加。
+  `/lab` ハブに2エリアを追記。実 DB/API/localStorage 非接続・サムネ無し・寒色 THEME 流用。`npm run typecheck`／`lint` クリーン。
+
 ## 2026-06-14 — feat(lab): add Variant J（ライブラリ・コンソール＝最終統合）
 
 **G/I/H のレビューを反映した最終統合案** `/lab/tier1-library/variant-j`（G 主軸＋I をモード内包＋H の chip 概念）:
