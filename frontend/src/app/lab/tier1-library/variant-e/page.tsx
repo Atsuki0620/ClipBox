@@ -1,4 +1,4 @@
-// UIラボ Variant E「ボールド・エディトリアル」 → /lab/variant-e
+// UIラボ Variant E「ボールド・エディトリアル」 → /lab/tier1-library/variant-e
 // 【役割】B(暖色)を発展させ、雑誌のような強いタイポ階層とテラコッタ1アクセントで本体と別物に見せる比較用モック。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ（globals.css は変更しない）。
 //   サムネイル/画像枠/16:9 は作らない。カード上端の「カラーバンド」は無地の色帯（画像ではない）。
@@ -11,11 +11,11 @@ import type { CSSProperties } from "react";
 import { Play, Heart, Bookmark, Library, Shuffle, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelName, storageLabel, LEVEL_OPTIONS } from "@/lib/levels";
-import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../_data/labMock";
-import { useMockCard } from "../_components/useMockCard";
-import { MockSidebar } from "../_components/MockSidebar";
-import { MockFilterBar } from "../_components/MockFilterBar";
-import { LabFrame } from "../_components/LabFrame";
+import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../../_data/labMock";
+import { useMockCard } from "../../_components/useMockCard";
+import { MockSidebar } from "../../_components/MockSidebar";
+import { MockFilterBar } from "../../_components/MockFilterBar";
+import { LabFrame } from "../../_components/LabFrame";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

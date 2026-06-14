@@ -11,15 +11,15 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const VARIANTS = [
-  { key: "a", href: "/lab/variant-a", label: "A 現行寄せ" },
-  { key: "b", href: "/lab/variant-b", label: "B 暖色" },
-  { key: "c", href: "/lab/variant-c", label: "C 高密度" },
-  { key: "d", href: "/lab/variant-d", label: "D ワークベンチ" },
-  { key: "e", href: "/lab/variant-e", label: "E エディトリアル" },
-  { key: "f", href: "/lab/variant-f", label: "F 推奨ベース" },
-  { key: "g", href: "/lab/variant-g", label: "G Console" },
-  { key: "i", href: "/lab/variant-i", label: "I テーブル" },
-  { key: "h", href: "/lab/variant-h", label: "H ライブラリ" },
+  { key: "a", href: "/lab/tier1-library/variant-a", label: "A 現行寄せ" },
+  { key: "b", href: "/lab/tier1-library/variant-b", label: "B 暖色" },
+  { key: "c", href: "/lab/tier1-library/variant-c", label: "C 高密度" },
+  { key: "d", href: "/lab/tier1-library/variant-d", label: "D ワークベンチ" },
+  { key: "e", href: "/lab/tier1-library/variant-e", label: "E エディトリアル" },
+  { key: "f", href: "/lab/tier1-library/variant-f", label: "F 推奨ベース" },
+  { key: "g", href: "/lab/tier1-library/variant-g", label: "G Console" },
+  { key: "i", href: "/lab/tier1-library/variant-i", label: "I テーブル" },
+  { key: "h", href: "/lab/tier1-library/variant-h", label: "H ライブラリ" },
 ] as const;
 
 export function LabFrame({
@@ -56,7 +56,7 @@ export function LabFrame({
             ))}
           </div>
           <Link
-            href="/lab"
+            href="/lab/tier1-library"
             className="rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             一覧

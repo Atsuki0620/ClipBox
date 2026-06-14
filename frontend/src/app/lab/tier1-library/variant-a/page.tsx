@@ -1,4 +1,4 @@
-// UIラボ Variant A「現行寄せ」 → /lab/variant-a
+// UIラボ Variant A「現行寄せ」 → /lab/tier1-library/variant-a
 // 【役割】現行構成をほぼ維持しつつ、色・余白・バッジ・日付ラベルだけ洗練した比較用モック。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ（globals.css は変更しない）。
 //   サムネイル/画像枠は作らない（情報カード方式）。
@@ -10,11 +10,11 @@ import type { CSSProperties } from "react";
 import { Play, Heart, Bookmark, Library, Shuffle, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelColor, levelName, storageLabel, LEVEL_OPTIONS } from "@/lib/levels";
-import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../_data/labMock";
-import { useMockCard } from "../_components/useMockCard";
-import { MockSidebar } from "../_components/MockSidebar";
-import { MockFilterBar } from "../_components/MockFilterBar";
-import { LabFrame } from "../_components/LabFrame";
+import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../../_data/labMock";
+import { useMockCard } from "../../_components/useMockCard";
+import { MockSidebar } from "../../_components/MockSidebar";
+import { MockFilterBar } from "../../_components/MockFilterBar";
+import { LabFrame } from "../../_components/LabFrame";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

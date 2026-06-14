@@ -1,4 +1,4 @@
-// UIラボ Variant F「ドック推奨ベースライン」 → /lab/variant-f
+// UIラボ Variant F「ドック推奨ベースライン」 → /lab/tier1-library/variant-f
 // 【役割】参考ドック「ClipBox UI方向性 検討」の推奨ベースライン(案B 標準改善)を忠実に再現した比較用モック。
 //   暖色ペーパー＋インディゴ・アクセント、タイトル主役・メタ1行ミュート・日付ラベル・アクション分離・
 //   統計はコンパクトなサマリーバー。状態の二重表示なし（レベルはプルダウン、AVP はチェックボックスのみ）。
@@ -12,11 +12,11 @@ import type { CSSProperties } from "react";
 import { Play, Heart, Bookmark, Library, Shuffle, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelColor, levelName, storageLabel, LEVEL_OPTIONS } from "@/lib/levels";
-import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../_data/labMock";
-import { useMockCard } from "../_components/useMockCard";
-import { MockSidebar } from "../_components/MockSidebar";
-import { MockFilterBar } from "../_components/MockFilterBar";
-import { LabFrame } from "../_components/LabFrame";
+import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../../_data/labMock";
+import { useMockCard } from "../../_components/useMockCard";
+import { MockSidebar } from "../../_components/MockSidebar";
+import { MockFilterBar } from "../../_components/MockFilterBar";
+import { LabFrame } from "../../_components/LabFrame";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

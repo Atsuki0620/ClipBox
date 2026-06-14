@@ -1,4 +1,4 @@
-// UIラボ Variant C「高密度寄せ」 → /lab/variant-c
+// UIラボ Variant C「高密度寄せ」 → /lab/tier1-library/variant-c
 // 【役割】横5列を強く維持し一覧性を重視。メタ情報を整理して詰め、ランキング/大量確認向けの密度を出す比較用モック。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ（globals.css は変更しない）。
 //   サムネイル/画像枠は作らない（情報カード方式）。
@@ -10,11 +10,11 @@ import type { CSSProperties } from "react";
 import { Play, Heart, Bookmark, Library, Shuffle, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelColor, levelName, storageLabel, LEVEL_OPTIONS } from "@/lib/levels";
-import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../_data/labMock";
-import { useMockCard } from "../_components/useMockCard";
-import { MockSidebar } from "../_components/MockSidebar";
-import { MockFilterBar } from "../_components/MockFilterBar";
-import { LabFrame } from "../_components/LabFrame";
+import { LAB_VIDEOS, LAB_KPI, formatFileSize, formatDate, type LabVideo } from "../../_data/labMock";
+import { useMockCard } from "../../_components/useMockCard";
+import { MockSidebar } from "../../_components/MockSidebar";
+import { MockFilterBar } from "../../_components/MockFilterBar";
+import { LabFrame } from "../../_components/LabFrame";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

@@ -1,4 +1,4 @@
-// UIラボ Variant H「Library / Bookmark」 → /lab/variant-h
+// UIラボ Variant H「Library / Bookmark」 → /lab/tier1-library/variant-h
 // 【役割】寒色・高密度だが「探す」体験を主役化。ヒーロー検索＋フィルタchip＋（4指標は compact KPI で担保）＋
 //   1段ツールバー＋D流の高密度カード（数値レベル/再生/その他）。再発見の手掛かり（最終再生/更新）を活かす。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ。サムネ無し。
@@ -9,12 +9,12 @@
 import { useState, type CSSProperties } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LAB_VIDEOS } from "../_data/labMock";
-import { LabFrame } from "../_components/LabFrame";
-import { ModernSidebar } from "../_components/ModernSidebar";
-import { ModernToolbar } from "../_components/ModernToolbar";
-import { KpiBar } from "../_components/KpiBar";
-import { ModernCard } from "../_components/ModernCard";
+import { LAB_VIDEOS } from "../../_data/labMock";
+import { LabFrame } from "../../_components/LabFrame";
+import { ModernSidebar } from "../../_components/ModernSidebar";
+import { ModernToolbar } from "../../_components/ModernToolbar";
+import { KpiBar } from "../../_components/KpiBar";
+import { ModernCard } from "../../_components/ModernCard";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 

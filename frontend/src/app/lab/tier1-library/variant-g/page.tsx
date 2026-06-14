@@ -1,4 +1,4 @@
-// UIラボ Variant G「Modern Console」 → /lab/variant-g
+// UIラボ Variant G「Modern Console」 → /lab/tier1-library/variant-g
 // 【役割】寒色・高密度・横長カードのモダン本命。上部ヘッダー＋目立つKPI(判定率バー)＋1段ツールバー＋
 //   D流カード（数値レベルボタン/再生/その他の3グループ）。判定済みは薄く。出荷狙いの基準案。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ（globals.css 非変更）。サムネ無し。
@@ -7,12 +7,12 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { LAB_VIDEOS } from "../_data/labMock";
-import { LabFrame } from "../_components/LabFrame";
-import { ModernSidebar } from "../_components/ModernSidebar";
-import { ModernToolbar } from "../_components/ModernToolbar";
-import { KpiBar } from "../_components/KpiBar";
-import { ModernCard } from "../_components/ModernCard";
+import { LAB_VIDEOS } from "../../_data/labMock";
+import { LabFrame } from "../../_components/LabFrame";
+import { ModernSidebar } from "../../_components/ModernSidebar";
+import { ModernToolbar } from "../../_components/ModernToolbar";
+import { KpiBar } from "../../_components/KpiBar";
+import { ModernCard } from "../../_components/ModernCard";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 // クールニュートラル＋寒色アクセント（色合いは後調整可）。角丸やや小＝高密度。

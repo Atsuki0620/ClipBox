@@ -1,4 +1,4 @@
-// UIラボ Variant I「Data Table Console」 → /lab/variant-i
+// UIラボ Variant I「Data Table Console」 → /lab/tier1-library/variant-i
 // 【役割】寒色・最大密度。一覧を高機能テーブル化（行選択/数値レベル/行hover/数値右寄せ/行メニュー/ページネーション）。
 //   各カード項目を「列」として全表示。判定済み行は薄く。ランキング/大量確認/インライン判定向け。
 // 【設計制約】API/DB に接続しない。テーマはルート div の CSS 変数上書きのみ。サムネ無し。
@@ -12,13 +12,13 @@ import { useState, type CSSProperties } from "react";
 import { Play, Heart, Bookmark, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storageLabel } from "@/lib/levels";
-import { LAB_VIDEOS, formatFileSize, formatDate, type LabVideo } from "../_data/labMock";
-import { useMockCard } from "../_components/useMockCard";
-import { LabFrame } from "../_components/LabFrame";
-import { ModernSidebar } from "../_components/ModernSidebar";
-import { ModernToolbar } from "../_components/ModernToolbar";
-import { KpiBar } from "../_components/KpiBar";
-import { LevelButtons } from "../_components/LevelButtons";
+import { LAB_VIDEOS, formatFileSize, formatDate, type LabVideo } from "../../_data/labMock";
+import { useMockCard } from "../../_components/useMockCard";
+import { LabFrame } from "../../_components/LabFrame";
+import { ModernSidebar } from "../../_components/ModernSidebar";
+import { ModernToolbar } from "../../_components/ModernToolbar";
+import { KpiBar } from "../../_components/KpiBar";
+import { LevelButtons } from "../../_components/LevelButtons";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

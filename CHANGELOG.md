@@ -4,6 +4,19 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-14 — chore(lab): tier1-library にスコープ化 + _review を再編
+
+**UIラボを機能スコープで整理**（今は Tier1 ライブラリタブのみ／今後の他タブ追加に備える）:
+- ルートを移動: `lab/variant-{a..i}/` → **`lab/tier1-library/variant-{a..i}/`**。
+  URL は `/lab/tier1-library/variant-x` に変更（旧 `/lab/variant-x` は廃止）。
+- 索引を2層化: `/lab` を**探索エリアのハブ**に作り替え、Variant カード一覧は `/lab/tier1-library`（旧 `/lab` の内容を移植）。
+- `_review/` を **`tier1-library/_review/` 配下**へ移動し再編。方針＝**md は直下に平置き＋同名フォルダに参照画像を格納**:
+  - `COMPARISON_A-F.md` ＋ `COMPARISON_A-F/`（A〜F フル6枚）
+  - `COMPARISON_G-I-H.md` ＋ `COMPARISON_G-I-H/`（G/I/H フル3＋切り抜き9）
+  - `MODERN_UI_DESIGN_BRIEF.md` ＋ `MODERN_UI_DESIGN_BRIEF/`（参考10＋切り抜き15＋brief参照のA〜F複製6）
+  - 日付サフィックスを除去してリネーム、旧 `_review/modern/` は廃止。md 内の画像/URL リンクを全て追従修正。
+- 共有部品 `_components/`・`_data/labMock.ts` は **lab/ 直下のまま**（全タブで再利用）。本体・各 Variant の UI 実装内容は無変更。
+
 ## 2026-06-14 — feat(lab): add Variant G / I / H (Modern, dense, cool)
 
 **A〜Fのユーザー評価を反映したモダン3案を追加**（寒色・高密度・横長カード）:
