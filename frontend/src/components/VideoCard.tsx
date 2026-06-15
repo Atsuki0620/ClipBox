@@ -94,6 +94,9 @@ export function VideoCard({
   const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
   // Tier2: ランダム/運命は選別操作後もリスト再フェッチしないため props 固定では更新されない。
   const [localNeedsSelection, setLocalNeedsSelection] = useState(video.needs_selection);
+  // あとで見るも同様。再抽選しない画面（ランダム/運命）はリスト refetch しないため、
+  // toggle 応答の watch_later を即時反映するためのローカル state を持つ。
+  const [localWatchLater, setLocalWatchLater] = useState(video.watch_later);
 
   // mutation 後は onSettled で invalidate する（成功・409 とも）。
   // 共通キー（kpi/likes/view-counts）は件数更新のみでリストの顔ぶれを変えない。
@@ -127,9 +130,14 @@ export function VideoCard({
     mutationFn: () => likeVideo(id),
     onSettled: invalidate,
   });
+  // あとで見るは /watch-later 以外のどの画面の表示集合も変えない（フィルタしない）ため、
+  // 表示中リストの refetch は不要。共通 invalidate（list キー）を呼ばないことで、
+  // Tier2/ランキングのスケルトン点滅や、ランダム/運命の再抽選を誘発しない。
+  // 応答の新値でボタンを即時更新し、/watch-later のキャッシュだけは常に無効化する。
   const watchLaterM = useMutation({
     mutationFn: () => toggleWatchLater(id),
-    onSettled: invalidate,
+    onSuccess: (res) => setLocalWatchLater(res.watch_later),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["watch-later-videos"] }),
   });
 
   // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。
@@ -144,7 +152,7 @@ export function VideoCard({
   const busy = playM.isPending || levelM.isPending || unselectM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
   const mutateDisabled = busy || !video.is_available;
-  const error = playM.error || levelM.error || unselectM.error || likeM.error;
+  const error = playM.error || levelM.error || unselectM.error || likeM.error || watchLaterM.error;
   const isJudged = displayLevel !== -1;
   const isAvpSelected = avpCandidateIds.includes(id);
   const avpDisabled = !video.is_available;
@@ -295,10 +303,10 @@ export function VideoCard({
 
           <Button
             size="sm"
-            variant={video.watch_later ? "default" : "outline"}
+            variant={localWatchLater ? "default" : "outline"}
             disabled={busy}
             onClick={() => watchLaterM.mutate()}
-            title={video.watch_later ? "あとで見るを解除" : "あとで見るに追加"}
+            title={localWatchLater ? "あとで見るを解除" : "あとで見るに追加"}
           >
             <Bookmark className="size-4" />
           </Button>
