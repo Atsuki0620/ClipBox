@@ -257,4 +257,6 @@ docs/analysis/outputs/
 _ul
 demo.html
 nul
+# Root-level package-lock.json (accidentally created by npm; causes Turbopack to misdetect workspace root)
+/package-lock.json
 

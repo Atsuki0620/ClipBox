@@ -4,6 +4,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-15 — fix: Turbopack ルート誤検知によるアプリ表示不可を修正
+
+- `ClipBox/` 直下に `package-lock.json` が残っていると Turbopack がワークスペースルートを `frontend/` でなくプロジェクト直下と誤認し、`data/videos.db` 等の書き込みのたびに全コンポーネントを再コンパイルして HTTP リクエストが数分間ハングしていた。
+- `.gitignore` に `/package-lock.json`（先頭スラッシュ付き、ルート限定）を追加。`frontend/package-lock.json` には影響しない。
+- `run_dev.bat` の起動時に `%ROOT%package-lock.json` が存在したら警告メッセージとともに自動削除するガードを追加。
+
+---
+
 ## 2026-06-14 — fix(lab): UIラボのモバイル幅プレビューを補正
 
 - `/lab` 配下の共通フレームで Variant 切替リンクを折り返し可能にし、狭幅でラベルが縦に潰れないようにした。

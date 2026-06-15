@@ -23,6 +23,11 @@ if errorlevel 1 (
     echo WARNING: Startup DB backup failed. Continuing startup.
 )
 
+if exist "%ROOT%package-lock.json" (
+    echo WARNING: package-lock.json found in project root. Deleting to prevent Turbopack misdetection...
+    del "%ROOT%package-lock.json"
+)
+
 where.exe npm.cmd >nul 2>nul
 if errorlevel 1 (
     echo ERROR: npm.cmd was not found. Install Node.js 20 LTS and try again.
