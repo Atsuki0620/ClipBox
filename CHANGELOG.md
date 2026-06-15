@@ -4,6 +4,18 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-15 — fix: 「あとで見る」ボタンの反映不安定・画面ジャンプを修正
+
+- 症状: カードの「あとで見る」を押してもボタン色が変わらない／`/watch-later` に出ない／反映時に画面が一瞬スケルトンへ飛ぶ／失敗してもエラーが無音。
+- 原因はすべてフロント `frontend/src/components/VideoCard.tsx`。バックエンド（`toggle_watch_later`）は新値を確実に返しており変更なし。
+  1. ボタンの見た目が `video.watch_later` prop のみに依存。ランダム/運命など `invalidateKeys=[]` の画面はリスト refetch しないため prop が更新されず色が変わらなかった → ローカル state `localWatchLater` を追加し、toggle 応答の `watch_later` で即時反映。
+  2. 共通 `invalidate()` が `["watch-later-videos"]` を無効化していなかった → `watchLaterM` を専用 `onSettled` に変更し、toggle のたびに `/watch-later` のキャッシュを無効化。
+  3. 画面ジャンプは toggle が list query を refetch し、Tier2/ランキングが `isLoading || isFetching` でスケルトン化していたため。あとで見るは `/watch-later` 以外の表示集合を変えないので、共通 `invalidate()`（list キー refetch）を呼ばないよう切り離して解消。
+  4. error 集約に `watchLaterM.error` を追加し、API 失敗をカード上に表示。
+- 設計境界は不変: 「あとで見る＝DB永続」「ランダム/運命は再抽選しない」。変更は `VideoCard.tsx` 1ファイル。
+
+---
+
 ## 2026-06-15 — fix: Turbopack ルート誤検知によるアプリ表示不可を修正
 
 - `ClipBox/` 直下に `package-lock.json` が残っていると Turbopack がワークスペースルートを `frontend/` でなくプロジェクト直下と誤認し、`data/videos.db` 等の書き込みのたびに全コンポーネントを再コンパイルして HTTP リクエストが数分間ハングしていた。
