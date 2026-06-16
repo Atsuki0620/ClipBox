@@ -1,5 +1,53 @@
 # Acceptance Run 2026-06-16
 
+## 2026-06-17 追記 - write-enabled acceptance rerun
+
+- 対象 commit: この追記を含む最終 commit（SHA は完了報告に記載）
+- 対象ブランチ: `main`
+- 方針: Streamlit を write 検証対象から外し、FastAPI + Next.js の write 操作を実データで確認。検証後はリネーム済み実ファイルを元名へ戻し、DB をテスト前スナップショットで丸ごと復元。
+- Public API / schema / DB 永続先の変更: なし。
+- Pull request: 作成しない。
+
+### 修正内容
+
+- ランダム/運命など一覧 query を再取得しないカードで、レベル判定・未選別戻し・いいね後に `GET /api/videos/{id}` でカード単体の動画情報を再取得するように変更。
+- カード表示に使う DB 由来フィールドを、`video` prop 直読みではなくカード内の最新化済み動画情報へ寄せた。
+- `watch-later/toggle` は従来どおり応答値で即時反映し、処理済み動画へのいいねで発生する自動解除は再取得結果で反映する。
+- ランダム/運命では write 後の再抽選や不要な一覧スケルトン化が起きないことを確認。
+
+### Write-enabled 確認結果
+
+| 項目 | 結果 | メモ |
+|---|---:|---|
+| 事前状態 | pass | 開始時の tracked 差分なし。Streamlit 8501 は listen なし。 |
+| DB バックアップ | pass | 既存バックアップ API と exact restore 用スナップショットを作成。 |
+| Tier1 ランダム | pass | レベル変更後、タイトル tooltip の basename が `GET /api/videos/{id}` の最新パスと一致。再抽選リクエスト 0。 |
+| Tier1 運命の1本 | pass | 復元表示した運命カードでレベル変更後の tooltip 最新化を確認。再抽選リクエスト 0。 |
+| Tier2 ランダム | pass | 選別完了後、tooltip とドロップダウンが API 最新状態と一致。一覧リクエスト 0。 |
+| Tier2 未選別に戻す | pass | `unselect` 後、tooltip とドロップダウンが未選別状態へ更新。カード数は維持。 |
+| Tier2 運命の1本 | pass | 復元表示した運命カードで選別後の tooltip 最新化を確認。再抽選リクエスト 0。 |
+| あとで見る自動解除 | pass | 処理済みカードをあとで見るに戻した後、いいねで DB とボタン表示が解除状態へ更新。 |
+| 通常再生 | pass | API 成功、視聴回数 +1、最終再生日更新を確認。既知の外部プレイヤー PID 差分は検出なし。 |
+| AVP 候補/最大4本 | pass | 候補 5 件追加、再生対象 4 件選択、5 件目 disabled を確認。 |
+| AVP 1/2/4本起動 | pass | 1本、2本、4本の API 起動成功と視聴回数更新を確認。日本語・スペースを含むパスのケースを含む。 |
+| AVP 外付けHDD | skipped | 実在する外付けHDD候補がなかったため。 |
+| AVP 不正パス | pass | 不正な実行ファイル設定で 500 と日本語エラー detail を確認し、設定は復元。 |
+| 主要ページ | pass | `/`, `/tier2`, `/watch-later`, `/search`, `/ranking`, `/analysis`, `/settings`, `/avp` が 200。 |
+| バックアップ/スキャン/Runtime | pass | backup API、selection scan、library scan、runtime status を確認。 |
+| 復元 | pass | リネームされた実ファイルを元名へ戻し、DB はスナップショットと SHA-256 一致。対象リネーム動画の実ファイル存在も確認。 |
+| data/artifacts tracked 差分 | pass | `git status --short -- data artifacts` に差分なし。 |
+
+### 自動チェック
+
+| コマンド | 結果 |
+|---|---:|
+| `python -m pytest` | pass: 161 passed, 64 warnings |
+| `cd frontend && npm run typecheck` | pass |
+| `cd frontend && npm run lint` | pass |
+| `cd frontend && npm run build` | pass |
+| `git diff --check` | pass |
+| report leak check | pass |
+
 ## 概要
 
 - 確認日: 2026-06-16
