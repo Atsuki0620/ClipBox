@@ -2,6 +2,25 @@
 
 AIへの引き継ぎノート。主要な変更を遡及記録。
 
+## 記載方針
+
+- CHANGELOG には主要変更の要約だけを書く。詳細比較・レビュー・調査記録は `docs/reports/` や `_review/` に置く。
+- 実データ、個人情報、動画名、ローカルパスは書かない。
+- 歴史資料や archived 機能を現行仕様として扱わない。現行仕様は `docs/context/` の正本台帳に従う。
+- Pull request は `PR` と省略せず `Pull request` と表記する。
+
+---
+
+## 2026-06-16 — docs: 安定化ドキュメントと archive 準備メモを同期
+
+- README の移行ステータスに `/watch-later` を追加し、未処理 / 確認・見直し / 処理済み候補と一括解除まで完了済みとして整理。
+- `docs/context/ACCEPTANCE_CRITERIA.md` に、あとで見る、Tier2、共通動画カード、`/stats/last-viewed` 失敗時の受け入れ観点を追記。
+- Turbopack の workspace root 誤検知対策は既存実装（ルート `package-lock.json` の ignore と `run_dev.bat` ガード）を確認済み。`.gitignore` / `run_dev.bat` / lockfile は変更なし。
+- `docs/reports/PHASE5_STREAMLIT_ARCHIVE_PREP_20260616.md` を追加し、Streamlit archive 前の確認条件、書き込み確認、DBバックアップ、同時書き込み回避、今回は移動しない対象を整理。
+- `docs/reports/REPO_ROOT_INVENTORY_20260616.md` を追加し、ルート直下の active / legacy-active / legacy / generated / local-only を棚卸し。
+- CHANGELOG の記載方針を追加し、詳細な調査記録やレビュー記録を CHANGELOG に膨らませない運用を明記。
+- 受け入れ基準と棚卸しメモの表現を、現行の運命の1本・Tier2状態表示・分析 notebook 扱いに合わせて補正。
+
 ---
 
 ## 2026-06-15 — fix: 「あとで見る」ボタンの反映不安定・画面ジャンプを修正
