@@ -7,8 +7,11 @@
 
 ## 2026-06-17 追記 - write-enabled acceptance rerun
 
-- 対象 commit: `afd1c36bf0b6885a40e77a003a5d072b69a3d42b`
 - 対象ブランチ: `codex/refresh-card-state-after-write-actions`
+- Pull request head commit（この docs-only 表記補正前）: `c87b03c1f38b8302145e4911c8086e640415ef5e`
+- write-enabled 確認時点の commit: `afd1c36bf0b6885a40e77a003a5d072b69a3d42b`
+- 追加補正 commit: `c87b03c1f38b8302145e4911c8086e640415ef5e`
+- 補足: 追加補正 commit では、`watch-later-videos` キャッシュ無効化の追加、レポートの最新総合判定整理、Pull request 本文の省略表記確認、自動検証を実施。実データ write 確認は再実施していない。
 - 方針: Streamlit を write 検証対象から外し、FastAPI + Next.js の write 操作を実データで確認。検証後はリネーム済み実ファイルを元名へ戻し、DB をテスト前スナップショットで丸ごと復元。
 - Public API / schema / DB 永続先の変更: なし。
 - Pull request #48 として作成済み。
