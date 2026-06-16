@@ -19,6 +19,7 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 - `docs/reports/PHASE5_STREAMLIT_ARCHIVE_PREP_20260616.md` を追加し、Streamlit archive 前の確認条件、書き込み確認、DBバックアップ、同時書き込み回避、今回は移動しない対象を整理。
 - `docs/reports/REPO_ROOT_INVENTORY_20260616.md` を追加し、ルート直下の active / legacy-active / legacy / generated / local-only を棚卸し。
 - CHANGELOG の記載方針を追加し、詳細な調査記録やレビュー記録を CHANGELOG に膨らませない運用を明記。
+- 受け入れ基準と棚卸しメモの表現を、現行の運命の1本・Tier2状態表示・分析 notebook 扱いに合わせて補正。
 
 ---
 

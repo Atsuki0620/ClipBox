@@ -72,11 +72,13 @@
 | `archive/` | 旧コード断片・歴史資料 |
 | `docs/archive/` | 移行作業の計画・記録 |
 | `docs/reports/` | 日付付き診断・レビュー・作業記録 |
-| `notebooks/` | 分析・検証ノート |
+| `notebooks/` | 分析・検証用の作業成果物。旧資料とは限らない |
 | `demo.html` | 旧デモ / 確認用ファイル |
 | `video_analysis.ipynb` | 分析メモ |
 
 `archive/` や `docs/archive/` は現行仕様の正本ではない。現行仕様は `docs/context/` を参照する。
+
+`notebooks/` は現行実行経路ではないが、分析・検証用の作業成果物を含む。特にランキング公平化など、今後の方針検討に使う notebook は削除候補として扱わない。物理整理する場合は、中身と参照状況を確認してから別 Pull request で扱う。
 
 ---
 
