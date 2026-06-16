@@ -1,0 +1,133 @@
+// UIラボ Variant scan-tabs「スキャン中心設定（上部タブ）」 → /lab/settings/variant-scan-tabs
+// 【役割】scan-first と同じ中身（スキャン/バックアップ履歴/フォルダ・再生/カード表示/保守情報）を、左カテゴリレールの
+//   代わりに上部タブで切り替える案。単一カラム版（折りたたみ）・カテゴリレール版との比較用。セクション部品・状態・テーマ・
+//   サンプルカードは _components/scanFirstShared.tsx を共有。
+// 【設計制約】API/DB/localStorage 非接続。テーマは div の CSS 変数のみ。サムネ/<img> 不使用。
+// 【依存関係】LabFrame/ModernSidebar/SettingsSection（既存）, scanFirstShared（共有）, shadcn Tabs/Tooltip(Provider), lucide。
+
+"use client";
+
+import { useState, type ComponentType } from "react";
+import { RefreshCcw, DatabaseBackup, FolderOpen, LayoutGrid, HardDrive } from "lucide-react";
+import { LabFrame } from "../../_components/LabFrame";
+import { ModernSidebar } from "../../_components/ModernSidebar";
+import { SettingsSection } from "../../_components/SettingsSection";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  SETTINGS_THEME,
+  useScanFirstState,
+  AutoSaveStatus,
+  ScanCard,
+  BackupHistory,
+  FolderPlaybackSection,
+  CardDisplaySection,
+  MaintenanceSection,
+} from "../_components/scanFirstShared";
+
+const AREA_VARIANTS = [
+  { key: "j", href: "/lab/settings/variant-j", label: "J 設定コンソール" },
+  { key: "scan-first", href: "/lab/settings/variant-scan-first", label: "スキャン中心" },
+  { key: "scan-rail", href: "/lab/settings/variant-scan-rail", label: "スキャン＋レール" },
+  { key: "scan-tabs", href: "/lab/settings/variant-scan-tabs", label: "スキャン＋タブ" },
+];
+
+type SectionKey = "scan" | "backup" | "folder" | "card" | "maintenance";
+
+const SECTIONS: { key: SectionKey; label: string; icon: ComponentType<{ className?: string }> }[] = [
+  { key: "scan", label: "スキャン", icon: RefreshCcw },
+  { key: "backup", label: "バックアップ履歴", icon: DatabaseBackup },
+  { key: "folder", label: "フォルダ・再生設定", icon: FolderOpen },
+  { key: "card", label: "動画カード表示設定", icon: LayoutGrid },
+  { key: "maintenance", label: "保守情報", icon: HardDrive },
+];
+
+export default function SettingsScanTabsPage() {
+  const s = useScanFirstState();
+  const [active, setActive] = useState<SectionKey>("scan");
+
+  return (
+    <LabFrame active="scan-tabs" title="スキャン中心設定（上部タブ）" variants={AREA_VARIANTS} indexHref="/lab/settings">
+      <TooltipProvider delay={200}>
+        <div style={SETTINGS_THEME} className="flex min-h-[40rem] bg-background text-[13px] text-foreground">
+          <ModernSidebar active="設定" />
+          <main className="flex min-w-0 flex-1 flex-col gap-4 p-5">
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h1 className="text-lg font-semibold tracking-tight">設定</h1>
+                <p className="text-xs text-muted-foreground">
+                  スキャンを先頭に、カテゴリを上部タブで切り替えます。
+                </p>
+              </div>
+              <AutoSaveStatus state={s.saveState} />
+            </header>
+
+            <Tabs value={active} onValueChange={(v) => setActive(v as SectionKey)} className="gap-4">
+              <TabsList variant="line" className="h-auto flex-wrap justify-start">
+                {SECTIONS.map(({ key, label, icon: Icon }) => (
+                  <TabsTrigger key={key} value={key} className="gap-1.5">
+                    <Icon className="size-4" />
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <TabsContent value="scan">
+                <ScanCard
+                  scanning={s.scanning}
+                  steps={s.displaySteps}
+                  lastScanAt={s.lastScanAt}
+                  lastScanResult={s.lastScanResult}
+                  lastBackupAt={s.lastBackupAt}
+                  onRun={s.runScan}
+                />
+              </TabsContent>
+
+              <TabsContent value="backup">
+                <BackupHistory
+                  rows={s.visibleBackups}
+                  total={s.totalBackups}
+                  showAll={s.showAllBackups}
+                  onToggle={s.toggleShowAllBackups}
+                />
+              </TabsContent>
+
+              <TabsContent value="folder">
+                <SettingsSection title="フォルダ・再生設定" description="スキャン対象フォルダと再生ツールのパス。">
+                  <FolderPlaybackSection form={s.form} errors={s.errors} onChange={s.updateForm} />
+                </SettingsSection>
+              </TabsContent>
+
+              <TabsContent value="card">
+                <SettingsSection
+                  title="動画カード表示設定"
+                  description="動画カードに出す項目。右のサンプルカードで反映後の見た目を確認できます。"
+                >
+                  <CardDisplaySection
+                    settings={s.cardSettings}
+                    onChange={s.updateCard}
+                    levelScope={s.levelScope}
+                    onLevelScope={s.changeLevelScope}
+                    sampleTier={s.sampleTier}
+                    onSampleTier={s.setSampleTier}
+                  />
+                </SettingsSection>
+              </TabsContent>
+
+              <TabsContent value="maintenance">
+                <SettingsSection title="保守情報" description="トラブル時に確認する情報。操作ボタンは置きません。">
+                  <MaintenanceSection />
+                </SettingsSection>
+              </TabsContent>
+            </Tabs>
+
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
+              これは見た目比較用のモックです。スキャン・自動保存・バックアップ履歴はすべて画面内のローカル状態だけが
+              変化します（実 DB / API / localStorage には接続しません）。
+            </p>
+          </main>
+        </div>
+      </TooltipProvider>
+    </LabFrame>
+  );
+}
