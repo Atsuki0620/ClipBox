@@ -89,3 +89,60 @@ export function formatBytes(value: number): string {
 export function storageLabel(storage: string): string {
   return storage === "C_DRIVE" ? "C ドライブ" : "外付け HDD";
 }
+
+// ───────────────────────── scan-first Variant 用（追記・既存は不変） ─────────────────────────
+// 【役割】/lab/settings/variant-scan-first 専用の合成データ。スキャン中心 UI（スキャン状態・自動バックアップ履歴・
+//   保守情報・サンプルカード）に必要な値を持つ。Variant J 用の既存エクスポートには一切触れていない。
+// 【設計制約】上記同様: API/DB/localStorage 非接続・決定論的（ハイドレーション安全）・合成プレースホルダのみ。
+
+// スキャンカードの状態表示。日時は yyyy/mm/dd hh:mm（カードの日付表記方針に合わせる）。
+export const SETTINGS_SCAN_STATUS = {
+  last_scan_at: "2026/06/15 22:10",
+  last_scan_result: "成功" as "成功" | "失敗" | "未実行",
+  last_scan_found: 1800, // 検出件数
+  last_backup_at: "2026/06/15 22:09",
+};
+
+// バックアップ履歴（作成契機つき）。スキャン前に自動作成される運用を表現。
+// 最新3件＋「さらに表示」で残りを見せるため、あえて5件持つ。
+export type BackupDetailRow = {
+  filename: string;
+  size_bytes: number;
+  created_at: string; // yyyy/mm/dd hh:mm
+  trigger: "スキャン前自動";
+};
+
+export const SETTINGS_BACKUP_HISTORY_DETAILED: BackupDetailRow[] = [
+  { filename: "videos_20260615_2209.db", size_bytes: Math.round(0.42 * GB), created_at: "2026/06/15 22:09", trigger: "スキャン前自動" },
+  { filename: "videos_20260612_2147.db", size_bytes: Math.round(0.41 * GB), created_at: "2026/06/12 21:47", trigger: "スキャン前自動" },
+  { filename: "videos_20260609_0830.db", size_bytes: Math.round(0.41 * GB), created_at: "2026/06/09 08:30", trigger: "スキャン前自動" },
+  { filename: "videos_20260603_1911.db", size_bytes: Math.round(0.40 * GB), created_at: "2026/06/03 19:11", trigger: "スキャン前自動" },
+  { filename: "videos_20260528_0742.db", size_bytes: Math.round(0.40 * GB), created_at: "2026/05/28 07:42", trigger: "スキャン前自動" },
+];
+
+// 保守情報（トラブル時に確認する読み取り専用の情報。Runtime 操作は持たない）。
+export const SETTINGS_MAINTENANCE = {
+  db_path: SETTINGS_DEFAULTS.db_path,
+  config_path: "C:\\ClipBox\\config\\user_config.json",
+  system_info: "Windows 11 / Python 3.12 / Next.js 16",
+  app_version: "ClipBox v1.0.0",
+  api_status: "接続OK" as "接続OK" | "未接続",
+};
+
+// 動画カード表示設定のサンプルカード（合成1件。トグルで表示/非表示を切り替えて反映を見せる）。
+// tier1-library の ConsoleCard と同テイストで描くため、useMockCard（_components）用の like/あとで/利用可否も持つ。
+export const SAMPLE_CARD = {
+  title: "sample-clip-20260615.mp4",
+  level: 3, // levelName/levelColor（lib/levels）で表示
+  tier: 1 as 1 | 2, // 「レベル表示対象＝該当Tierのみ」の判定に使う
+  storage: "EXTERNAL_HDD",
+  view_count: 12,
+  file_size_bytes: Math.round(1.8 * GB),
+  created_at: "2026/06/15", // 作成
+  modified_at: "2026/06/15", // 更新
+  last_viewed_at: "2026/06/15", // 再生
+  judged_at: "2026/06/15", // 判定
+  like_count: 6, // ♡（useMockCard 初期値）
+  watch_later: false, // あとで（useMockCard 初期値）
+  is_available: true, // 利用可否（操作の有効/無効）
+};
