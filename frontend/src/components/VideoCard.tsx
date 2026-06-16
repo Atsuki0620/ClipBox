@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { likeVideo, setLevel, toggleWatchLater, unselectVideo } from "@/lib/api";
+import { getVideo, likeVideo, setLevel, toggleWatchLater, unselectVideo } from "@/lib/api";
 import { levelColor, levelName, LEVEL_OPTIONS, storageLabel } from "@/lib/levels";
 import { useAvpStore, useIsPlaying } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
@@ -90,13 +90,26 @@ export function VideoCard({
   const toggleAvpCandidateId = useAvpStore((state) => state.toggleAvpCandidateId);
   const settings = useCardSettings();
 
-  // 判定後の表示用レベル（再抽選しない画面でもバッジ/select を即時反映するためのローカル state）。
-  const [displayLevel, setDisplayLevel] = useState(video.current_favorite_level);
-  // Tier2: ランダム/運命は選別操作後もリスト再フェッチしないため props 固定では更新されない。
-  const [localNeedsSelection, setLocalNeedsSelection] = useState(video.needs_selection);
-  // あとで見るも同様。再抽選しない画面（ランダム/運命）はリスト refetch しないため、
-  // toggle 応答の watch_later を即時反映するためのローカル state を持つ。
-  const [localWatchLater, setLocalWatchLater] = useState(video.watch_later);
+  const [cardVideoOverride, setCardVideoOverride] = useState<{
+    source: Video;
+    video: Video;
+  } | null>(null);
+  const cardVideo =
+    cardVideoOverride?.source === video ? cardVideoOverride.video : video;
+
+  const setLocalCardVideo = (next: Video | ((current: Video) => Video)) => {
+    setCardVideoOverride((currentOverride) => {
+      const current =
+        currentOverride?.source === video ? currentOverride.video : video;
+      const nextVideo = typeof next === "function" ? next(current) : next;
+      return { source: video, video: nextVideo };
+    });
+  };
+
+  const refreshCardVideo = async () => {
+    const latest = await getVideo(id);
+    setLocalCardVideo(latest);
+  };
 
   // mutation 後は onSettled で invalidate する（成功・409 とも）。
   // 共通キー（kpi/likes/view-counts）は件数更新のみでリストの顔ぶれを変えない。
@@ -109,26 +122,46 @@ export function VideoCard({
       qc.invalidateQueries({ queryKey: key });
     }
   };
+  const invalidateWatchLater = () => {
+    qc.invalidateQueries({ queryKey: ["watch-later-videos"] });
+  };
+  const invalidateAfterCardWrite = () => {
+    invalidate();
+    invalidateWatchLater();
+  };
 
   // 再生は共通フック（成功で再生中=単体をセット。invalidate も内包）。
   const playM = usePlayVideo(invalidateKeys);
   const isPlaying = useIsPlaying(id);
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
-    onSuccess: (_data, level) => {
-      setDisplayLevel(level);
-      if (displayContext === "tier2") setLocalNeedsSelection(false);
+    onSuccess: async (_data, level) => {
+      setLocalCardVideo((current) => ({
+        ...current,
+        current_favorite_level: level,
+        needs_selection:
+          displayContext === "tier2" ? false : current.needs_selection,
+      }));
+      await refreshCardVideo();
     },
-    onSettled: invalidate,
+    onSettled: invalidateAfterCardWrite,
   });
   const unselectM = useMutation({
     mutationFn: () => unselectVideo(id),
-    onSuccess: () => setLocalNeedsSelection(true),
-    onSettled: invalidate,
+    onSuccess: async () => {
+      setLocalCardVideo((current) => ({
+        ...current,
+        needs_selection: true,
+        is_selection_completed: false,
+      }));
+      await refreshCardVideo();
+    },
+    onSettled: invalidateAfterCardWrite,
   });
   const likeM = useMutation({
     mutationFn: () => likeVideo(id),
-    onSettled: invalidate,
+    onSuccess: refreshCardVideo,
+    onSettled: invalidateAfterCardWrite,
   });
   // あとで見るは /watch-later 以外のどの画面の表示集合も変えない（フィルタしない）ため、
   // 表示中リストの refetch は不要。共通 invalidate（list キー）を呼ばないことで、
@@ -136,30 +169,38 @@ export function VideoCard({
   // 応答の新値でボタンを即時更新し、/watch-later のキャッシュだけは常に無効化する。
   const watchLaterM = useMutation({
     mutationFn: () => toggleWatchLater(id),
-    onSuccess: (res) => setLocalWatchLater(res.watch_later),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["watch-later-videos"] }),
+    onSuccess: (res) => {
+      setLocalCardVideo((current) => ({
+        ...current,
+        watch_later: res.watch_later,
+      }));
+    },
+    onSettled: invalidateWatchLater,
   });
 
   // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。
+  const displayLevel = cardVideo.current_favorite_level;
+  const localNeedsSelection = cardVideo.needs_selection;
+  const localWatchLater = cardVideo.watch_later;
   const isTier2Unselected = displayContext === "tier2" && (localNeedsSelection || displayLevel === -1);
   const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
 
   const displayTitle =
     settings.card_title_max_length > 0
-      ? video.essential_filename.slice(0, settings.card_title_max_length)
-      : video.essential_filename;
+      ? cardVideo.essential_filename.slice(0, settings.card_title_max_length)
+      : cardVideo.essential_filename;
 
   const busy = playM.isPending || levelM.isPending || unselectM.isPending || likeM.isPending || watchLaterM.isPending;
   // 利用不可動画は再生・判定を抑止（現行 Streamlit に準拠）。いいねは利用不可でも許可。
-  const mutateDisabled = busy || !video.is_available;
+  const mutateDisabled = busy || !cardVideo.is_available;
   const error = playM.error || levelM.error || unselectM.error || likeM.error || watchLaterM.error;
   const isJudged = displayLevel !== -1;
   const isAvpSelected = avpCandidateIds.includes(id);
-  const avpDisabled = !video.is_available;
+  const avpDisabled = !cardVideo.is_available;
 
   return (
     <Card
-      className={`${video.is_available ? "" : "opacity-60"} ${
+      className={`${cardVideo.is_available ? "" : "opacity-60"} ${
         isPlaying ? "border-2 border-amber-400 bg-amber-50" : ""
       }`}
     >
@@ -173,7 +214,7 @@ export function VideoCard({
             {displayTitle}
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-sm break-all">
-            {pathBasename(video.current_full_path)}
+            {pathBasename(cardVideo.current_full_path)}
           </TooltipContent>
         </Tooltip>
 
@@ -209,21 +250,21 @@ export function VideoCard({
           )}
           {settings.card_show_storage && (
             <TBadge
-              tip={`ストレージ: ${storageLabel(video.storage_location)}`}
+              tip={`ストレージ: ${storageLabel(cardVideo.storage_location)}`}
               variant="secondary"
             >
-              {storageLabel(video.storage_location)}
+              {storageLabel(cardVideo.storage_location)}
             </TBadge>
           )}
           <TBadge tip={`視聴回数: ${viewCount}回`} variant="outline">
             視聴 {viewCount}
           </TBadge>
-          {settings.card_show_file_size && video.file_size != null && (
+          {settings.card_show_file_size && cardVideo.file_size != null && (
             <TBadge
-              tip={`ファイルサイズ: ${formatFileSize(video.file_size)}`}
+              tip={`ファイルサイズ: ${formatFileSize(cardVideo.file_size)}`}
               variant="outline"
             >
-              {formatFileSize(video.file_size)}
+              {formatFileSize(cardVideo.file_size)}
             </TBadge>
           )}
           {settings.card_show_last_viewed && lastViewed && (
@@ -231,15 +272,15 @@ export function VideoCard({
               {formatDate(lastViewed)}
             </TBadge>
           )}
-          {settings.card_show_file_modified && video.last_file_modified && (
+          {settings.card_show_file_modified && cardVideo.last_file_modified && (
             <TBadge
-              tip={`ファイル更新日: ${formatDate(video.last_file_modified)}`}
+              tip={`ファイル更新日: ${formatDate(cardVideo.last_file_modified)}`}
               variant="outline"
             >
-              {formatDate(video.last_file_modified)}
+              {formatDate(cardVideo.last_file_modified)}
             </TBadge>
           )}
-          {!video.is_available && (
+          {!cardVideo.is_available && (
             <TBadge
               tip="ファイルが見つからない、または利用できない動画"
               variant="destructive"
