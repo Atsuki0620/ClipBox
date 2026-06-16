@@ -4,6 +4,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-16 — docs: 受け入れ基準と移行ステータスを同期
+
+- README の移行ステータスに `/watch-later` を追加し、未処理 / 確認・見直し / 処理済み候補と一括解除まで完了済みとして整理。
+- `docs/context/ACCEPTANCE_CRITERIA.md` に、あとで見るの分類・自動解除/非解除条件・`/stats/last-viewed` 失敗時のエラー表示、Tier2 の未選別表示と未選別に戻す操作、共通動画カードの tooltip・即時反映・API エラー表示を追記。
+- Turbopack の workspace root 誤検知対策は既存実装（ルート `package-lock.json` の ignore と `run_dev.bat` ガード）を確認済み。`.gitignore` / `run_dev.bat` / lockfile は変更なし。
+
+---
+
 ## 2026-06-15 — fix: 「あとで見る」ボタンの反映不安定・画面ジャンプを修正
 
 - 症状: カードの「あとで見る」を押してもボタン色が変わらない／`/watch-later` に出ない／反映時に画面が一瞬スケルトンへ飛ぶ／失敗してもエラーが無音。

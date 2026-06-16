@@ -107,6 +107,7 @@ npm install
 | 分析ダッシュボード `/analysis` | ✅ 完了（Recharts） |
 | 設定 `/settings` | ✅ 完了（設定編集・スキャン・バックアップ） |
 | AVP再生 `/avp` | ✅ 完了 |
+| あとで見る `/watch-later` | ✅ 完了（未処理 / 確認・見直し / 処理済み候補、一括解除） |
 | Phase 5: Streamlit archive | 🔲 全画面の手動受け入れ完了後 |
 
 > 移行作業の計画・対応表（歴史資料）は `docs/archive/MIGRATION_PLAN.md` / `docs/archive/MIGRATION_MAP.md`。
