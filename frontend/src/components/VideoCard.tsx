@@ -122,6 +122,13 @@ export function VideoCard({
       qc.invalidateQueries({ queryKey: key });
     }
   };
+  const invalidateWatchLater = () => {
+    qc.invalidateQueries({ queryKey: ["watch-later-videos"] });
+  };
+  const invalidateAfterCardWrite = () => {
+    invalidate();
+    invalidateWatchLater();
+  };
 
   // 再生は共通フック（成功で再生中=単体をセット。invalidate も内包）。
   const playM = usePlayVideo(invalidateKeys);
@@ -137,7 +144,7 @@ export function VideoCard({
       }));
       await refreshCardVideo();
     },
-    onSettled: invalidate,
+    onSettled: invalidateAfterCardWrite,
   });
   const unselectM = useMutation({
     mutationFn: () => unselectVideo(id),
@@ -149,12 +156,12 @@ export function VideoCard({
       }));
       await refreshCardVideo();
     },
-    onSettled: invalidate,
+    onSettled: invalidateAfterCardWrite,
   });
   const likeM = useMutation({
     mutationFn: () => likeVideo(id),
     onSuccess: refreshCardVideo,
-    onSettled: invalidate,
+    onSettled: invalidateAfterCardWrite,
   });
   // あとで見るは /watch-later 以外のどの画面の表示集合も変えない（フィルタしない）ため、
   // 表示中リストの refetch は不要。共通 invalidate（list キー）を呼ばないことで、
@@ -168,7 +175,7 @@ export function VideoCard({
         watch_later: res.watch_later,
       }));
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["watch-later-videos"] }),
+    onSettled: invalidateWatchLater,
   });
 
   // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。

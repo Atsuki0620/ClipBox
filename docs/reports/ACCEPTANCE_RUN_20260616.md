@@ -1,12 +1,17 @@
 # Acceptance Run 2026-06-16
 
+## 最新総合判定
+
+- 最新総合判定: `pending`
+- 理由: write-enabled 確認と自動テストは通過したが、実画面での read-only 確認が一部残っているため、Streamlit archive ready とはまだ判定しない。
+
 ## 2026-06-17 追記 - write-enabled acceptance rerun
 
-- 対象 commit: この追記を含む最終 commit（SHA は完了報告に記載）
-- 対象ブランチ: `main`
+- 対象 commit: `afd1c36bf0b6885a40e77a003a5d072b69a3d42b`
+- 対象ブランチ: `codex/refresh-card-state-after-write-actions`
 - 方針: Streamlit を write 検証対象から外し、FastAPI + Next.js の write 操作を実データで確認。検証後はリネーム済み実ファイルを元名へ戻し、DB をテスト前スナップショットで丸ごと復元。
 - Public API / schema / DB 永続先の変更: なし。
-- Pull request: 作成しない。
+- Pull request #48 として作成済み。
 
 ### 修正内容
 
@@ -48,7 +53,9 @@
 | `git diff --check` | pass |
 | report leak check | pass |
 
-## 概要
+## 2026-06-16 初回 read-only acceptance run
+
+### 概要
 
 - 確認日: 2026-06-16
 - 対象ブランチ: `main`
@@ -57,7 +64,7 @@
 - 方針: read-only 優先。DB やファイル名を変更し得る操作は実施せず `skipped` とした。
 - Pull request #46 反映確認: README の `/watch-later`、20260616 レポート2件、`ACCEPTANCE_CRITERIA.md` の「あとで見る」「共通動画カード・状態反映」を確認済み。
 
-## 起動確認
+### 起動確認
 
 | 項目 | 結果 | メモ |
 |---|---|---|
@@ -70,7 +77,7 @@
 | Runtime control | not tested | 実画面での表示確認は未実施。 |
 | 起動ログ警告 | note | 標準エラーに `Input redirection is not supported` が出たが、FastAPI と Next.js は起動済み。ルート `package-lock.json` 警告は確認されなかった。 |
 
-## 受け入れ結果
+### 受け入れ結果
 
 | セクション | 結果 | メモ |
 |---|---|---|
@@ -88,14 +95,14 @@
 | バックアップ | partial | 起動時バックアップのみ確認。手動バックアップは未実施。 |
 | Runtime control | not tested | 実画面操作が必要。停止ボタンは実施せず。 |
 
-## 不具合・リスク
+### 不具合・リスク
 
 | 重大度 | 内容 | 推奨対応 |
 |---|---|---|
 | Low | `run_dev.bat` のログ取得起動時に `Input redirection is not supported` が標準エラーへ出力された。サービス自体は起動し、health と Next.js 200 は確認済み。 | 必要なら別 Pull request で非対話起動時のログ出力を調査する。 |
 | Medium | 受け入れ基準の大半は実画面の手動確認結果が未入力。 | 実機で各セクションの `pass / fail / skipped / not tested` を記録して再実行する。 |
 
-## 品質ゲート
+### 品質ゲート
 
 | コマンド | 結果 |
 |---|---|
@@ -105,13 +112,13 @@
 | `cd frontend && npm run build` | pass |
 | `git status --short -- data artifacts` | pass: 差分なし |
 
-## Phase 5 判定
+### 2026-06-16 初回判定
 
 判定: `pending`
 
 理由: 起動、バックアップ、自動テスト、frontend build は通過したが、`ACCEPTANCE_CRITERIA.md` の主要な実画面シナリオが未確認。read-only 中心の実機確認結果が揃うまで、Streamlit archive の完了判定は保留する。
 
-## 次作業
+### 次作業
 
 - `ACCEPTANCE_CRITERIA.md` に沿って実画面の read-only 項目を記録する。
 - write 系確認を行う場合は、事前に DB バックアップと Streamlit 停止を確認し、対象操作を明示してから実施する。
