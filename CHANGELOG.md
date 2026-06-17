@@ -11,6 +11,16 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-17 - chore: Streamlit 旧UIを archive へ移動し導線を一本化
+
+- acceptance レポートの最新総合判定を、2026-06-17 の write-enabled 確認結果に合わせ `ready_for_streamlit_archive` に更新（残 skipped / 対象外は理由つきで明記）。
+- Streamlit 旧UI（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）を `archive/streamlit/` へ移動し、通常利用導線を Next.js + FastAPI に整理（削除はせず比較・退避用に保持）。
+- README / OVERVIEW / PHASE5 / REPO_STRUCTURE / AGENTS / CLAUDE を archive 後の構成に更新。CI の `py_compile` 対象から移動済みファイルを除外。
+- `archive/streamlit/run_clipbox.bat` をリポジトリルート基準 + `PYTHONPATH` で起動可能に補正（`streamlit_app.py` 本体は無改変）。
+- Runtime 状態 lamp（ポート 8501 監視）は現行機能として維持。`core/` / `api/` / `frontend/` / `data/` / `artifacts/` は移動・変更なし。
+
+---
+
 ## 2026-06-17 - fix: ランダム/運命カードの write 後表示を最新化
 
 - ランダム/運命タブなど `invalidateKeys=[]` の動画カードで、レベル判定・選別戻し・いいね後にカード単体を `GET /api/videos/{id}` で再取得し、タイトル tooltip のファイル名、レベル、選別状態、あとで見る状態を最新化するように修正。

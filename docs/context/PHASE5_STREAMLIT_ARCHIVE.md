@@ -84,3 +84,50 @@ Phase 5 archive 作業は、以下を満たしてから着手する。
 - DB バックアップ手順の確認結果。
 - 移動対象と、現行コードから import / 参照されていないことの確認結果。
 - 未確認項目と理由。
+
+---
+
+## 8. Phase 5 実施結果（2026-06-17）
+
+Streamlit 旧 UI を `archive/streamlit/` へ移動し、通常利用導線を Next.js + FastAPI に一本化した。
+
+### 受け入れ判断
+
+- `docs/reports/ACCEPTANCE_RUN_20260616.md` の最新総合判定を `ready_for_streamlit_archive` に整合。2026-06-17 の write-enabled acceptance rerun で主要画面・主要 write 操作・AVP・バックアップ・スキャン・Runtime status・自動チェック・復元確認が通過済み。
+- 残 skipped / 対象外（archive 阻害なし）: AVP 外付けHDD（実在候補なし）、Runtime control 停止ボタン（作業環境を止めるため必須条件にしない）、初回 read-only 表の未確認（初回時点の記録・2回目で補完）。
+
+### archive 対象（`git mv` で移動・履歴保持）
+
+- `streamlit_app.py` → `archive/streamlit/streamlit_app.py`
+- `ui/`（`__init__.py` / `_theme*.css` / `components/` / 各 `*_tab.py`）→ `archive/streamlit/ui/`
+- `run_clipbox.bat` → `archive/streamlit/run_clipbox.bat`（リポジトリルート基準 + `PYTHONPATH` で起動可能に補正。`streamlit_app.py` 本体は無改変）
+
+### 残したもの（現行・移動しない）
+
+- `core/`・`api/`・`frontend/`・`tests/`・`scripts/`・`config.py`（共有・Streamlit 専用ではない）。
+- Runtime 状態 lamp / 停止制御（`core/runtime_control.py`・`frontend/.../SidebarNav.tsx`・関連テスト）。ポート 8501 と cmdline マーカー `streamlit_app.py`（部分一致）で検出するため、archive 後も無改変で動作。通常は Streamlit を起動しないため lamp は "stopped" を示す。
+
+### 移動しなかったもの（理由）
+
+- `docs/context/PROJECT_OVERVIEW.md`（Streamlit 期の概要）: 既に歴史資料として隔離済み。移動すると AGENTS.md / OVERVIEW.md / CLAUDE.md からの参照が広範に崩れるため、本作業では動かさない。
+- `config.py`: Next.js + FastAPI 側でも使う共有設定のため残す。
+
+### 残参照の扱い
+
+- `.github/workflows/ci.yml` の `py_compile` 対象から `streamlit_app.py` を除外（archived 旧 UI は CI コンパイルゲート対象外）。
+- README / OVERVIEW / REPO_STRUCTURE / AGENTS / CLAUDE の Streamlit 並走・ルート直下パス・起動手順を archive 後の構成へ更新。
+- 歴史資料（`docs/archive/`・`docs/reports/` の日付付き記録・ルート `archive/`）の Streamlit 記述は当時の記録として保持。
+
+### 確認コマンド
+
+```
+python -m compileall api core
+python -m pytest
+cd frontend && npm run typecheck && npm run lint && npm run build
+git diff --check
+git status --short -- data artifacts   # 差分なし
+```
+
+### データ非接触
+
+`data/` 配下の DB・個人設定・動画ファイル、`artifacts/` は移動・変更していない。Streamlit archive は実データに触れていない。archived 旧 UI の対話起動による実画面確認は、並走書き込み禁止（`CLAUDE.md` 設計原則5）に従い実施しない。

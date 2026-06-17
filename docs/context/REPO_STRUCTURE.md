@@ -33,9 +33,7 @@
 | `config.py` | active | ローカル設定の既定値・定数 |
 | `docs/context/` | active | 現行の正本ドキュメント |
 | `docs/decisions/` | active | ADR |
-| `streamlit_app.py` | legacy-active | 旧 Streamlit UI 入口。Phase 5 完了まで削除しない |
-| `ui/` | legacy-active | Streamlit UI 層。Phase 5 完了まで削除しない |
-| `run_clipbox.bat` | legacy-active | Streamlit 旧 UI 起動 |
+| `archive/streamlit/` | legacy | Streamlit 旧 UI（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）。Phase 5 で archive 済み。通常導線では使わない。起動は `archive/streamlit/run_clipbox.bat` |
 | `archive/` | legacy | 旧コード断片・歴史資料。現行コードから import しない。扱いは `archive/README.md` を参照 |
 | `docs/archive/` | legacy | 移行作業の計画・記録。扱いは `docs/archive/README.md` を参照 |
 | `docs/reports/` | legacy | 日付付き診断・レビュー・作業記録 |
@@ -72,9 +70,9 @@
 
 ---
 
-## 4. Phase 5 までの Streamlit 扱い
+## 4. Streamlit の扱い（Phase 5 archive 済み）
 
-`streamlit_app.py`、`ui/`、`run_clipbox.bat` は旧 UI だが、Phase 5 完了までは **legacy-active** として扱う。削除や大規模移動は、`PHASE5_STREAMLIT_ARCHIVE.md` の条件を満たしてから行う。
+Streamlit 旧 UI（`streamlit_app.py`、`ui/`、`run_clipbox.bat`）は Phase 5（2026-06-17）で `archive/streamlit/` へ移動済み。現行導線ではない **legacy** として扱い、削除はしない（比較・退避用）。詳細は `PHASE5_STREAMLIT_ARCHIVE.md` §8。Runtime 状態 lamp（`core/runtime_control.py` のポート 8501 監視）は現行機能として残るため、archive 後も `core/` に Streamlit 検出仕様が残ること自体は正常。
 
 ---
 

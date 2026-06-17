@@ -1,11 +1,11 @@
 # API 仕様書（FastAPI）
 
-ClipBox を **Python FastAPI（バックエンド API）+ Next.js（フロントエンド）** に移行する際の
-HTTP API 設計仕様。現行 Streamlit UI が `core/` を呼び出している箇所を、FastAPI エンドポイントとして
-再定義したもの。FastAPI は `core/` をそのまま再利用する（`ui/` と `streamlit_app.py` は移行完了後に破棄）。
+ClipBox を **Python FastAPI（バックエンド API）+ Next.js（フロントエンド）** に移行した HTTP API 設計仕様。
+旧 Streamlit UI が `core/` を呼び出していた箇所を、FastAPI エンドポイントとして再定義したもの。
+FastAPI は `core/` をそのまま再利用する（`ui/` と `streamlit_app.py` は Phase 5 で `archive/streamlit/` に archive 済み・削除はしない）。
 **Phase 3-B〜4-C で全ドメインエンドポイントを実装済み**（AVP 起動・分析トレンドを含む）。加えて開発時用の
-**運用エンドポイント（Runtime、末尾節参照。既定は無効）**を提供する（実体は `api_app.py` + `api/`。並走中は起動時の
-DB 初期化を Streamlit 側に委ね、API の lifespan は read-only を維持）。
+**運用エンドポイント（Runtime、末尾節参照。既定は無効）**を提供する（実体は `api_app.py` + `api/`。起動時の
+DB バックアップとマイグレーションは起動スクリプト `run_api.bat` / `run_dev.bat`（`scripts/startup_backup.py` + `scripts/run_migrations.py`）が担い、API の lifespan は read-only を維持）。
 
 ---
 
@@ -22,7 +22,7 @@ FastAPI の各エンドポイントは **`core/app_service.py` のみ**を呼び
 |---|---|---|
 | `get_videos` / `get_videos_by_ids` / `play_video` / `get_fate_video` / `get_unrated_random_videos` / `get_unrated_fate_video` | `core/video_manager.py`（VideoManager メソッド） | app_service には `create_video_manager()` のみ公開 |
 | `create_backup` | `core/database.py` | 未公開 |
-| `get_view_counts_map` / `get_last_viewed_map` / `get_distinct_*` | `core/database.py` | 未公開（現状は `ui/cache.py` が直接呼ぶ） |
+| `get_view_counts_map` / `get_last_viewed_map` / `get_distinct_*` | `core/database.py` | 未公開（旧 Streamlit の `archive/streamlit/ui/cache.py` が直接呼んでいた） |
 | `get_kpi_stats`（Tier1 KPI） | `core/analysis_service.py` | **core へ移設済み（Phase 3-B）**。`app_service.get_kpi_stats()` で公開 |
 
 → **Phase 3-B で `core/app_service.py` に薄い wrapper 関数を追加済み**（`get_videos` / `get_videos_by_ids` /
@@ -158,7 +158,7 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **エラーケース**: 500 DB接続失敗。
 
-**現行対応関数**: `VideoManager.get_videos(storage_locations=...)` + `normalize_text()` による絞り込み（`ui/search_tab.py`）。
+**対応する core 関数**: `VideoManager.get_videos(storage_locations=...)` + `normalize_text()` による絞り込み（旧 Streamlit 呼び出し元: `archive/streamlit/ui/search_tab.py`・参考）。
 
 ---
 
@@ -191,7 +191,7 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 **クエリパラメータ**:
 - `folder`: str — セレクションフォルダパス（必須）。
 - `status`: str — `all` | `unselected` | `completed`（デフォルト `all`）。
-  現行は `needs_selection_filter = None / True / False` に対応する（`ui/selection_tab.py`）:
+  `needs_selection_filter = None / True / False` に対応する（旧 Streamlit 呼び出し元: `archive/streamlit/ui/selection_tab.py`・参考）:
   - `all` → `needs_selection_filter=None`
   - `unselected` → `needs_selection_filter=True`（`!` 未選別）
   - `completed` → `needs_selection_filter=False`
@@ -202,7 +202,7 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **備考**: Tier2 のランダム表示は、この一覧結果に対し**クライアント側で `sample`** する想定（専用 API は設けない）。
 
-**現行対応関数**: `VideoManager.get_videos(needs_selection_filter=..., ...)` + フォルダ絞り込み（`ui/selection_tab.py:227`）。
+**対応する core 関数**: `VideoManager.get_videos(needs_selection_filter=..., ...)` + フォルダ絞り込み（旧 Streamlit 呼び出し元: `archive/streamlit/ui/selection_tab.py:227`・参考）。
 
 ---
 
@@ -406,7 +406,7 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 ```
 
 **現行対応関数**: `app_service.get_kpi_stats()` → `core/analysis_service.py:get_kpi_stats()`（Phase 3-B で core へ移設済み）。
-Streamlit 側キャッシュは `ui/cache.py:get_kpi_stats_cached()`。
+旧 Streamlit のキャッシュは `archive/streamlit/ui/cache.py:get_kpi_stats_cached()`（archive 済み・参考）。
 
 ---
 
@@ -429,7 +429,7 @@ Streamlit 側キャッシュは `ui/cache.py:get_kpi_stats_cached()`。
 
 **レスポンス**: `{ "1": 3, "2": 10, ... }`（video_id → view_count、200 OK）
 
-**現行対応関数**: `database.get_view_counts_map()`（現状 `ui/cache.py:get_view_counts_and_last_viewed()`）。
+**現行対応関数**: `database.get_view_counts_map()`（旧 Streamlit 呼び出し元: `archive/streamlit/ui/cache.py:get_view_counts_and_last_viewed()`・参考）。
 
 ---
 
