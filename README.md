@@ -8,9 +8,9 @@
 |---|---|---|
 | Next.js | `localhost:3000` | 現行 UI（フロントエンド） |
 | FastAPI | `localhost:8000` | バックエンド API |
-| Streamlit | `localhost:8501` | 旧 UI（移行完了まで並走） |
+| Streamlit | `localhost:8501` | 旧 UI（`archive/streamlit/` に archive 済み・通常利用では使わない） |
 
-現在の主導線は **Next.js + FastAPI** です。Streamlit は旧 UI として残し、移行完了まで比較・退避用に並走します。Phase 5 は Streamlit の即削除ではなく、`docs/context/ACCEPTANCE_CRITERIA.md` の全画面手動受け入れ完了後に archive へ移す段階です。
+現在の主導線は **Next.js + FastAPI** です。Streamlit 旧 UI は Phase 5 で `archive/streamlit/` へ移し、通常利用導線から外しました（削除はせず、比較・退避用に残しています）。旧 UI を確認する場合のみ `archive/streamlit/run_clipbox.bat` で起動します。
 
 ## 起動方法
 
@@ -22,7 +22,7 @@ run_dev.bat
 
 FastAPI（8000）と Next.js dev サーバー（3000）を同時起動します。  
 起動時に DB バックアップとマイグレーション確認を行い、ヘルスチェック完了後に Web UI を開きます。
-**Streamlit は別途** 以下のコマンドで起動してください（移行期間中の並走用）。
+通常利用はこの一括起動だけで完結します（Streamlit 旧 UI は archive 済みで通常導線には含めません）。
 
 ---
 
@@ -53,19 +53,15 @@ npm run build
 npm run start
 ```
 
-#### Streamlit（旧 UI）
+#### Streamlit（旧 UI・archive 済み・通常利用では使わない）
+
+旧 UI は `archive/streamlit/` に archive 済みです。比較・退避目的で確認する場合のみ、リポジトリルートから:
 
 ```bat
-run_clipbox.bat
+archive\streamlit\run_clipbox.bat
 ```
 
-または:
-
-```bash
-streamlit run streamlit_app.py
-```
-
-`http://localhost:8501` で開きます。移行完了までの旧 UI であり、Next.js 側の write 検証時は停止してください。
+このランチャーはリポジトリルート基準で `archive\streamlit\streamlit_app.py` を起動します（`http://localhost:8501`）。旧 UI は現行導線ではないため、Next.js + FastAPI 側で write 中は起動しないでください（WAL 未設定のため SQLite 同時書き込みは失敗し得ます）。
 
 ## 前提環境
 
@@ -87,11 +83,11 @@ cd frontend
 npm install
 ```
 
-## 注意事項（移行期間中）
+## 注意事項
 
 - **書き込み操作（再生・判定・スキャン）は一方のサーバーのみで実行する**こと。  
-  Streamlit と Next.js（FastAPI）の両方から同時に書き込むと、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`（`SQLITE_BUSY` 相当）になり得ます。
-- Next.js の write 検証を行う際は **Streamlit を停止し、DB バックアップを取ってから** 実施してください。
+  archive 済みの Streamlit 旧 UI を起動して Next.js（FastAPI）と同時に書き込むと、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`（`SQLITE_BUSY` 相当）になり得ます。通常は Streamlit を起動しないため問題になりません。
+- 旧 UI で書き込み確認を行う場合は **Next.js + FastAPI を停止し、DB バックアップを取ってから** 実施してください。
 - 「再生」ボタンはサーバー機（FastAPI が動いているPC）上でプレイヤーを起動します。リモートブラウザからは操作できません。
 
 ## 移行ステータス
@@ -108,7 +104,7 @@ npm install
 | 設定 `/settings` | ✅ 完了（設定編集・スキャン・バックアップ） |
 | AVP再生 `/avp` | ✅ 完了 |
 | あとで見る `/watch-later` | ✅ 完了（未処理 / 確認・見直し / 処理済み候補、一括解除） |
-| Phase 5: Streamlit archive | 🔲 全画面の手動受け入れ完了後 |
+| Phase 5: Streamlit archive | ✅ archive 済み（`archive/streamlit/`） |
 
 > 移行作業の計画・対応表（歴史資料）は `docs/archive/MIGRATION_PLAN.md` / `docs/archive/MIGRATION_MAP.md`。
 

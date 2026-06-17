@@ -2,16 +2,18 @@
 ClipBox - FastAPI エントリーポイント。
 
 役割:
-    Streamlit(8501) と並走する HTTP API（既定 8000）を起動する。`core/` を共有し、
-    動画 read/mutation・統計・分析・AVP 起動を提供する。将来 Next.js のバックエンドとなる。
+    現行 UI（Next.js）のバックエンド HTTP API（既定 8000）を起動する。`core/` を共有し、
+    動画 read/mutation・統計・分析・AVP 起動を提供する。
 
 【設計制約】
 - ルーターは `core.app_service` のファサード経由でのみ DB にアクセスする。
 - `streamlit` を import しない。
 - **起動時 lifespan は read-only を維持する**。DB の存在確認（read）のみ行い、
   `init_database` / `run_startup_migration`（書き込み）は実行しない
-  （並走中の SQLite 同時書き込みを避けるため。DB 初期化・移行は Streamlit 側が担う）。
-- mutation（play/level/like/scan/config/backup/avp）は並走中の同時書き込みを避ける運用前提。
+  （DB 初期化・移行は起動スクリプト `run_api.bat` / `run_dev.bat` の `scripts/run_migrations.py`
+  ＋ `scripts/startup_backup.py` が起動前に担う）。
+- mutation（play/level/like/scan/config/backup/avp）は単一サーバー書き込み前提（WAL 未設定。
+  archived 旧 Streamlit UI を同時起動して書き込むと SQLite ロック競合になり得る）。
 - **Runtime control（dev/ops 用）は既定で無効**。`CLIPBOX_ENABLE_RUNTIME_CONTROL=1` のときのみ
   `/api/runtime*` を公開する（ブラウザからプロセス停止できる強い副作用のため明示有効化）。
 
@@ -46,7 +48,7 @@ async def lifespan(app: FastAPI):
     if app_service.check_database_exists():
         logger.info("api_startup db_exists=true")
     else:
-        # 停止はせず警告のみ。DB 初期化は Streamlit 側に委ねる。
+        # 停止はせず警告のみ。DB 初期化・移行は起動スクリプト（run_migrations.py）が起動前に担う。
         logger.warning("api_startup db_exists=false reason=database_not_initialized")
     yield
 

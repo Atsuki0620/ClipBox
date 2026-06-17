@@ -2,8 +2,12 @@
 
 ## 最新総合判定
 
-- 最新総合判定: `pending`
-- 理由: write-enabled 確認と自動テストは通過したが、実画面での read-only 確認が一部残っているため、Streamlit archive ready とはまだ判定しない。
+- 最新総合判定: `ready_for_streamlit_archive`
+- 理由: 2回目の write-enabled acceptance rerun（2026-06-17）で、主要画面（`/`, `/tier2`, `/watch-later`, `/search`, `/ranking`, `/analysis`, `/settings`, `/avp` の 200）、主要 write 操作（Tier1/Tier2 のレベル判定・選別・未選別戻し・運命の1本、いいね、あとで見る自動解除、通常再生）、AVP（候補最大4本・1/2/4本起動・不正パス）、バックアップ、selection/library スキャン、Runtime status、自動チェック（pytest / frontend typecheck・lint・build / `git diff --check` / report leak check）、実ファイル名と DB の復元確認が通過したため。初回 read-only 表の未確認は初回時点の記録であり、archive 判断上の主要確認は2回目確認で補完済み。
+- 残る skipped / 対象外（いずれも Streamlit archive のブロッカーではない）:
+  - AVP 外付けHDD: 実在する外付けHDD候補がなかったため `skipped`。環境制約であり archive を阻害しない。
+  - Runtime control の停止ボタン: runtime status は確認済み。停止操作は作業環境を止めるため archive 判断の必須条件にしない。必要なら別 Pull request で扱う。
+  - 初回 read-only 表の未確認: 初回時点の記録。主要ページ200・主要操作の確認は2回目の write-enabled rerun で補完済み。
 
 ## 2026-06-17 追記 - write-enabled acceptance rerun
 
@@ -57,6 +61,8 @@
 | report leak check | pass |
 
 ## 2026-06-16 初回 read-only acceptance run
+
+> 注: この初回 run は read-only 中心の記録であり、以下の表の `not tested` / `skipped` は初回時点の状態。archive 判断上の主要確認（主要ページ200・主要 write 操作）は2026-06-17 の write-enabled acceptance rerun で補完済み。
 
 ### 概要
 

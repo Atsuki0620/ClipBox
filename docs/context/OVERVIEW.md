@@ -19,32 +19,35 @@
 
 ---
 
-## 2. アーキテクチャ（3層・移行中）
+## 2. アーキテクチャ（現行 = Next.js + FastAPI + 共有 Core）
 
 ```
-┌─────────────────────────────┐   ┌──────────────────────────────┐
-│ Next.js 16 (localhost:3000) │   │ Streamlit (localhost:8501)   │
-│ App Router / React 19 / TS  │   │ 旧 UI・移行完了まで並走       │
-│ Zustand / TanStack Query /  │   └──────────────┬───────────────┘
-│ Recharts                    │                  │
-└──────────────┬──────────────┘                  │
-               │ HTTP (/api)                      │
-┌──────────────▼──────────────┐                  │
-│ FastAPI (localhost:8000)    │                  │
-│ api_app.py + api/           │                  │
-└──────────────┬──────────────┘                  │
-               │                                  │
-┌──────────────▼──────────────────────────────────▼──────────────┐
-│ Core 層 (core/*.py) — UI 非依存。両 UI が共用                    │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                  ┌────────────▼────────────┐
-                  │ SQLite (data/videos.db) │
-                  └─────────────────────────┘
+┌─────────────────────────────┐
+│ Next.js 16 (localhost:3000) │  現行 UI
+│ App Router / React 19 / TS  │
+│ Zustand / TanStack Query /  │
+│ Recharts                    │
+└──────────────┬──────────────┘
+               │ HTTP (/api)
+┌──────────────▼──────────────┐
+│ FastAPI (localhost:8000)    │
+│ api_app.py + api/           │
+└──────────────┬──────────────┘
+               │
+┌──────────────▼──────────────┐
+│ Core 層 (core/*.py)         │  UI 非依存・現行ロジックの中核
+└──────────────┬──────────────┘
+               │
+  ┌────────────▼────────────┐
+  │ SQLite (data/videos.db) │
+  └─────────────────────────┘
+
+（旧 UI）Streamlit (localhost:8501) は archive/streamlit/ に archive 済み。
+通常導線では起動しない。起動した場合も同じ core/ を共用する。
 ```
 
-- **Core 層は UI に依存しない**（`import streamlit` 禁止）。Next.js/FastAPI と Streamlit が同じ `core/` を共用する。
-- **書き込みは一方のサーバーのみ**（WAL 未設定。同時書き込みは `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る）。
+- **Core 層は UI に依存しない**（`import streamlit` 禁止）。現行は Next.js/FastAPI が `core/` を使う。archive 済みの Streamlit 旧 UI（`archive/streamlit/`）も起動時は同じ `core/` を共用する。
+- **書き込みは一方のサーバーのみ**（WAL 未設定。同時書き込みは `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る）。通常は Streamlit を起動しないため、現行は Next.js + FastAPI 単独で動く。
 
 技術スタック: Next.js 16 / React 19 / TypeScript / Zustand / TanStack Query / Recharts（フロント）、FastAPI / Python 3.11+（API）、SQLite（DB）。Core の分析は Pandas。
 
@@ -72,7 +75,7 @@
 |---|---|
 | 一括起動（推奨） | `run_dev.bat`（DBバックアップ → マイグレーション → FastAPI + Next.js → ヘルス待ち） |
 | API のみ | `run_api.bat` |
-| Streamlit のみ | `run_clipbox.bat` |
+| Streamlit 旧 UI（archive 済み・通常使わない） | `archive/streamlit/run_clipbox.bat` |
 
 詳細・前提環境は `README.md`。
 

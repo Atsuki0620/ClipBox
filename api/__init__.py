@@ -2,8 +2,8 @@
 ClipBox FastAPI バックエンド層（Phase 3-A 基盤）。
 
 役割:
-    Streamlit と並走する HTTP API を提供する。`core/` のビジネスロジックを共有し、
-    将来的に Next.js フロントエンドのバックエンドとなる。
+    現行 UI（Next.js フロントエンド）のバックエンド HTTP API を提供する。`core/` の
+    ビジネスロジックを共有する（旧 Streamlit UI は Phase 5 で archive 済み）。
 
 【設計制約】
 - このパッケージは `core.app_service`（ファサード）のみを呼ぶ。

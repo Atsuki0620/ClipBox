@@ -1,6 +1,6 @@
 # ClipBox
 
-複数ストレージ（Cドライブ・外付けHDD）の動画を管理し、視聴履歴・お気に入りレベル・セレクションを追跡するローカル専用ツール。**3層構成**（Next.js `:3000` + FastAPI `:8000` + 旧 Streamlit `:8501` 並走）で、Streamlit から Next.js + FastAPI へ移行中。
+複数ストレージ（Cドライブ・外付けHDD）の動画を管理し、視聴履歴・お気に入りレベル・セレクションを追跡するローカル専用ツール。現行 UI は **Next.js `:3000` + FastAPI `:8000`**。旧 Streamlit UI（`:8501`）は Phase 5 で `archive/streamlit/` に archive 済み（削除はせず比較・退避用に保持・通常導線では使わない）。
 
 ## 正本ルール（competing 時の優先順位）
 
@@ -8,22 +8,23 @@
 
 ## ディレクトリ構成（主要ファイル）
 
-- `streamlit_app.py` — メインエントリーポイント
+- `api_app.py` + `api/` — FastAPI アプリ入口・HTTP API 層
+- `frontend/` — Next.js 現行 UI
 - `config.py` — 設定定数
-- `core/` — ビジネスロジック（UI非依存）
-- `ui/` — Streamlit UI層（タブ・コンポーネント・キャッシュ）
+- `core/` — ビジネスロジック（UI非依存。Next.js/FastAPI が利用）
 - `tests/` — pytest ユニットテスト（conftest.py に tmp_db フィクスチャ）
 - `data/videos.db` — SQLite DB
 - `data/user_config.json` — ユーザー設定（git除外）
 - `docs/context/` — 詳細ドキュメント（常に最新）
+- `archive/streamlit/` — 旧 Streamlit UI（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）。archive 済み・現行導線ではない
 
 ## 設計原則（絶対守ること）
 
-1. **core/ に `import streamlit` しない** — `@st.cache_data` 関数は `ui/cache.py` に集約
+1. **core/ に `import streamlit` しない**（archived 旧 UI の `@st.cache_data` 関数は `archive/streamlit/ui/cache.py` に集約済み）
 2. **DB接続は `get_db_connection()` 経由のみ** — `sqlite3.connect()` 直接呼び出し禁止
 3. **N+1クエリ禁止** — ループ内で DB 呼び出しをしない
 4. **論理削除を尊重** — クエリに `is_deleted = 0` を付ける
-5. **書き込みは一方のサーバーのみ** — Next.js(FastAPI) と Streamlit の同時書き込みは、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る。Next.js の write 検証時は Streamlit を停止し DB バックアップを取る。
+5. **書き込みは一方のサーバーのみ** — 通常は Streamlit を起動しないため現行は Next.js + FastAPI 単独。archive 済みの Streamlit 旧 UI を起動して同時書き込みすると、WAL 未設定のため `sqlite3` 既定の約5秒のロック待ち後に `database is locked`／`SQLITE_BUSY` 相当で失敗し得る。旧 UI で write 確認する場合は Next.js + FastAPI を停止し DB バックアップを取る。
 6. **状態の永続先を移動しない** — あとで見る/レベル/いいね=DB、AVP候補/再生対象/再生中ハイライト=localStorage（`SPEC_NEXTJS.md` §0）。
 
 ## プレフィックス規則
@@ -40,7 +41,7 @@
 | フィルタ条件の追加 | `core/video_manager.py` `get_videos()` |
 | 統計・集計の追加 | `core/analysis_service.py` |
 | DBカラム追加 | `core/database.py` `init_database()` + `core/migration.py` |
-| キャッシュクリアの追加 | `streamlit_app.py` の各ハンドラ + `ui/cache.py` |
+| キャッシュ無効化（現行・Next.js） | `frontend/` の TanStack Query `qc.invalidateQueries`（archived 旧 UI のキャッシュは `archive/streamlit/ui/cache.py`） |
 | スキャンロジックの変更 | `core/scanner.py` `scan_and_update()` |
 | 設定の追加 | `core/config_utils.py` + `data/user_config.json` |
 
@@ -55,8 +56,8 @@
 ```bat
 run_dev.bat        REM FastAPI(8000) + Next.js(3000) 一括起動（推奨）
 ```
-```bash
-streamlit run streamlit_app.py    # 旧 UI（移行完了まで並走用）
+```bat
+archive\streamlit\run_clipbox.bat    REM 旧 Streamlit UI（archive 済み・通常使わない・比較/退避用）
 ```
 
 ## 詳細ドキュメント（docs/context/）
@@ -84,7 +85,7 @@ streamlit run streamlit_app.py    # 旧 UI（移行完了まで並走用）
 1. 変更前にファイルを必ず Read する
 2. core/ を変更したら `pytest tests/` でテストを通す
 3. DBスキーマを変更したら `DATA_MODEL.md` を更新する
-4. データを変更する操作の後は `ui_cache.xxx.clear()` を呼ぶ
+4. データを変更する操作の後はキャッシュを無効化する（現行=Next.js は TanStack Query `qc.invalidateQueries`。archived 旧 Streamlit UI のみ `ui_cache.xxx.clear()`）
 5. 新機能追加や機能修正、バグ改善などすべての実行記録は `CHANGELOG.md` に追記する
 6. 新ファイルを作成したらモジュール先頭に docstring を書く
    （役割・【設計制約】・【依存関係】を含める。`core/video_manager.py` を参考にすること）
