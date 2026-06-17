@@ -64,6 +64,7 @@
 | `/analysis` | 分析ダッシュボード |
 | `/search` | 検索 |
 | `/settings` | 設定（バックアップ・スキャン） |
+| `/watch-later` | あとで見る |
 
 各画面の責務・操作・状態の意味は `SPEC_NEXTJS.md` を参照。
 

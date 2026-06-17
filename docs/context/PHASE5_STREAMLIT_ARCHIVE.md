@@ -1,7 +1,7 @@
-# PHASE5_STREAMLIT_ARCHIVE — Streamlit archive 準備条件
+# PHASE5_STREAMLIT_ARCHIVE — Streamlit archive 準備条件と実施結果
 
 対象読者: Coding agent / レビュアー。
-位置づけ: Streamlit 旧 UI を削除ではなく archive へ移すための前提条件を固定する。機能仕様の正本ではない。
+位置づけ: Streamlit 旧 UI を削除ではなく archive へ移すための前提条件を固定し、加えて §8 に 2026-06-17 の実施結果（Pull request #49）を記録する。機能仕様の正本ではない。
 
 ---
 
