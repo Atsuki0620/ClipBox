@@ -65,17 +65,17 @@
 
 ### ドキュメントのズレ（記録）
 
-`docs/context/REPO_STRUCTURE.md` §2 と `docs/reports/REPO_ROOT_INVENTORY_20260616.md` は `_ul` / `demo.html` / `video_analysis.ipynb` をルート直下エントリとして列挙しているが、実態は **gitignore 済み・未追跡**（git の管理対象ではない）。次段階の docs 整合で、これらが「追跡物ではない」ことが分かる表現に補正する余地がある。
+`docs/context/REPO_STRUCTURE.md` §2 と `docs/reports/REPO_ROOT_INVENTORY_20260616.md` は `_ul` / `demo.html` / `video_analysis.ipynb` をルート直下エントリとして列挙しているが、実態は **gitignore 済み・未追跡**（git の管理対象ではない）。補正は **現行正本の `REPO_STRUCTURE.md` のみ**で行う。`docs/reports/REPO_ROOT_INVENTORY_20260616.md` は日付付きの履歴記録のため遡及修正せず、2026-06-18 時点の実態は本書が記録する。
 
 ---
 
 ## 2.3 次にやるべき整理タスク案（リスクが低い順・各 = 単独 Pull request）
 
 ### 案1: docs 整合のみ（最低リスク）
-- 目的: `REPO_STRUCTURE.md` / `REPO_ROOT_INVENTORY_20260616.md` の `_ul` / `demo.html` / `video_analysis.ipynb` 記述を実態（gitignore 済み・未追跡）に合わせる。
-- 対象候補: 上記2ファイルの該当行のみ。
-- やってよいこと: 表現の補正、`archive/streamlit/` 反映の最終確認。
-- やらないこと: ファイル移動・削除・コード変更。
+- 目的: `REPO_STRUCTURE.md`（現行正本）の `_ul` / `demo.html` / `video_analysis.ipynb` 記述を実態（gitignore 済み・未追跡）に合わせる。
+- 対象候補: `REPO_STRUCTURE.md` §2 の該当行のみ。
+- やってよいこと: 現行正本の表現補正、`archive/streamlit/` 反映の最終確認。
+- やらないこと: ファイル移動・削除・コード変更。**`docs/reports/REPO_ROOT_INVENTORY_20260616.md` は日付付きの履歴記録のため現在形へ書き換えない**（2026-06-18 時点の実態は本書が記録する。さらに必要なら新しい日付の追記レポートを作る）。
 - リスク: 極小（docs のみ）。
 - 検証: `git diff --check` / `git status --short` / `git grep` で参照整合。
 - 単独 PR 理由: docs のみで完結し、レビューが軽い。他作業と混ぜると差分が読みにくくなる。
@@ -146,4 +146,4 @@
 - ルート直下の「生成物 / 一時ファイル」（`_ul` / `demo.html` / `video_analysis.ipynb`）は **既に gitignore 済み・未追跡** で、削除 PR としての実作業がほぼ無い。
 - 一方 `archive/` の分類は、将来の `legacy-code/` / `legacy-docs/` 化（案6）という大物の安全な前提資料になり、**物理移動を伴わない読み取り専用調査**として単独 PR にしやすい。
 
-次点（さらに最小）: **案1 の docs 整合 PR**。`REPO_STRUCTURE.md` / `REPO_ROOT_INVENTORY_20260616.md` の `_ul` 等を「gitignore 済み・未追跡」と分かる表現に補正するだけ。
+次点（さらに最小）: **案1 の docs 整合 PR**。現行正本 `REPO_STRUCTURE.md` の `_ul` 等を「gitignore 済み・未追跡」と分かる表現に補正するだけ（日付付き履歴 `REPO_ROOT_INVENTORY_20260616.md` は書き換えない）。

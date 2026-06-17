@@ -59,12 +59,12 @@
 |---|---|
 | `/` | Tier1 ライブラリ（ライブラリ/ランダム/運命の1本） |
 | `/tier2` | Tier2 セレクション |
+| `/watch-later` | あとで見る |
 | `/avp` | AVP再生 |
 | `/ranking` | ランキング |
 | `/analysis` | 分析ダッシュボード |
 | `/search` | 検索 |
 | `/settings` | 設定（バックアップ・スキャン） |
-| `/watch-later` | あとで見る |
 
 各画面の責務・操作・状態の意味は `SPEC_NEXTJS.md` を参照。
 
