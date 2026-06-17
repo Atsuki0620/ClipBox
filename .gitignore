@@ -253,6 +253,14 @@ docs/analysis/**/*.parquet
 notebooks/outputs/
 docs/analysis/outputs/
 
+# === Bulk viewing_history contamination analysis: full dataset is kept LOCAL ONLY ===
+# Only the consolidated Markdown is published; everything below carries viewing-activity
+# metadata or private DB copies (real video names/paths) and must never reach the public remote.
+docs/analysis/notebooks/
+docs/analysis/data/
+docs/analysis/private/
+videos_private_*.db
+
 # Temporary/untracked local files
 _ul
 demo.html
