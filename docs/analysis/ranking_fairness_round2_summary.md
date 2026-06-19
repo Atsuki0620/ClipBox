@@ -1,6 +1,6 @@
 # 総合ランキング公平化 Round 2 — 分析サマリー
 
-`notebooks/ranking_fairness_round2.ipynb` の実行結果から得られた考察・示唆のまとめ。
+`docs/analysis/notebooks/ranking_fairness_round2.ipynb` の実行結果から得られた考察・示唆のまとめ。
 ノートブック本体は個人の動画パス・タイトルを含むため git 管理外。本ファイルは公開可。
 
 ---
@@ -150,4 +150,4 @@ H2 と組み合わせると（外付けHDD 込みで全 867件の未判定を対
 ---
 
 *分析実施: 2026-06-13〜14*
-*ノートブック: `notebooks/ranking_fairness_round2.ipynb`（git 管理外・ローカルのみ）*
+*ノートブック: `docs/analysis/notebooks/ranking_fairness_round2.ipynb`（git 管理外・ローカルのみ）*

@@ -2,7 +2,7 @@
 
 ## 目的
 
-`notebooks/ranking_fairness_analysis.ipynb` は、総合ランキングを変更する前に現行式の偏りや取りこぼし候補を確認するための分析成果物です。アプリ本体、UI、API、DB スキーマ、ランキングロジックは変更していません。
+`docs/analysis/notebooks/ranking_fairness_analysis.ipynb` は、総合ランキングを変更する前に現行式の偏りや取りこぼし候補を確認するための分析成果物です。アプリ本体、UI、API、DB スキーマ、ランキングロジックは変更していません。
 
 ## 使用データ
 

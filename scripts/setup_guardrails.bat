@@ -2,7 +2,7 @@
 REM Guardrail setup: run once after clone to prevent video names leaking to GitHub.
 
 echo [1/3] Installing nbstripout...
-pip install nbstripout
+python -m pip install -r "%~dp0..\requirements\dev.txt"
 if %errorlevel% neq 0 (
     echo ERROR: pip install failed.
     exit /b 1

@@ -56,7 +56,7 @@
 `.github/workflows/ci.yml` は baseline の自動品質ゲートとして、Pull Request と `main` push で実行する。
 
 - CI で確認する範囲: Python 構文チェック（`py_compile`）、backend/API の `pytest`、Next.js production build（`npm run build`）。
-- CI では `requirements.txt` と `frontend/package-lock.json` を使う。`requirements-lock.txt` は Windows/ローカル由来の pin を含むため、GitHub Actions では使わない。
+- CI では `requirements.txt` と `frontend/package-lock.json` を使う。`requirements/lock.txt` は Windows/ローカル由来の pin を含むため、GitHub Actions では使わない。Notebook の漏洩防止用ツールは `requirements/dev.txt` から導入する。
 - Windows ローカルで確認する範囲: 実プレイヤー起動、Streamlit/Next.js の書き込み検証、`ACCEPTANCE_CRITERIA.md` に沿った手動受け入れ。
 - Next.js 画面の挙動確認は、CI ではなく引き続き `ACCEPTANCE_CRITERIA.md` と本書 §3 の手動確認で行う。
 
