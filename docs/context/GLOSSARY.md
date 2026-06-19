@@ -369,20 +369,22 @@ API に渡すときはエンドポイントごとの `availability` / `show_unav
 
 以下は DB列や歴史資料が残っていても、現行機能として復活させない。
 
+`archive/legacy-code/` は、現行実行経路から参照されない旧コード断片の隔離先。ここにあるコードの import・参照・復活は禁止し、復元する場合は別の設計・検証を必要とする。
+
 ## is_judging
 
 再生開始から判定完了までの間、`1` にセットされていた一時フラグ。
 **Phase 1 でアーカイブ済み**。UI バッジ表示は無効化。DB カラムは保持。
-`archive/video_manager_methods.py` は歴史資料。
+`archive/legacy-code/video_manager_methods.py` は歴史資料。
 
 ## カウンター A/B/C (counter)
 
 **Phase 1 でアーカイブ済み。**
 視聴回数を計測するためのタイマー式カウンター。
-`archive/counter_service.py` は歴史資料。
+`archive/legacy-code/counter_service.py` は歴史資料。
 
 ## スナップショット (snapshot)
 
 **Phase 1 でアーカイブ済み。**
 ある時点のDB内容・フィルタ・設定を別SQLiteファイルに保存する機能。
-`archive/snapshot.py` は歴史資料。
+`archive/legacy-code/snapshot.py` は歴史資料。
