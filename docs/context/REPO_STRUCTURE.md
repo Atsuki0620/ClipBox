@@ -42,9 +42,9 @@
 | `.pytest_cache/` / `__pycache__/` | generated | テスト・Python 実行キャッシュ |
 | `venv/` | local-only | ローカル Python 仮想環境 |
 | `.playwright-mcp/` | local-only | ローカル確認用の補助ディレクトリ |
-| `demo.html` | legacy | 旧デモ/確認用ファイル。現行実行経路ではない |
-| `video_analysis.ipynb` | legacy | 分析メモ。現行実行経路ではない |
-| `_ul` | generated | 空のローカル生成物。必要に応じて後続整理対象 |
+| `demo.html` | legacy | `.gitignore` 対象の未追跡ローカルファイル。旧デモ/確認用で現行実行経路ではない（2026-06-19 監査時は実体なし） |
+| `video_analysis.ipynb` | legacy | `.gitignore` 対象の未追跡ローカルファイル。分析メモで現行実行経路ではない |
+| `_ul` | generated | `.gitignore` 対象の未追跡ローカル生成物（2026-06-19 監査時は 0 byte）。必要に応じて後続整理対象 |
 
 ---
 
