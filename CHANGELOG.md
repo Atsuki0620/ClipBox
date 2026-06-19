@@ -11,6 +11,13 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-19 — docs: ルート構成の表現補正と archive 参照監査
+
+- `REPO_STRUCTURE.md` で `_ul`、`demo.html`、`video_analysis.ipynb` が `.gitignore` 対象の未追跡ローカルファイルであることを明記。
+- `archive/` 直下の旧 Python コードと `unused_tabs/` を分類し、現行領域からの import・旧ファイル名参照がないこと、物理移動を見送る理由を監査レポートへ記録。ファイル移動・削除、実装・DB・設定の変更はなし。
+
+---
+
 ## 2026-06-17 - chore: Streamlit 旧UIを archive へ移動し導線を一本化
 
 - acceptance レポートの最新総合判定を、2026-06-17 の write-enabled 確認結果に合わせ `ready_for_streamlit_archive` に更新（残 skipped / 対象外は理由つきで明記）。
