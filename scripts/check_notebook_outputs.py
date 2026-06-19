@@ -18,7 +18,9 @@ from pathlib import Path
 _EXPORT_EXTENSIONS = {".csv", ".xlsx", ".tsv", ".parquet"}
 
 # エクスポートファイルを禁止するディレクトリ（posix prefix で比較）
-_SENSITIVE_DIR_PREFIXES = ("notebooks/", "docs/analysis/")
+# docs/analysis/data/ と docs/analysis/notebooks/ は匿名集計のみ含むため許可。
+# docs/analysis/private/ は動画名・視聴情報・DB コピーを含み禁止。
+_SENSITIVE_DIR_PREFIXES = ("notebooks/", "docs/analysis/private/")
 
 
 def _get_staged_paths() -> list[Path]:

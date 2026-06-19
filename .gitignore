@@ -241,19 +241,9 @@ frontend/out/
 frontend/.env*
 frontend/next-env.d.ts
 
-# 分析資料の正規配置は docs/analysis/。直下の公開 Markdown のみ git 管理する。
-# エクスポート・Notebook・実データは動画名や視聴情報を含み得るため commit 禁止。
-docs/analysis/**/*.csv
-docs/analysis/**/*.xlsx
-docs/analysis/**/*.tsv
-docs/analysis/**/*.parquet
-docs/analysis/outputs/
-
-# === Bulk viewing_history contamination analysis: full dataset is kept LOCAL ONLY ===
-# Only the consolidated Markdown is published; everything below carries viewing-activity
-# metadata or private DB copies (real video names/paths) and must never reach the public remote.
-docs/analysis/notebooks/
-docs/analysis/data/
+# 分析資料の正規配置は docs/analysis/。
+# private/ は動画名・視聴情報・DB コピーを含み commit 禁止。
+# notebooks/ と data/ は匿名集計・スクリプトのみ含むため git 管理対象とする。
 docs/analysis/private/
 videos_private_*.db
 
