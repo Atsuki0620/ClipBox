@@ -241,16 +241,12 @@ frontend/out/
 frontend/.env*
 frontend/next-env.d.ts
 
-# 分析エクスポートファイル（動画名が含まれる可能性があるため commit 禁止）
-notebooks/**/*.csv
-notebooks/**/*.xlsx
-notebooks/**/*.tsv
-notebooks/**/*.parquet
+# 分析資料の正規配置は docs/analysis/。直下の公開 Markdown のみ git 管理する。
+# エクスポート・Notebook・実データは動画名や視聴情報を含み得るため commit 禁止。
 docs/analysis/**/*.csv
 docs/analysis/**/*.xlsx
 docs/analysis/**/*.tsv
 docs/analysis/**/*.parquet
-notebooks/outputs/
 docs/analysis/outputs/
 
 # === Bulk viewing_history contamination analysis: full dataset is kept LOCAL ONLY ===
@@ -260,6 +256,13 @@ docs/analysis/notebooks/
 docs/analysis/data/
 docs/analysis/private/
 videos_private_*.db
+
+# 廃止したルート notebooks/ の再作成時にも分析データを漏洩させない。
+notebooks/**/*.csv
+notebooks/**/*.xlsx
+notebooks/**/*.tsv
+notebooks/**/*.parquet
+notebooks/outputs/
 
 # Temporary/untracked local files
 _ul

@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-20 — chore: 分析資料と依存ファイルの配置を統一
+
+- 公開可能な分析 Markdown を `docs/analysis/` 直下に集約し、ローカル専用の Notebook・データ・コピー DB・出力との境界を README と `.gitignore` に明記。
+- 公平化 Round 2 のローカル Notebook は出力を保持したまま ignore 対象の正規配置へ移し、ルート `notebooks/`、旧分析 Notebook、空の一時ファイルを削除。
+- 開発用依存とローカル pin を `requirements/` 配下へ移し、guardrail セットアップと品質・構成ドキュメントの参照を更新。
+- Public API、DB、migration、現行実装、UI 挙動は変更なし。
+
+---
+
 ## 2026-06-20 — chore: 旧コード断片を legacy-code へ隔離
 
 - Pull request #53 の導入判断に基づき、現行領域から参照されない旧 Python コード12件を `archive/legacy-code/` へ内容無変更で移動。
