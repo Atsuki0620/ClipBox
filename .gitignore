@@ -245,6 +245,9 @@ frontend/next-env.d.ts
 # private/ は動画名・視聴情報・DB コピーを含み commit 禁止。
 # notebooks/ と data/ は匿名集計・スクリプトのみ含むため git 管理対象とする。
 docs/analysis/private/
+docs/analysis/data/exact/
+docs/analysis/data/round2/
+docs/analysis/data/source_notes/
 videos_private_*.db
 
 # 廃止したルート notebooks/ の再作成時にも分析データを漏洩させない。
