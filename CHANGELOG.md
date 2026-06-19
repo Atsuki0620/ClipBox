@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-20 — chore: 旧コード断片を legacy-code へ隔離
+
+- Pull request #53 の導入判断に基づき、現行領域から参照されない旧 Python コード12件を `archive/legacy-code/` へ内容無変更で移動。
+- `archive/setup_db.py` と `archive/verify_setup.py`、`archive/streamlit/`、既存の歴史資料は現配置を維持し、`archive/legacy-docs/` は未導入。
+- Public API、DB、migration、現行実装、UI挙動は変更なし。
+
+---
+
 ## 2026-06-19 — docs: ルート構成の表現補正と archive 参照監査
 
 - `REPO_STRUCTURE.md` で `_ul`、`demo.html`、`video_analysis.ipynb` が `.gitignore` 対象の未追跡ローカルファイルであることを明記。

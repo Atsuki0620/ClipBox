@@ -4,6 +4,7 @@
 > **現行の主 UI は Next.js（`localhost:3000`）+ FastAPI（`localhost:8000`）**。Streamlit 旧 UI は Phase 5 で **`archive/streamlit/` に archive 済み**（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）で、通常導線では使わない（削除はせず比較・退避用に保持）。**本書中に現れる `streamlit_app.py` / `ui/...` / `run_clipbox.bat` のパスは、現在はすべて `archive/streamlit/` 配下にある**。
 > 画面・状態の挙動の正本は **`SPEC_NEXTJS.md`**、用語は `GLOSSARY.md`、競合時の優先順位は `AGENTS.md` の正本台帳に従う（現行＝正本 ＞ 歴史的記述）。
 > archived 旧 UI を起動して書き込む場合のみ DB 同時書き込みに注意（書き込みは一方のサーバーのみ。`SQLITE_BUSY`。`SPEC_NEXTJS.md` §11）。
+> 現行実行経路から参照されない旧コード断片は `archive/legacy-code/` に隔離済み。import・参照・復活は禁止し、復元する場合は別の設計・検証を必要とする。
 
 ---
 
@@ -61,7 +62,8 @@ Core層 (Python) - UI非依存
   core/runtime_control.py    ← サービス状態判定/停止（psutil・dev/ops 用）
   core/logger.py             ← RotatingFileHandler ロガー
 Archive層
-  archive/                  ← archived 実装の復旧元
+  archive/legacy-code/      ← 旧コード断片（現行から import・参照・復活しない）
+  archive/streamlit/        ← 旧 Streamlit UI（通常導線では使わない）
 
 Data層 (SQLite)
   data/videos.db
@@ -136,6 +138,20 @@ ClipBox/
 │       └── lib/              # api.ts（fetch ラッパ）・types.ts・store.ts(zustand)・levels.ts
 │                             #   分析チャートは recharts を使用
 │
+├── archive/legacy-code/      # 旧コード断片（Phase 1 で隔離・現行から参照しない）
+│   ├── analysis_tab_v2.py
+│   ├── config_store.py
+│   ├── counter_service.py
+│   ├── create_test_data.py
+│   ├── detect_file_access.py
+│   ├── history_repository.py
+│   ├── inspect_database.py
+│   ├── settings.py
+│   ├── snapshot.py
+│   ├── video_manager_methods.py
+│   └── unused_tabs/          # 旧 Streamlit UI 断片2件
+├── archive/setup_db.py       # 旧セットアップCLI（残置・通常導線では実行しない）
+├── archive/verify_setup.py   # 旧セットアップ検証CLI（残置・通常導線では実行しない）
 ├── archive/streamlit/        # 旧 Streamlit UI（Phase 5 で archive 済み・現行導線ではない）
 │   ├── streamlit_app.py      # 旧メインエントリーポイント
 │   └── run_clipbox.bat       # 旧 UI 起動（ルート基準 + PYTHONPATH）
@@ -194,7 +210,7 @@ ClipBox/
 │   ├── decisions/            # ADR（アーキテクチャ決定記録）
 │   └── reports/              # 作業成果物（日付付き・更新しない）
 │
-└── archive/                  # アーカイブ（非アクティブ）
+└── archive/*.md              # 旧設計資料（legacy-docs は未導入）
 ```
 
 ---
@@ -237,11 +253,11 @@ ClipBox/
 | `core/like_service.py` | いいね機能（追加・取得） |
 | `core/selection_service.py` | セレクション固有ビジネスロジック |
 | `core/logger.py` | RotatingFileHandler（5MB×3世代、data/clipbox.log） |
-| ~~`core/snapshot.py`~~ | **archived** → `archive/snapshot.py` |
-| ~~`core/counter_service.py`~~ | **archived** → `archive/counter_service.py` |
-| ~~`core/config_store.py`~~ | **archived** → `archive/config_store.py`（`config_utils.py` が実体） |
-| ~~`core/history_repository.py`~~ | **archived** → `archive/history_repository.py` |
-| ~~`core/settings.py`~~ | **archived** → `archive/settings.py`（ファイルアクセス検知と共に退避） |
+| ~~`core/snapshot.py`~~ | **archived** → `archive/legacy-code/snapshot.py` |
+| ~~`core/counter_service.py`~~ | **archived** → `archive/legacy-code/counter_service.py` |
+| ~~`core/config_store.py`~~ | **archived** → `archive/legacy-code/config_store.py`（`config_utils.py` が実体） |
+| ~~`core/history_repository.py`~~ | **archived** → `archive/legacy-code/history_repository.py` |
+| ~~`core/settings.py`~~ | **archived** → `archive/legacy-code/settings.py`（ファイルアクセス検知と共に退避） |
 
 ---
 
@@ -324,7 +340,7 @@ ui_cache.get_kpi_stats_cached.clear()
 | 動画再生 | `core/video_manager.py` | `VideoManager.play_video()` | ✅ |
 | 視聴集計記録 | `core/video_manager.py` | `viewing_history` INSERT (`APP_PLAYBACK`) | ✅ |
 | 再生ログ詳細記録 | `core/database.py` | `insert_play_history()` → `play_history` | ✅ |
-| 判定中フラグ設定 | ~~`core/video_manager.py`~~ | ~~`VideoManager.set_judging_state()`~~ | **archived** → `archive/video_manager_methods.py` |
+| 判定中フラグ設定 | ~~`core/video_manager.py`~~ | ~~`VideoManager.set_judging_state()`~~ | **archived** → `archive/legacy-code/video_manager_methods.py` |
 
 ### 5.3 判定機能
 
@@ -414,8 +430,8 @@ APP_PLAYBACK:
 `viewing_history` は視聴回数・ランキング・分析の集計用、`play_history` は再生トリガーやプレイヤーなどの詳細ログ用。
 
 archived（Phase 1 で無効化）:
-- `FILE_ACCESS_DETECTED`: ファイルアクセス時刻検知 → `archive/detect_file_access.py`
-- `MANUAL_ENTRY`: 手動マーク → `archive/video_manager_methods.py`
+- `FILE_ACCESS_DETECTED`: ファイルアクセス時刻検知 → `archive/legacy-code/detect_file_access.py`
+- `MANUAL_ENTRY`: 手動マーク → `archive/legacy-code/video_manager_methods.py`
 
 ---
 
