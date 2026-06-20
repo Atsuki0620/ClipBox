@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-21 — fix: 視聴集計を APP_PLAYBACK に統一し旧履歴purgeを追加
+
+- カードの視聴回数・最終再生、一覧ソート、ランキング4種の視聴因子/同点順、あとで見る分類、運命の「最近見てない優先」、分析集計を `APP_PLAYBACK` のみに統一。生視聴履歴API、likes、判定履歴、再生詳細ログの契約は変更なし。
+- 共通定数 `VIEWING_METHOD_APP_PLAYBACK` を追加し、集計SQL・記録SQLはmethodをパラメータで指定。
+- `scripts/purge_legacy_viewing_history.py` を追加。既定dry-run、サービス停止と確認文字列を必須化し、排他ロック中の同一スナップショットからDB/CSVを作成して整合性・件数・SHA-256検証後に旧2methodだけを削除。`NULL`・未知methodは保持し、0件再実行はno-op。自動migration/API/VACUUMには組み込まない。
+- 旧methodが各集計へ寄与しないこと、生履歴では取得できること、purgeの非変更/対象限定削除/再実行/失敗中止を回帰テストで固定。
+
+---
+
 ## 2026-06-20 — docs(analysis): APP_PLAYBACK ベース総合ランキング移行の比較所見を追加
 
 - 総合ランキングを「現行（FILE_ACCESS_DETECTED 込み）」と「APP_PLAYBACK のみ（FILE をスコア除外・履歴は削除しない）」で比較した所見を `docs/analysis/ranking_app_playback_comparison_findings.md` に追加（公開・集計のみ）。再生可能だけ／全動画の 2 スコープで Top-N 入替を比較し、availability（外付け HDD 未接続）による不可視化が独立した体感要因であることを整理。全動画スコープの Top50/Top100 入替（25/47）は先行分析 C4/C5 と一致し再現性を確認。

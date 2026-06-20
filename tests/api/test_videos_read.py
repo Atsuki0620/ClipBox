@@ -269,7 +269,7 @@ def test_filter_options(client):
 
 
 def test_videos_sort_view_count_desc(client):
-    """sort=view_count&order=desc で視聴回数順に並ぶ。"""
+    """sort=view_count&order=desc は旧methodを無視して APP 再生回数順に並ぶ。"""
     a = _insert("a.mp4", "C:/x/a.mp4", 1)
     b = _insert("b.mp4", "C:/x/b.mp4", 1)
     with get_db_connection() as conn:
@@ -284,6 +284,12 @@ def test_videos_sort_view_count_desc(client):
             " VALUES (?, datetime('now'), 'APP_PLAYBACK')",
             (a,),
         )
+        for _ in range(5):
+            conn.execute(
+                "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+                " VALUES (?, datetime('now'), 'MANUAL_ENTRY')",
+                (a,),
+            )
 
     items = client.get("/api/videos", params={"sort": "view_count", "order": "desc"}).json()["items"]
     assert [it["essential_filename"] for it in items[:2]] == ["b.mp4", "a.mp4"]

@@ -16,6 +16,7 @@ from typing import Dict, Iterable, Literal, Optional, Sequence, Tuple
 import pandas as pd
 
 from core.database import get_db_connection
+from core.viewing import VIEWING_METHOD_APP_PLAYBACK
 
 _SQLITE_MAX_VARS = 900  # SQLite の SQLITE_LIMIT_VARIABLE_NUMBER 上限余裕込み
 
@@ -124,9 +125,10 @@ def load_analysis_data(is_deleted_filter: Optional[int]) -> pd.DataFrame:
         COALESCE(COUNT(vh.id), 0) AS total_view_count,
         MAX(vh.viewed_at) AS last_viewed_at
       FROM videos v
-      LEFT JOIN viewing_history vh ON v.id = vh.video_id
+      LEFT JOIN viewing_history vh
+        ON v.id = vh.video_id AND vh.viewing_method = ?
     """
-    params: list = []
+    params: list = [VIEWING_METHOD_APP_PLAYBACK]
 
     if is_deleted_filter is not None:
         query += " WHERE v.is_deleted = ?"
@@ -225,13 +227,19 @@ def calculate_period_view_count(
 
     base_query = """
         SELECT video_id, COUNT(*) AS period_view_count
-          FROM viewing_history
+         FROM viewing_history
          WHERE viewed_at BETWEEN ? AND ?
+           AND viewing_method = ?
            AND video_id IN ({placeholders})
          GROUP BY video_id
     """
     with get_db_connection() as conn:
-        rows = _run_chunked_query(conn, base_query, video_ids, [period_start, period_end])
+        rows = _run_chunked_query(
+            conn,
+            base_query,
+            video_ids,
+            [period_start, period_end, VIEWING_METHOD_APP_PLAYBACK],
+        )
     df_period = (
         pd.DataFrame(rows)
         if rows
@@ -362,6 +370,8 @@ def get_viewing_trend(
     where, params = _trend_filters(
         "vh.viewed_at", period_start, period_end, is_available, include_deleted
     )
+    where += " AND vh.viewing_method = ?"
+    params.append(VIEWING_METHOD_APP_PLAYBACK)
     query = (
         f"SELECT {label} AS label, COUNT(*) AS count"
         f" FROM viewing_history vh JOIN videos v ON v.id = vh.video_id"
@@ -599,9 +609,9 @@ def get_view_days_ranking(
     base_query = """
         SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days
           FROM viewing_history
-         WHERE 1=1
+         WHERE viewing_method = ?
     """
-    extra_params: list = []
+    extra_params: list = [VIEWING_METHOD_APP_PLAYBACK]
 
     if period_start is not None:
         base_query += " AND viewed_at >= ?"
@@ -743,9 +753,9 @@ def get_ranked_videos_for_tab(
         video_ids = df["id"].tolist()
         query = (
             "SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days"
-            " FROM viewing_history WHERE 1=1"
+            " FROM viewing_history WHERE viewing_method = ?"
         )
-        params: list = []
+        params: list = [VIEWING_METHOD_APP_PLAYBACK]
         if period_start:
             query += " AND viewed_at >= ?"
             params.append(period_start)
@@ -791,9 +801,9 @@ def get_ranked_videos_for_tab(
         video_ids = df["id"].tolist()
         q_days = (
             "SELECT video_id, COUNT(DISTINCT DATE(viewed_at)) AS view_days"
-            " FROM viewing_history WHERE 1=1"
+            " FROM viewing_history WHERE viewing_method = ?"
         )
-        p_days: list = []
+        p_days: list = [VIEWING_METHOD_APP_PLAYBACK]
         if period_start:
             q_days += " AND viewed_at >= ?"
             p_days.append(period_start)

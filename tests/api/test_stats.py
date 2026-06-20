@@ -2,6 +2,8 @@
 ClipBox API - 統計・ランキングエンドポイントのテスト。
 """
 
+import pytest
+
 from core.database import get_db_connection
 
 
@@ -39,7 +41,7 @@ def test_stats_selection_kpi_global_when_unset(client):
 
 
 def test_stats_view_counts_and_last_viewed(client):
-    """視聴回数マップと最終視聴日時マップを返す（キーは文字列化される）。"""
+    """カード統計は APP_PLAYBACK だけを返す（キーは文字列化される）。"""
     a = _insert("a.mp4", "C:/x/a.mp4", 1)
     with get_db_connection() as conn:
         conn.execute(
@@ -48,9 +50,51 @@ def test_stats_view_counts_and_last_viewed(client):
         conn.execute(
             "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
             " VALUES (?, '2026-05-02 12:00:00', 'APP_PLAYBACK')", (a,))
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (?, '2026-06-01 12:00:00', 'FILE_ACCESS_DETECTED')", (a,))
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (?, '2026-06-02 12:00:00', 'MANUAL_ENTRY')", (a,))
 
     assert client.get("/api/stats/view-counts").json()[str(a)] == 2
     assert client.get("/api/stats/last-viewed").json()[str(a)] == "2026-05-02 12:00:00"
+
+
+@pytest.mark.parametrize(
+    ("ranking_type", "expected_score"),
+    [("view_count", 1), ("view_days", 1), ("likes", 1), ("composite", 600)],
+)
+def test_ranking_tie_breaker_uses_app_playback_only(client, ranking_type, expected_score):
+    """全ランキングの同点順は APP 最終再生で決まり、旧methodは得点にも順序にも寄与しない。"""
+    old = _insert("old.mp4", "C:/x/###_old.mp4", 3)
+    recent = _insert("recent.mp4", "C:/x/###_recent.mp4", 3)
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, ?)",
+            (old, "2026-01-01 12:00:00", "APP_PLAYBACK"),
+        )
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, ?)",
+            (recent, "2026-01-02 12:00:00", "APP_PLAYBACK"),
+        )
+        for method in ("FILE_ACCESS_DETECTED", "MANUAL_ENTRY"):
+            conn.execute(
+                "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, ?)",
+                (old, "2099-12-31 23:59:59", method),
+            )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (old, "2026-01-03"))
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (recent, "2026-01-03"))
+
+    items = client.get(
+        "/api/ranking",
+        params={"type": ranking_type, "period": "全期間", "top_n": 10},
+    ).json()["items"]
+    assert [item["video"]["essential_filename"] for item in items[:2]] == [
+        "recent.mp4",
+        "old.mp4",
+    ]
+    assert [item["score"] for item in items[:2]] == [expected_score, expected_score]
 
 
 def test_ranking_view_count_nests_video(client):

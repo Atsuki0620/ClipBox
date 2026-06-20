@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from config import DATABASE_PATH
 from typing import Optional
 from core.logger import get_logger
+from core.viewing import VIEWING_METHOD_APP_PLAYBACK
 
 logger = get_logger(__name__)
 
@@ -339,17 +340,21 @@ def get_distinct_storage_locations(conn) -> list[str]:
 
 
 def get_view_counts_map(conn) -> dict[int, int]:
-    """動画IDごとの視聴回数マップを取得"""
+    """動画IDごとのアプリ再生回数マップを取得。"""
     rows = conn.execute(
-        "SELECT video_id, COUNT(*) AS cnt FROM viewing_history GROUP BY video_id"
+        "SELECT video_id, COUNT(*) AS cnt FROM viewing_history"
+        " WHERE viewing_method = ? GROUP BY video_id",
+        (VIEWING_METHOD_APP_PLAYBACK,),
     ).fetchall()
     return {row["video_id"]: row["cnt"] for row in rows}
 
 
 def get_last_viewed_map(conn) -> dict[int, str]:
-    """動画IDごとの最終視聴日時マップを取得"""
+    """動画IDごとの最終アプリ再生日時マップを取得。"""
     rows = conn.execute(
-        "SELECT video_id, MAX(viewed_at) AS last_viewed FROM viewing_history GROUP BY video_id"
+        "SELECT video_id, MAX(viewed_at) AS last_viewed FROM viewing_history"
+        " WHERE viewing_method = ? GROUP BY video_id",
+        (VIEWING_METHOD_APP_PLAYBACK,),
     ).fetchall()
     return {row["video_id"]: row["last_viewed"] for row in rows}
 
@@ -382,6 +387,9 @@ def get_total_videos_count(conn) -> int:
 
 
 def get_total_views_count(conn) -> int:
-    """総視聴回数を取得"""
-    cursor = conn.execute("SELECT COUNT(*) FROM viewing_history")
+    """総アプリ再生回数を取得。"""
+    cursor = conn.execute(
+        "SELECT COUNT(*) FROM viewing_history WHERE viewing_method = ?",
+        (VIEWING_METHOD_APP_PLAYBACK,),
+    )
     return cursor.fetchone()[0]

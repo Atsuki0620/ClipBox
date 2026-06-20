@@ -19,6 +19,7 @@ from pathlib import Path
 from core.models import Video, is_path_within, normalize_text
 from core.database import get_db_connection, insert_play_history
 from core.logger import get_logger
+from core.viewing import VIEWING_METHOD_APP_PLAYBACK
 from config import FAVORITE_LEVEL_NAMES
 
 logger = get_logger(__name__)
@@ -197,9 +198,10 @@ class VideoManager:
         with get_db_connection() as conn:
             rows = conn.execute(
                 f"SELECT video_id, MAX(viewed_at) AS last_viewed"
-                f" FROM viewing_history WHERE video_id IN ({placeholders})"
+                f" FROM viewing_history WHERE viewing_method = ?"
+                f" AND video_id IN ({placeholders})"
                 f" GROUP BY video_id",
-                video_ids,
+                [VIEWING_METHOD_APP_PLAYBACK, *video_ids],
             ).fetchall()
         last_viewed_map = {row["video_id"]: row["last_viewed"] for row in rows}
 
@@ -361,9 +363,9 @@ class VideoManager:
             conn.execute(
                 """
                 INSERT INTO viewing_history (video_id, viewed_at, viewing_method)
-                VALUES (?, ?, 'APP_PLAYBACK')
+                VALUES (?, ?, ?)
                 """,
-                (video_id, viewed_at)
+                (video_id, viewed_at, VIEWING_METHOD_APP_PLAYBACK)
             )
             if player is not None:
                 insert_play_history(

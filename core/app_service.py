@@ -20,6 +20,7 @@ from core.models import Video, normalize_text
 from core import like_service
 from core import selection_service
 from core import watch_later_service
+from core.viewing import VIEWING_METHOD_APP_PLAYBACK
 
 
 # DB / 接続管理 -------------------------------------------------------------
@@ -134,8 +135,8 @@ def record_avp_viewing(video_ids: List[int]) -> None:
     with get_db_connection() as conn:
         conn.executemany(
             "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
-            " VALUES (?, ?, 'APP_PLAYBACK')",
-            [(vid, viewed_at) for vid in video_ids],
+            " VALUES (?, ?, ?)",
+            [(vid, viewed_at, VIEWING_METHOD_APP_PLAYBACK) for vid in video_ids],
         )
         watch_later_service.clear_processed_watch_later(conn, video_ids)
 
