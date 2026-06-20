@@ -17,7 +17,7 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 - `archive/setup_db.py` / `archive/verify_setup.py` を `archive/legacy-code/setup/` へ移動し、`archive/legacy-code/README.md` と `archive/legacy-code/setup/README.md`（実行禁止注記つき）を新設。
 - `docs/context/PROJECT_OVERVIEW.md` を `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md` へ移動し、`docs/context/` を現行正本だけの場所に整理。現行正本の参照（AGENTS.md / CLAUDE.md / OVERVIEW.md / REPO_STRUCTURE.md / IMPLEMENTATION_GUIDE.md / PHASE5）を更新。
 - `docs/reports/README.md`（レポートの読み方・分類・命名規則）と `docs/reports/REPO_ROOT_CLEANUP_SUMMARY_20260620.md`（ルート整理完了サマリ）を追加。
-- 旧 Streamlit UI 内の表示文字列 `python archive/setup_db.py`、過去レポート・歴史資料内の当時のパスは時点資料として残置。
+- 旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示を新パス `python archive/legacy-code/setup/setup_db.py` へ補正し、通常導線では使わない旨と実行注意（バックアップ・目的確認）を併記。過去レポート・歴史資料内の当時のパスは時点資料として残置。
 - Public API、DB、migration、現行実装、UI 挙動、ランキング式、`archive/streamlit/` の配置は変更なし。
 
 ---

@@ -10,5 +10,5 @@
 ## 注意
 
 - 現行のDB初期化・マイグレーションは `core/database.py` / `core/migration.py` が担当します。セットアップは `run_dev.bat`（起動時バックアップ → マイグレーション）に統合済みで、ここのスクリプトは使いません。
-- 旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）には `python archive/setup_db.py` という案内表示が残りますが、これは当時の表示文字列であり、現在のパス（`archive/legacy-code/setup/setup_db.py`）とは一致しません。旧 UI は通常起動しないため実害はありません。
+- 旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示も、現在のパス `python archive/legacy-code/setup/setup_db.py` に補正済みです。あわせて「通常導線では使わない／実行前にバックアップと目的確認が必須」の注意も表示します。旧 UI は通常起動しません。
 - 復旧や参照が必要な場合も、現行セットアップとして扱わず、独立した検証作業として扱ってください。

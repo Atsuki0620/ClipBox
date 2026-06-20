@@ -72,7 +72,7 @@ Pull request #53 の導入判断に基づき、現行領域から参照されな
 
 Phase 1 後の構成整理として、次を実施した。詳細は `docs/reports/REPO_ROOT_CLEANUP_SUMMARY_20260620.md`。
 
-- `archive/setup_db.py` と `archive/verify_setup.py` を `archive/legacy-code/setup/` へ移動。旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の表示文字列 `python archive/setup_db.py` は当時の記録として残す（非稼働 UI のため実害なし）。
+- `archive/setup_db.py` と `archive/verify_setup.py` を `archive/legacy-code/setup/` へ移動。旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示も新パス `python archive/legacy-code/setup/setup_db.py` へ補正し、通常導線では使わない旨と実行注意を併記（旧 UI は通常起動しない）。
 - `archive/` 直下にあった旧設計・旧実装メモ（Markdown）を `archive/legacy-docs/` へ集約。`archive/README.md` は直下に残す。
 - `docs/context/PROJECT_OVERVIEW.md`（Streamlit 期の概要）を `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md` へ移動し、現行正本の参照を更新。
 

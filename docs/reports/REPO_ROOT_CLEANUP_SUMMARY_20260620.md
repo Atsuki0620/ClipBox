@@ -55,7 +55,7 @@ docs/
 ## 残したもの（意図的）
 
 - `archive/streamlit/` — 旧 Streamlit UI の退避先。別枠として移動・削除しない。
-- 旧 Streamlit UI 内の表示文字列 `python archive/setup_db.py`（`archive/streamlit/streamlit_app.py`）。当時の記録として残す。旧 UI は通常起動しないため、現在のパス（`archive/legacy-code/setup/setup_db.py`）と一致しなくても実害なし。
+- 旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示は、現在のパス `python archive/legacy-code/setup/setup_db.py` へ補正済み。あわせて「通常導線では使わない／実行前にバックアップと目的確認が必須」の注意を表示する。旧 UI は通常起動しない。
 - 過去レポート・過去 `CHANGELOG.md` 項目・歴史資料内の当時のパス表記。時点資料として遡及修正しない。
 
 ## 変更しなかったもの
