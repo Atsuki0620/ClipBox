@@ -15,14 +15,17 @@
 
 参考情報つき (ローカル想定。終了コードには影響しない):
     python scripts/check_repo_boundaries.py --inventory
-    未追跡 / ignore 済みファイルの棚卸しを分類表示する。
+    未追跡 / ignore 済みファイルの棚卸しを「件数のみ」で分類表示する
+    （具体的なファイル名・パスは出さない）。
 
 【設計制約】
     - 標準ライブラリと `git` コマンド (subprocess) のみで動く。追加依存を持たない。
     - tracked ファイル (`git ls-files`) のみを失敗条件にする。ローカルに在るだけの
       未追跡 / ignore 済みファイルは CI を落とさない（棚卸しは参考表示のみ）。
-    - 実データ名・動画名・ローカルフルパスはログに出さない。表示するのは git 管理上の
-      リポジトリ相対パス（ファイル内容は出さない）に限る。
+    - 実データ名・動画名・ローカルフルパス・ファイル内容はログに出さない。違反検出時に
+      表示するのは tracked パス（git 管理対象＝機微でない）に限る。`--inventory` は
+      件数のみを出し、未追跡 / ignore 済みの具体的なファイル名・パスは表示しない
+      （リポジトリ相対パスでも動画名・個人情報を含み得るため）。
     - `streamlit` という単語自体は禁止しない（ポート 8501 監視など現行仕様の検出は正常）。
       禁止するのは現行コードからの `archive/legacy-code/` / `archive/streamlit/` 参照のみ。
 
@@ -64,7 +67,13 @@ _FORBIDDEN_TRACKED_PREFIXES = (
     "docs/analysis/private/",  # 動画名・視聴情報・DB コピー
     "docs/analysis/outputs/",  # 分析出力
 )
-_FORBIDDEN_TRACKED_SUFFIXES = (".db", ".sqlite", ".sqlite3")
+# DB 本体に加え、SQLite 実行時の周辺（サイドカー）ファイルも tracked 混入を禁止する。
+_FORBIDDEN_TRACKED_SUFFIXES = (
+    ".db", ".sqlite", ".sqlite3",
+    ".db-wal", ".db-shm", ".db-journal",
+    ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
+    ".sqlite3-wal", ".sqlite3-shm", ".sqlite3-journal",
+)
 _FORBIDDEN_TRACKED_BASENAMES = ("video_analysis.ipynb", "_ul", "demo.html", "nul")
 _FORBIDDEN_TRACKED_GLOBS = ("videos_private_*.db",)
 
@@ -79,14 +88,23 @@ _REQUIRED_CONTEXT_DOCS = (
 )
 _FORBIDDEN_CONTEXT_DOCS = ("docs/context/PROJECT_OVERVIEW.md",)
 
-# 棚卸しで「残してよさそう」に分類する ignore 済みエントリの prefix。
-_KNOWN_IGNORED_PREFIXES = (
-    ".claude/", ".playwright-mcp/", ".pytest_cache/", "__pycache__/",
-    "venv/", ".venv/", "data/", "artifacts/",
-    "frontend/.next/", "frontend/node_modules/", "frontend/next-env.d.ts",
-    "frontend/tsconfig.tsbuildinfo",
-    "docs/analysis/private/", "docs/analysis/data/", "docs/analysis/notebooks/",
-    "archive/ui_prototypes/",
+# 棚卸し（--inventory）で ignore 済みエントリを件数集計するカテゴリ定義。
+# 件数のみ表示し、具体的なファイル名・パスは出さない（動画名・個人情報が
+# 含まれ得るため）。__pycache__ は階層を問わず "cache" 扱い（_categorize_ignored）。
+_IGNORED_CATEGORIES = (
+    ("cache", (".pytest_cache/", ".ruff_cache/", ".mypy_cache/", ".coverage")),
+    ("virtualenv", ("venv/", ".venv/")),
+    ("data", ("data/",)),
+    ("artifacts", ("artifacts/",)),
+    ("frontend build", (
+        "frontend/.next/", "frontend/node_modules/", "frontend/out/",
+        "frontend/next-env.d.ts", "frontend/tsconfig.tsbuildinfo",
+    )),
+    ("analysis local", (
+        "docs/analysis/private/", "docs/analysis/data/",
+        "docs/analysis/notebooks/",
+    )),
+    ("tooling/other", (".claude/", ".playwright-mcp/", "archive/ui_prototypes/")),
 )
 
 
@@ -167,47 +185,54 @@ def check_context_ledger() -> list[str]:
     return errors
 
 
-def _is_known_ignored(path: str) -> bool:
-    """ignore 済みエントリが標準カテゴリ（残してよい）か判定する。"""
-    if "__pycache__/" in path or path.endswith("__pycache__"):
-        return True
-    return path.startswith(_KNOWN_IGNORED_PREFIXES)
+def _categorize_ignored(path: str) -> str | None:
+    """ignore 済みエントリを標準カテゴリ名に分類する（未分類は None）。"""
+    if "__pycache__" in path:
+        return "cache"
+    for name, prefixes in _IGNORED_CATEGORIES:
+        if path.startswith(prefixes):
+            return name
+    return None
 
 
 def print_inventory() -> None:
-    """未追跡 / ignore 済みファイルの棚卸しを参考表示する（非失敗）。"""
-    print("\n--- ローカル棚卸し (参考。終了コードには影響しません) ---")
+    """未追跡 / ignore 済みファイルの棚卸しを「件数のみ」で参考表示する（非失敗）。
+
+    動画名・個人情報・ローカル事情がファイル名やパスに含まれ得るため、
+    具体的なファイル名・ディレクトリ名・相対パスは一切表示しない。
+    """
+    print("\n--- ローカル棚卸し (件数のみ・参考。終了コードには影響しません) ---")
 
     untracked = _git_lines(["ls-files", "--others", "--exclude-standard"])
-    print("\n[未追跡・非ignore]")
-    if not untracked:
-        print("  なし (迷子の未追跡ファイルはありません)")
-    else:
-        print("  ↓ commit するか .gitignore へ追加するか判断してください (判断保留):")
-        for path in untracked:
-            print(f"  - {path}")
+    print(f"\n[未追跡・非ignore] {len(untracked)} 件")
 
     ignored = [
         line[3:] for line in _git_lines(["status", "--ignored", "--short"])
         if line.startswith("!!")
     ]
-    known = [p for p in ignored if _is_known_ignored(p)]
-    unknown = [p for p in ignored if not _is_known_ignored(p)]
-    print("\n[ignore 済み: 残してよさそう (標準カテゴリ)]")
-    if known:
-        for path in known:
-            print(f"  - {path}")
+    counts: dict[str, int] = {}
+    unknown = 0
+    for path in ignored:
+        category = _categorize_ignored(path)
+        if category is None:
+            unknown += 1
+        else:
+            counts[category] = counts.get(category, 0) + 1
+
+    print("[ignore 済み・標準カテゴリ]")
+    shown = [(name, counts[name]) for name, _ in _IGNORED_CATEGORIES if counts.get(name)]
+    if shown:
+        for name, count in shown:
+            print(f"  {name}: {count} 件")
     else:
         print("  なし")
-    print("\n[ignore 済み: 内容確認が必要 (未分類)]")
-    if unknown:
-        for path in unknown:
-            print(f"  - {path}")
-    else:
-        print("  なし")
+    print(f"[ignore 済み・未分類] {unknown} 件")
+
     print(
-        "\n※ 表示はリポジトリ相対パスのみ。ファイル内容・実データは出力していません。"
-        " 削除は提案に留め、実行はユーザー承認後に行ってください。"
+        "\n※ 件数のみ表示しています。具体的なファイル名・パスは出力しません"
+        "（動画名・個人情報を含む可能性があるため）。"
+        "\n  詳細はローカルで `git status --short` / `git status --ignored --short` を"
+        "確認してください。出力を Pull request 本文やチャットに貼らないでください。"
     )
 
 
