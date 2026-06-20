@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-20 — docs(analysis): APP_PLAYBACK ベース総合ランキング移行の比較所見を追加
+
+- 総合ランキングを「現行（FILE_ACCESS_DETECTED 込み）」と「APP_PLAYBACK のみ（FILE をスコア除外・履歴は削除しない）」で比較した所見を `docs/analysis/ranking_app_playback_comparison_findings.md` に追加（公開・集計のみ）。再生可能だけ／全動画の 2 スコープで Top-N 入替を比較し、availability（外付け HDD 未接続）による不可視化が独立した体感要因であることを整理。全動画スコープの Top50/Top100 入替（25/47）は先行分析 C4/C5 と一致し再現性を確認。
+- 数値は実 DB の読み取り専用コピー（`mode=ro` + `query_only=ON`）から算出した整数集計のみ。動画名・パス・出演者・生 timestamp・匿名対応表は本文に不掲載。比較 HTML・CSV・コピー DB 等のローカル生成物は `docs/analysis/private/`（`.gitignore`）に保持し公開しない。
+- `docs/analysis/README.md` の公開資料リストを最新化（本所見 ＋ 既存の `ranking_fairness_multifactor_next_actions.md` を追記）。
+- 分析・所見のみ。ランキング式・API・UI・DB スキーマ・migration・実 DB の履歴データは変更なし（実 DB への書き込みもなし）。
+
+---
+
 ## 2026-06-20 — chore: repository boundary guardrails を追加
 
 - ルート整理後の構成が再び荒れないよう、構成境界を機械チェックする `scripts/check_repo_boundaries.py` を追加。検査は (1) 現行コードから `archive/legacy-code/` / `archive/streamlit/` を参照・import していないか、(2) 一時 Notebook・DB コピー（`.db`/`.sqlite`/`.sqlite3` 本体と `*.db-wal`/`*.db-shm`/`*.db-journal` 等の SQLite サイドカー）・調査ファイルが tracked に混入していないか、(3) `docs/context/` の現行正本が存在し旧概要 `PROJECT_OVERVIEW.md` が復活していないか、の3点。`--inventory` は未追跡・ignore 済みファイルの棚卸しを**件数のみ**で参考表示する（具体的なファイル名・パスは出さない＝動画名・個人情報の漏洩防止／非失敗）。
