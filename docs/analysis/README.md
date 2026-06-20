@@ -11,6 +11,7 @@
 - [`ranking_bulk_viewing_history_investigation.md`](ranking_bulk_viewing_history_investigation.md)
 - [`ranking_fairness_multifactor_next_actions.md`](ranking_fairness_multifactor_next_actions.md)
 - [`ranking_app_playback_comparison_findings.md`](ranking_app_playback_comparison_findings.md)
+- [`ranking_basis_decision_summary.md`](ranking_basis_decision_summary.md) — 上記分析を横断統合した意思決定サマリー。分析当時の仮説・結果と、2026-06-21時点の採用済み方針を区別して記録
 
 各文書は別の調査目的・前提を持つため、内容を統合せず個別に維持します。
 
