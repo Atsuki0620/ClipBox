@@ -61,7 +61,8 @@ with get_db_connection() as conn:
 
 ### 2.2 viewing_history（視聴履歴）
 
-集計用の視聴履歴テーブル。視聴回数・ランキング・分析集計はこのテーブルを基準にする。
+集計用の視聴履歴テーブル。視聴回数・最終再生・ランキング・分析集計は、このテーブルの
+`viewing_method = APP_PLAYBACK` の行だけを基準にする。生履歴APIは監査用としてmethodを絞らない。
 1回の再生操作の詳細は `play_history` に記録し、`viewing_history` は集計で使う粒度に限定する。
 
 | カラム | 型 | 制約 | 説明 |
@@ -73,8 +74,13 @@ with get_db_connection() as conn:
 
 **viewing_method の値**:
 - `APP_PLAYBACK`: アプリ内再生ボタンによる記録（現在有効）
-- `FILE_ACCESS_DETECTED`: ファイルアクセス検知による記録（Phase 1 で archived。既存レコード保持）
-- `MANUAL_ENTRY`: 手動エントリー（Phase 1 で archived。既存レコード保持）
+- `FILE_ACCESS_DETECTED`: ファイルアクセス検知による旧記録（Phase 1 で archived。集計対象外・purge対象）
+- `MANUAL_ENTRY`: 手動エントリーの旧記録（Phase 1 で archived。集計対象外・purge対象）
+
+旧2methodは `scripts/purge_legacy_viewing_history.py` でのみ削除する。通常はdry-runで、実行時は全サービスを停止し、
+`--execute --confirm PURGE_LEGACY_VIEWING_HISTORY` を指定する。同一スナップショットのDBバックアップとCSVを
+`data/backups/` に作成・整合性/件数/SHA-256を検証してから対象行だけを削除する。`NULL`・未知methodは報告のみで削除しない。
+自動migration・管理APIには組み込まず、`VACUUM` も自動実行しない。
 
 ### 2.3 play_history（再生履歴）
 
@@ -207,7 +213,7 @@ SELECT v.*,
        COUNT(vh.id) as view_count,
        MAX(vh.viewed_at) as last_viewed
 FROM videos v
-LEFT JOIN viewing_history vh ON v.id = vh.video_id
+LEFT JOIN viewing_history vh ON v.id = vh.video_id AND vh.viewing_method = ?
 WHERE v.is_deleted = 0
   AND v.is_available = 1
   AND v.current_favorite_level IN (?, ?, ?)
@@ -238,6 +244,7 @@ SELECT v.essential_filename, COUNT(vh.id) as view_count
 FROM videos v
 JOIN viewing_history vh ON v.id = vh.video_id
 WHERE v.is_deleted = 0
+  AND vh.viewing_method = ?
 GROUP BY v.id
 ORDER BY view_count DESC
 LIMIT ?
@@ -332,6 +339,7 @@ class ViewingHistory:
 | 2026-02-23 | needs_selection, was_selection_judgmentカラム追加 |
 | 2026-03-03 | is_selection_completedカラム追加（+プレフィックス動画の管理） |
 | 2026-06-09 | watch_laterカラム追加（あとで見る）。is_selection_completed の書込時同期(R5) + 既存分の冪等再同期 `resync_selection_completed`(R6)。スキーマ/データ移行は `scripts/run_migrations.py` が起動バッチから実行 |
+| 2026-06-21 | 集計基準を `APP_PLAYBACK` のみに統一。旧2methodのデータ削除は自動migrationではなく、検証済みバックアップを伴う `scripts/purge_legacy_viewing_history.py` で実施 |
 
 ---
 

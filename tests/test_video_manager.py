@@ -244,6 +244,10 @@ def test_get_unrated_fate_recently_unwatched_priority_uses_light_weights(tmp_pat
             "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, 'APP_PLAYBACK')",
             (ids["old.mp4"], (now - timedelta(days=180)).isoformat()),
         )
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method) VALUES (?, ?, ?)",
+            (ids["unseen.mp4"], now.isoformat(), "FILE_ACCESS_DETECTED"),
+        )
 
     captured = {}
 

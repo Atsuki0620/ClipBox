@@ -74,7 +74,7 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 運命の1本:
 - Tier1 は未判定・利用可能・実ファイルあり・セレクション関連ではない動画から1本選ぶ。
 - `recently_unwatched_priority=false`（既定）は純ランダム。
-- `recently_unwatched_priority=true` は最終視聴からの日数で軽く重み付けする。日数は `0..180` に丸め、`weight = 1 + days / 90`。未再生・日付なし・日付パース失敗は `days=180`、未来日は `days=0`。
+- `recently_unwatched_priority=true` は最終 APP 再生からの日数で軽く重み付けする。日数は `0..180` に丸め、`weight = 1 + days / 90`。APP 未再生・日付なし・日付パース失敗は `days=180`、未来日は `days=0`。
 - 引いた結果は `sessionStorage` の `clipbox-fate-picks.tier1` に `{ version: 1, video_id, picked_at }` として保持する。復元表示時は `POST /api/videos/by-ids` で再取得し、欠損・削除済み・利用不可・判定済み・セレクション関連になっていれば Tier1 スロットだけクリアする。
 - 新しく引いたときだけ自動再生する。復元表示では自動再生しない。`204 No Content` の場合は Tier1 スロットをクリアする。
 
@@ -133,8 +133,8 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 - **専用ページ**: `/watch-later` は `GET /api/videos?watch_later=true` を全ページ取得し、同じ `VideoCard` を再利用する。手動解除後は `["watch-later-videos"]` を invalidate し、対象動画は一覧から外れる。
 - **専用ページの分類**:
   - **未処理**: Tier1 未判定（`current_favorite_level = -1` の通常動画）または Tier2 未選別（`needs_selection = 1, is_selection_completed = 0`）。
-  - **確認・見直し**: 処理済み状態だが、`/stats/last-viewed` に最終再生日が無い動画。
-  - **処理済み候補**: 処理済み状態かつ `/stats/last-viewed` に最終再生日がある動画。一括解除は `POST /api/videos/watch-later/bulk-clear` を使い、指定 ID の `watch_later` を解除する。
+  - **確認・見直し**: 処理済み状態だが、`/stats/last-viewed` に最終 APP 再生日が無い動画。
+  - **処理済み候補**: 処理済み状態かつ `/stats/last-viewed` に最終 APP 再生日がある動画。一括解除は `POST /api/videos/watch-later/bulk-clear` を使い、指定 ID の `watch_later` を解除する。
 
 ---
 
@@ -214,8 +214,8 @@ base  = view_days × 1 + like_count × 3          # _COMPOSITE_A=1, _COMPOSITE_B
 bonus = 1 + 0.5 × T1 + 0.3 × T2                 # T1=判定済み(level≥0), T2=選別済み(is_selection_completed)
 score = round(base × bonus × 100)               # 整数化
 ```
-- **因子**: 視聴日数（`view_days`）、いいね数、Tier1判定済みボーナス（+50%）、Tier2選別済みボーナス（+30%）。
-- **score = 0 は除外**。タイブレーカーは `last_viewed_at` 降順。未判定動画も T1=0（ボーナスなし）で対象に含む。
+- **因子**: APP 再生の視聴日数（`view_days`）、いいね数、Tier1判定済みボーナス（+50%）、Tier2選別済みボーナス（+30%）。
+- **score = 0 は除外**。全ランキング種別のタイブレーカーは APP 再生の `last_viewed_at` 降順。未判定動画も T1=0（ボーナスなし）で対象に含む。
 - 期間: `180日 / 1年 / 全期間`。最低レベル: `なし / Lv3+ / Lv4のみ`。
 
 **スコアに入れない理由（固定仕様）**:
@@ -243,6 +243,7 @@ score = round(base × bonus × 100)               # 整数化
 - スコアバッジ（`card_show_score`）は廃止済み。
 - 全画面（Tier1/Tier2/AVP/ランキング）で同一設定が反映される。ランキング画面・AVP画面も `last-viewed` クエリを取得して最終再生日バッジを表示する。
 - `last-viewed` は再生後に `usePlayVideo` の `onSettled` で invalidate される（リアルタイム更新）。
+- カードの「視聴 N」と最終再生日は全期間の `APP_PLAYBACK` のみを基準にする。期間ランキングの得点とは一致しない場合がある。
 
 ---
 
@@ -252,13 +253,14 @@ score = round(base × bonus × 100)               # 整数化
 |---|---|---|
 | `videos` | 動画メタデータと状態 | `current_favorite_level` / `watch_later` / `needs_selection` / `is_selection_completed` / `is_available` / `is_deleted` |
 | `judgment_history` | 判定（レベル変更）の履歴 | `was_selection_judgment`（0=Tier1 / 1=Tier2）、`judged_at`（判定日時ソートの基準） |
-| `viewing_history` | 集計用の視聴履歴 | 視聴回数・ランキング・分析の**基準**。`APP_PLAYBACK`（単体再生・AVP再生とも記録） |
+| `viewing_history` | 集計用の視聴履歴 | 視聴回数・最終再生・ランキング・分析は **`APP_PLAYBACK` のみ**が基準（単体再生・AVP再生とも記録）。生履歴APIは監査用にmethodを絞らない |
 | `play_history` | 再生ログ詳細 | プレイヤー/トリガー/ルート等の監査用。集計基準ではない |
 | `likes` | いいね | ランキング・総合スコアの因子 |
 | `watch_later`（列） | あとで見る | DB永続。判定/選別完了で自動解除（§4） |
 | `needs_selection` / `is_selection_completed`（列） | セレクション状態 | ファイル名 `!`/`+` と二重持ち（§5） |
 
-archived（DB列/テーブルは残るが機能は停止。生きていると誤認しない）: `is_judging`、`counters`、`viewing_method` の `FILE_ACCESS_DETECTED`/`MANUAL_ENTRY`。
+archived（機能は停止。生きていると誤認しない）: `is_judging`、`counters`。`viewing_method` の
+`FILE_ACCESS_DETECTED` / `MANUAL_ENTRY` は集計対象外で、検証済みバックアップ後に保守スクリプトで削除する旧データ。
 
 ---
 

@@ -211,6 +211,7 @@ __marimo__/
 # データベースファイル（個人データが含まれるため）
 data/videos.db
 data/backups/*.db
+data/backups/viewing_history_legacy_*.csv
 # アプリケーションログ
 data/clipbox.log
 data/clipbox.log.*

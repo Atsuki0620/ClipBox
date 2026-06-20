@@ -31,6 +31,14 @@ def _seed():
             "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
             " VALUES (2, datetime('now'), 'APP_PLAYBACK')"
         )
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (1, datetime('now'), 'FILE_ACCESS_DETECTED')"
+        )
+        conn.execute(
+            "INSERT INTO viewing_history (video_id, viewed_at, viewing_method)"
+            " VALUES (1, datetime('now'), 'MANUAL_ENTRY')"
+        )
         # 判定履歴: a=通常判定(応答時間あり), b=セレクション判定
         conn.execute(
             "INSERT INTO judgment_history (video_id, old_level, new_level, judged_at,"
@@ -90,10 +98,10 @@ def test_analysis_custom_period_requires_dates_422(client):
 
 
 def test_viewing_and_judgment_history(client):
-    """視聴/判定履歴が video_ids で絞り込まれて返る。"""
+    """生視聴履歴は旧methodも含め、判定履歴とともに video_ids で絞り込まれる。"""
     _seed()
     vh = client.get("/api/analysis/viewing-history", params={"video_ids": "1"}).json()
-    assert len(vh) == 3
+    assert len(vh) == 5
     assert all(item["video_id"] == 1 for item in vh)
 
     jh = client.get("/api/analysis/judgment-history", params={"video_ids": "1"}).json()
@@ -102,7 +110,7 @@ def test_viewing_and_judgment_history(client):
 
 
 def test_viewing_trend_counts(client):
-    """視聴トレンドはサーバー集計で件数を返す（video_ids 不要）。"""
+    """視聴トレンドは APP_PLAYBACK だけをサーバー集計する。"""
     _seed()
     body = client.get("/api/analysis/viewing-trend", params={"period": "全期間", "bucket": "day"}).json()
     assert sum(item["count"] for item in body) == 4  # a=3 + b=1
