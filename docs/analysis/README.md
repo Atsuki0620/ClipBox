@@ -9,6 +9,8 @@
 - [`ranking_fairness_notes.md`](ranking_fairness_notes.md)
 - [`ranking_fairness_round2_summary.md`](ranking_fairness_round2_summary.md)
 - [`ranking_bulk_viewing_history_investigation.md`](ranking_bulk_viewing_history_investigation.md)
+- [`ranking_fairness_multifactor_next_actions.md`](ranking_fairness_multifactor_next_actions.md)
+- [`ranking_app_playback_comparison_findings.md`](ranking_app_playback_comparison_findings.md)
 
 各文書は別の調査目的・前提を持つため、内容を統合せず個別に維持します。
 
