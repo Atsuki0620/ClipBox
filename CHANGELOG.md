@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-20 — chore: repository boundary guardrails を追加
+
+- ルート整理後の構成が再び荒れないよう、構成境界を機械チェックする `scripts/check_repo_boundaries.py` を追加。検査は (1) 現行コードから `archive/legacy-code/` / `archive/streamlit/` を参照・import していないか、(2) 一時 Notebook・DB コピー（`.db`/`.sqlite`/`.sqlite3` 本体と `*.db-wal`/`*.db-shm`/`*.db-journal` 等の SQLite サイドカー）・調査ファイルが tracked に混入していないか、(3) `docs/context/` の現行正本が存在し旧概要 `PROJECT_OVERVIEW.md` が復活していないか、の3点。`--inventory` は未追跡・ignore 済みファイルの棚卸しを**件数のみ**で参考表示する（具体的なファイル名・パスは出さない＝動画名・個人情報の漏洩防止／非失敗）。
+- GitHub Actions に専用ジョブ `Repository boundary guardrails`（`.github/workflows/ci.yml`）を追加。Pull request / `main` push 時に実行。標準ライブラリ + git のみで動くため pip install 不要。既存ジョブ（python / sensitive-data-check / frontend）は非変更。
+- `docs/context/REPO_STRUCTURE.md` §6（構成境界の自動チェック）と `docs/context/AI_WORKFLOW.md`（§E ゲート行・§H 整理後チェック）に運用手順を追記。
+- `streamlit` という単語自体の検出（ポート 8501 監視など現行仕様）は禁止しない。Public API、DB、migration、現行実装、UI 挙動、ランキング式、旧 Streamlit UI の配置は変更なし（起動確認もしない）。
+
+---
+
 ## 2026-06-20 — chore: archive / docs 構成整理の最終化
 
 - `archive/` 直下の旧設計・旧実装メモ（Markdown 23件）を `archive/legacy-docs/` へ集約し、`archive/legacy-docs/README.md` を新設。

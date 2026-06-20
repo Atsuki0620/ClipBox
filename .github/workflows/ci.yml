@@ -52,6 +52,22 @@ jobs:
       - name: Check notebook outputs are empty
         run: python scripts/check_notebook_outputs.py
 
+  repo-boundaries:
+    name: Repository boundary guardrails
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check repository boundaries
+        run: python scripts/check_repo_boundaries.py
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
