@@ -4,7 +4,7 @@
 
 ## 正本ルール（competing 時の優先順位）
 
-仕様が食い違ったら **「現行=正本」が「歴史資料」に優先**する。正本台帳と詳しい優先順位は `AGENTS.md` 冒頭に集約（CLAUDE.md と同じものを指す）。Next.js 版の画面・状態の挙動は **`docs/context/SPEC_NEXTJS.md` が正本**。用語は `GLOSSARY.md`、DB は `DATA_MODEL.md`、API は `API_SPEC.md`。`PROJECT_OVERVIEW.md` と `docs/archive/` は歴史資料（現行と誤認しない）。
+仕様が食い違ったら **「現行=正本」が「歴史資料」に優先**する。正本台帳と詳しい優先順位は `AGENTS.md` 冒頭に集約（CLAUDE.md と同じものを指す）。Next.js 版の画面・状態の挙動は **`docs/context/SPEC_NEXTJS.md` が正本**。用語は `GLOSSARY.md`、DB は `DATA_MODEL.md`、API は `API_SPEC.md`。`docs/archive/`（`PROJECT_OVERVIEW_STREAMLIT.md` 等）は歴史資料（現行と誤認しない）。
 
 ## ディレクトリ構成（主要ファイル）
 
@@ -74,8 +74,8 @@ archive\streamlit\run_clipbox.bat    REM 旧 Streamlit UI（archive 済み・通
 - `IMPLEMENTATION_GUIDE.md` — システム構造・機能実装マップ・データフロー
 - `../decisions/` — ADR（アーキテクチャ決定記録）
 
-歴史資料（正本ではない）:
-- `PROJECT_OVERVIEW.md` — Streamlit 期の概要
+歴史資料（正本ではない・`docs/archive/` 配下）:
+- `../archive/PROJECT_OVERVIEW_STREAMLIT.md` — Streamlit 期の概要（旧 `docs/context/PROJECT_OVERVIEW.md`）
 - `../archive/` — 移行作業の記録（MIGRATION_PLAN / MIGRATION_MAP）
 
 ## AIへのコード変更ルール

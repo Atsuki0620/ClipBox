@@ -12,6 +12,11 @@
 - `docs/context/TESTING.md`: 品質ゲートと回帰確認。
 - `docs/context/REPO_STRUCTURE.md`: リポジトリ構成と整理ルール。
 
+## このディレクトリの主な資料
+
+- `MIGRATION_PLAN.md` / `MIGRATION_MAP.md`: Streamlit → Next.js 移行の計画と対応表。
+- `PROJECT_OVERVIEW_STREAMLIT.md`: Streamlit 期のプロジェクト概要（旧 `docs/context/PROJECT_OVERVIEW.md`）。2026-06-20 の構成整理でここへ移動。現行の概要は `docs/context/OVERVIEW.md`。
+
 ## 読み方
 
 - ここにある文書は、移行判断や過去の設計意図を追うための参考資料です。

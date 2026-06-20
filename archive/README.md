@@ -6,10 +6,10 @@
 
 - 現行仕様の正本ではありません。
 - 現行仕様は `docs/context/` 配下の正本、特に `OVERVIEW.md`、`SPEC_NEXTJS.md`、`AI_WORKFLOW.md`、`TESTING.md` を参照してください。
-- `archive/legacy-code/` は、現行実行経路から参照されない旧コード断片の隔離先です。import 可能に見えても現行コードとして扱いません。
+- `archive/legacy-code/` は、現行実行経路から参照されない旧コード断片の隔離先です。import 可能に見えても現行コードとして扱いません。旧セットアップ対 `setup_db.py` / `verify_setup.py` は `archive/legacy-code/setup/` にあります（実行しません）。
 - `archive/streamlit/` は Phase 5 で退避した旧 Streamlit UI であり、`archive/legacy-code/` とは別枠です。通常導線では起動しません。
-- `archive/setup_db.py` と `archive/verify_setup.py` は旧セットアップ対としてルート直下に残しています。どちらも通常導線では実行しません。
-- `archive/legacy-docs/` は未導入です。既存の Markdown は現在の配置に残します。
+- `archive/legacy-docs/` は、`archive/` 直下にあった旧設計・旧実装メモ（Markdown）の集約先です。現行正本ではありません（`archive/legacy-docs/README.md` 参照）。
+- このディレクトリの直下に残すのは本 `README.md` のみで、コード・旧 UI・旧メモはすべてサブディレクトリ（`legacy-code/`・`streamlit/`・`legacy-docs/`）に分類済みです。
 
 ## 禁止事項
 
