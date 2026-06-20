@@ -449,7 +449,8 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 - `type`: str — `view_count` | `view_days` | `likes` | `composite`。
 - `period`: str — `180日` | `1年` | `全期間`（period_label）。
 - `min_level`: int — 最低レベル（省略時: 制限なし。例: Lv3+ なら 3）。
-- `availability`: str — `利用可能のみ` 等（デフォルト `利用可能のみ`）。
+- `availability`: str — `利用可能のみ` | `利用不可のみ` | `すべて`（デフォルト `利用可能のみ`）。
+  `すべて` は利用不可動画もスコア順のまま含める。どの値でも `is_deleted=1` は除外する。
 - `top_n`: int — 表示件数（デフォルト 10）。
 
 **レスポンス**（200 OK）:

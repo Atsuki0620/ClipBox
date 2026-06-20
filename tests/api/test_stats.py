@@ -7,15 +7,15 @@ import pytest
 from core.database import get_db_connection
 
 
-def _insert(essential, path, level, *, needs_sel=0):
+def _insert(essential, path, level, *, needs_sel=0, available=1, deleted=0):
     with get_db_connection() as conn:
         conn.execute(
             """
             INSERT INTO videos (essential_filename, current_full_path, current_favorite_level,
                                 storage_location, is_available, is_deleted, needs_selection)
-            VALUES (?, ?, ?, 'C_DRIVE', 1, 0, ?)
+            VALUES (?, ?, ?, 'C_DRIVE', ?, ?, ?)
             """,
-            (essential, path, level, needs_sel),
+            (essential, path, level, available, deleted, needs_sel),
         )
         return conn.execute(
             "SELECT id FROM videos WHERE essential_filename = ?", (essential,)
@@ -122,6 +122,80 @@ def test_ranking_invalid_period_422(client):
     """不正な period は core の KeyError ではなく 422 に寄せる。"""
     r = client.get("/api/ranking", params={"type": "view_count", "period": "bogus"})
     assert r.status_code == 422
+
+
+def test_ranking_default_availability_excludes_unavailable(client):
+    """availability 未指定は「利用可能のみ」であり、利用不可動画を除外する。"""
+    available = _insert("available.mp4", "C:/x/available.mp4", 1)
+    unavailable = _insert(
+        "unavailable.mp4", "D:/x/unavailable.mp4", 1, available=0
+    )
+    _add_view_day(available, "2026-05-01 09:00:00")
+    _add_view_day(unavailable, "2026-05-01 09:00:00")
+
+    default_items = client.get(
+        "/api/ranking",
+        params={"type": "view_count", "period": "全期間", "top_n": 10},
+    ).json()["items"]
+    explicit_items = client.get(
+        "/api/ranking",
+        params={
+            "type": "view_count",
+            "period": "全期間",
+            "availability": "利用可能のみ",
+            "top_n": 10,
+        },
+    ).json()["items"]
+
+    assert default_items == explicit_items
+    assert [item["video"]["essential_filename"] for item in default_items] == [
+        "available.mp4"
+    ]
+
+
+def test_ranking_all_keeps_unavailable_in_score_order(client):
+    """availability=すべては利用不可動画もスコア順のまま含める。"""
+    unavailable = _insert("high.mp4", "D:/x/high.mp4", 1, available=0)
+    available = _insert("low.mp4", "C:/x/low.mp4", 1)
+    for _ in range(3):
+        _add_view_day(unavailable, "2026-05-01 09:00:00")
+    _add_view_day(available, "2026-05-01 09:00:00")
+
+    items = client.get(
+        "/api/ranking",
+        params={
+            "type": "view_count",
+            "period": "全期間",
+            "availability": "すべて",
+            "top_n": 10,
+        },
+    ).json()["items"]
+
+    assert [item["video"]["essential_filename"] for item in items] == [
+        "high.mp4",
+        "low.mp4",
+    ]
+    assert items[0]["video"]["is_available"] is False
+
+
+def test_ranking_all_excludes_logically_deleted(client):
+    """availability=すべてでも論理削除済み動画は返さない。"""
+    deleted = _insert("deleted.mp4", "C:/x/deleted.mp4", 1, deleted=1)
+    alive = _insert("alive.mp4", "C:/x/alive.mp4", 1)
+    _add_view_day(deleted, "2026-05-01 09:00:00")
+    _add_view_day(alive, "2026-05-01 09:00:00")
+
+    items = client.get(
+        "/api/ranking",
+        params={
+            "type": "view_count",
+            "period": "全期間",
+            "availability": "すべて",
+            "top_n": 10,
+        },
+    ).json()["items"]
+
+    assert [item["video"]["essential_filename"] for item in items] == ["alive.mp4"]
 
 
 # --- 総合（composite）スコア式（SPEC_NEXTJS.md §9 の不変条件を固定）---
