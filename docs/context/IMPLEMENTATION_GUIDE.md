@@ -149,9 +149,10 @@ ClipBox/
 │   ├── settings.py
 │   ├── snapshot.py
 │   ├── video_manager_methods.py
-│   └── unused_tabs/          # 旧 Streamlit UI 断片2件
-├── archive/setup_db.py       # 旧セットアップCLI（残置・通常導線では実行しない）
-├── archive/verify_setup.py   # 旧セットアップ検証CLI（残置・通常導線では実行しない）
+│   ├── unused_tabs/          # 旧 Streamlit UI 断片2件
+│   └── setup/               # 旧セットアップ対（通常導線では実行しない）
+│       ├── setup_db.py       # 旧DB初期化CLI（残置・実行しない）
+│       └── verify_setup.py   # 旧セットアップ検証CLI（残置・実行しない）
 ├── archive/streamlit/        # 旧 Streamlit UI（Phase 5 で archive 済み・現行導線ではない）
 │   ├── streamlit_app.py      # 旧メインエントリーポイント
 │   └── run_clipbox.bat       # 旧 UI 起動（ルート基準 + PYTHONPATH）

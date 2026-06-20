@@ -1,7 +1,8 @@
 # ClipBox プロジェクト概要
 
 > **【歴史資料】これは Streamlit 期のプロジェクト概要です。正本ではありません。**
-> 現行（Next.js + FastAPI 版）の全体像は `OVERVIEW.md`、画面・状態の挙動は `SPEC_NEXTJS.md` を参照してください。
+> （旧 `docs/context/PROJECT_OVERVIEW.md`。2026-06-20 の構成整理で `docs/archive/` へ移動。）
+> 現行（Next.js + FastAPI 版）の全体像は `../context/OVERVIEW.md`、画面・状態の挙動は `../context/SPEC_NEXTJS.md` を参照してください。
 > 本書の「Phase 1: Streamlit UI 実装（進行中）」「Phase 2: Flask/FastAPI 移行（将来）」等の記述は移行前のものです。
 > ビジネスルール（プレフィックス規則・論理削除・スキャン安全ガード等）の本質は現行でも有効ですが、UI/技術スタック/ナビゲーションの記述は Streamlit 時点のものとして読んでください。
 

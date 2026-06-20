@@ -11,6 +11,17 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-20 — chore: archive / docs 構成整理の最終化
+
+- `archive/` 直下の旧設計・旧実装メモ（Markdown 23件）を `archive/legacy-docs/` へ集約し、`archive/legacy-docs/README.md` を新設。
+- `archive/setup_db.py` / `archive/verify_setup.py` を `archive/legacy-code/setup/` へ移動し、`archive/legacy-code/README.md` と `archive/legacy-code/setup/README.md`（実行禁止注記つき）を新設。
+- `docs/context/PROJECT_OVERVIEW.md` を `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md` へ移動し、`docs/context/` を現行正本だけの場所に整理。現行正本の参照（AGENTS.md / CLAUDE.md / OVERVIEW.md / REPO_STRUCTURE.md / IMPLEMENTATION_GUIDE.md / PHASE5）を更新。
+- `docs/reports/README.md`（レポートの読み方・分類・命名規則）と `docs/reports/REPO_ROOT_CLEANUP_SUMMARY_20260620.md`（ルート整理完了サマリ）を追加。
+- 旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示を新パス `python archive/legacy-code/setup/setup_db.py` へ補正し、通常導線では使わない旨と実行注意（バックアップ・目的確認）を併記。過去レポート・歴史資料内の当時のパスは時点資料として残置。
+- Public API、DB、migration、現行実装、UI 挙動、ランキング式、`archive/streamlit/` の配置は変更なし。
+
+---
+
 ## 2026-06-20 — chore: 分析資料と依存ファイルの配置を統一
 
 - 公開可能な分析 Markdown を `docs/analysis/` 直下に集約し、ローカル専用の Notebook・データ・コピー DB・出力との境界を README と `.gitignore` に明記。

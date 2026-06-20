@@ -3,7 +3,7 @@
 対象読者: 初見の Coding agent・レビュアー。**現行（Next.js + FastAPI 版）の全体像**と、各正本への入口を示す。
 画面・状態の挙動は `SPEC_NEXTJS.md`、用語は `GLOSSARY.md`、DB は `DATA_MODEL.md`、API は `API_SPEC.md` を参照。
 
-> Streamlit 期の概要は `PROJECT_OVERVIEW.md`（歴史資料）。本書が現行の概要。
+> Streamlit 期の概要は `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md`（歴史資料）。本書が現行の概要。
 
 ---
 
@@ -86,4 +86,4 @@
 
 - 作業前にまず本書 → `SPEC_NEXTJS.md`。
 - 用語=`GLOSSARY.md` / DB=`DATA_MODEL.md` / API=`API_SPEC.md` / 手動合否=`ACCEPTANCE_CRITERIA.md` / リポジトリ構成=`REPO_STRUCTURE.md` / Phase 5=`PHASE5_STREAMLIT_ARCHIVE.md` / 構造=`IMPLEMENTATION_GUIDE.md` / 決定記録=`docs/decisions/`。
-- 歴史資料（現行と誤認しない）: `PROJECT_OVERVIEW.md`、`docs/archive/`、`docs/reports/`。
+- 歴史資料（現行と誤認しない）: `docs/archive/`（`PROJECT_OVERVIEW_STREAMLIT.md` 等）、`docs/reports/`。

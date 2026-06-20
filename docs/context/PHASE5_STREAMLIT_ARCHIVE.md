@@ -109,7 +109,7 @@ Streamlit 旧 UI を `archive/streamlit/` へ移動し、通常利用導線を N
 
 ### 移動しなかったもの（理由）
 
-- `docs/context/PROJECT_OVERVIEW.md`（Streamlit 期の概要）: 既に歴史資料として隔離済み。移動すると AGENTS.md / OVERVIEW.md / CLAUDE.md からの参照が広範に崩れるため、本作業では動かさない。
+- `docs/context/PROJECT_OVERVIEW.md`（Streamlit 期の概要）: Phase 5 では参照影響を避けるため動かさなかったが、その後の構成整理（2026-06-20）で `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md` へ移動し、現行正本の参照も更新済み。
 - `config.py`: Next.js + FastAPI 側でも使う共有設定のため残す。
 
 ### 残参照の扱い

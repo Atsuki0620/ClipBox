@@ -140,8 +140,15 @@ def check_and_init_database():
     """データベースの確認と初期化"""
     if not app_service.check_database_exists():
         st.error(f"データベースが見つかりません: {DATABASE_PATH}")
-        st.info("セットアップスクリプトを実行してください:")
-        st.code("python archive/setup_db.py", language="bash")
+        st.warning(
+            "現行の DB 初期化・migration は run_dev.bat（起動時バックアップ込み）で行います。"
+            "下記の旧セットアップCLIは通常導線では使いません。"
+        )
+        st.info(
+            "旧セットアップを参照する場合（通常は実行しないでください。"
+            "既存DBを削除・再作成し得るため、実行前にバックアップと目的確認が必須）:"
+        )
+        st.code("python archive/legacy-code/setup/setup_db.py", language="bash")
         st.stop()
 
     # 既存DBでも新規テーブルを追加するため毎回初期化を実行

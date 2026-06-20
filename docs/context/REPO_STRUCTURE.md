@@ -36,8 +36,9 @@
 | `docs/decisions/` | active | ADR |
 | `docs/analysis/` | active / local-only | 直下の Markdown は公開可能な分析資料。`notebooks/`、`data/`、`private/`、`outputs/` は git 管理外 |
 | `archive/legacy-code/` | legacy | Phase 1 で隔離した旧コード断片。現行コードから import・参照・復活しない |
+| `archive/legacy-code/setup/` | legacy | 旧セットアップ対（`setup_db.py` / `verify_setup.py`）。通常導線では実行しない |
+| `archive/legacy-docs/` | legacy | `archive/` 直下にあった旧設計・旧実装メモ（Markdown）の集約先。現行正本ではない |
 | `archive/streamlit/` | legacy | Streamlit 旧 UI（`streamlit_app.py` / `ui/` / `run_clipbox.bat`）。Phase 5 で archive 済み。通常導線では使わない。起動は `archive/streamlit/run_clipbox.bat` |
-| `archive/setup_db.py` / `archive/verify_setup.py` | legacy | 旧セットアップ対として残す旧スクリプト。通常導線では実行しない |
 | `archive/` | legacy | 旧コード・旧 UI・歴史資料の隔離先。現行コードから import しない。扱いは `archive/README.md` を参照 |
 | `docs/archive/` | legacy | 移行作業の計画・記録。扱いは `docs/archive/README.md` を参照 |
 | `docs/reports/` | legacy | 日付付き診断・レビュー・作業記録 |
@@ -65,9 +66,15 @@ Pull request #53 の導入判断に基づき、現行領域から参照されな
 
 - `archive/` 直下にあった旧コード10件は `archive/legacy-code/` へ移動済み。
 - `archive/unused_tabs/` にあった旧 UI 断片2件は `archive/legacy-code/unused_tabs/` へ移動済み。
-- `archive/setup_db.py` と `archive/verify_setup.py` は旧 UI の表示参照とセットアップ対の凝集を保つため残置。
 - `archive/streamlit/` は旧 Streamlit UI の退避先として別枠のまま変更しない。
-- `archive/legacy-docs/` は導入せず、古い Markdown と歴史資料は現在の配置に残す。
+
+### 構成整理の最終化（2026-06-20 実施済み）
+
+Phase 1 後の構成整理として、次を実施した。詳細は `docs/reports/REPO_ROOT_CLEANUP_SUMMARY_20260620.md`。
+
+- `archive/setup_db.py` と `archive/verify_setup.py` を `archive/legacy-code/setup/` へ移動。旧 Streamlit UI（`archive/streamlit/streamlit_app.py`）の DB 未検出時の案内表示も新パス `python archive/legacy-code/setup/setup_db.py` へ補正し、通常導線では使わない旨と実行注意を併記（旧 UI は通常起動しない）。
+- `archive/` 直下にあった旧設計・旧実装メモ（Markdown）を `archive/legacy-docs/` へ集約。`archive/README.md` は直下に残す。
+- `docs/context/PROJECT_OVERVIEW.md`（Streamlit 期の概要）を `docs/archive/PROJECT_OVERVIEW_STREAMLIT.md` へ移動し、現行正本の参照を更新。
 
 ---
 
