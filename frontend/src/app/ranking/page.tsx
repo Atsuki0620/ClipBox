@@ -19,7 +19,6 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 
 const RANKING_LABELS: Record<RankingType, string> = {
   view_count: "視聴回数",
@@ -36,6 +35,10 @@ const SCORE_SUFFIX: Record<RankingType, string> = {
 };
 
 const PERIODS: RankingPeriod[] = ["180日", "1年", "全期間"];
+const AVAILABILITY_OPTIONS: { value: RankingAvailability; label: string }[] = [
+  { value: "利用可能のみ", label: "再生可能だけ" },
+  { value: "すべて", label: "全動画" },
+];
 const TOP_N_OPTIONS = [10, 20, 50];
 const LEVEL_OPTIONS = [
   { value: "none", label: "制限なし" },
@@ -48,11 +51,8 @@ export default function RankingPage() {
   const [period, setPeriod] = useState<RankingPeriod>("全期間");
   const [minLevel, setMinLevel] = useState<number | undefined>(undefined);
   const [topN, setTopN] = useState(20);
-  const [includeUnavailable, setIncludeUnavailable] = useState(false);
-
-  const availability: RankingAvailability = includeUnavailable
-    ? "すべて"
-    : "利用可能のみ";
+  const [availability, setAvailability] =
+    useState<RankingAvailability>("利用可能のみ");
 
   const params: RankingParams = useMemo(
     () => ({
@@ -107,12 +107,12 @@ export default function RankingPage() {
         period={period}
         minLevel={minLevel}
         topN={topN}
-        includeUnavailable={includeUnavailable}
+        availability={availability}
         onType={setType}
         onPeriod={setPeriod}
         onMinLevel={setMinLevel}
         onTopN={setTopN}
-        onIncludeUnavailable={setIncludeUnavailable}
+        onAvailability={setAvailability}
       />
 
       {rankingQ.isLoading || rankingQ.isFetching ? (
@@ -137,23 +137,23 @@ function RankingFilterBar({
   period,
   minLevel,
   topN,
-  includeUnavailable,
+  availability,
   onType,
   onPeriod,
   onMinLevel,
   onTopN,
-  onIncludeUnavailable,
+  onAvailability,
 }: {
   type: RankingType;
   period: RankingPeriod;
   minLevel: number | undefined;
   topN: number;
-  includeUnavailable: boolean;
+  availability: RankingAvailability;
   onType: (value: RankingType) => void;
   onPeriod: (value: RankingPeriod) => void;
   onMinLevel: (value: number | undefined) => void;
   onTopN: (value: number) => void;
-  onIncludeUnavailable: (value: boolean) => void;
+  onAvailability: (value: RankingAvailability) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
@@ -218,13 +218,24 @@ function RankingFilterBar({
         </SelectContent>
       </Select>
 
-      <label className="flex items-center gap-2 text-sm">
-        <Switch
-          checked={includeUnavailable}
-          onCheckedChange={onIncludeUnavailable}
-        />
-        利用不可を含む
-      </label>
+      <Select
+        value={availability}
+        onValueChange={(value) => onAvailability(value as RankingAvailability)}
+      >
+        <SelectTrigger className="w-32" size="sm">
+          <span className="flex flex-1 text-left">
+            {AVAILABILITY_OPTIONS.find((option) => option.value === availability)
+              ?.label ?? "再生可能だけ"}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {AVAILABILITY_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
