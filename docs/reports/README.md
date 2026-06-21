@@ -28,6 +28,7 @@
 
 ## 主要レポートへの入口
 
+- ランキング公平化後の実データスモーク確認（ユーザー実施・purge dry-run まで）: `RANKING_APP_PLAYBACK_POST_MERGE_SMOKE_20260621.md`
 - 構成整理の完了サマリ: `REPO_ROOT_CLEANUP_SUMMARY_20260620.md`
 - archive 移動の判断と実施記録: `ARCHIVE_LEGACY_CODE_DECISION_20260619.md`
 - Streamlit archive 準備: `PHASE5_STREAMLIT_ARCHIVE_PREP_20260616.md`
