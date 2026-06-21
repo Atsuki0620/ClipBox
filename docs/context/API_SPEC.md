@@ -460,8 +460,9 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **現行対応関数**: `app_service.get_ranked_videos_for_tab(ranking_type, period_label, min_level, availability_filter, top_n)`。
 
-`view_count` / `view_days` / `composite` の視聴因子と、全4種の同点タイブレーカー
-`last_viewed_at` は `APP_PLAYBACK` のみを対象にする。`likes` 自体の集計定義は変更しない。
+全4種の順序は `score DESC → last_viewed_at DESC → id ASC` で固定する。
+`view_count` / `view_days` / `composite` の視聴因子と同点キーの `last_viewed_at` は
+`APP_PLAYBACK` のみを対象にする。`likes` 自体の集計定義は変更しない。
 
 ---
 

@@ -193,6 +193,7 @@ Phase 5 の詳細条件は `PHASE5_STREAMLIT_ARCHIVE.md` を参照。
 ## 旧視聴履歴 purge（保守作業）
 
 - [ ] Next.js / FastAPI / Streamlit を停止して `python scripts/purge_legacy_viewing_history.py` を実行し、method別件数と `integrity_check=ok` を確認する
+- [ ] `BACKUP_DIR` が OneDrive 等の同期対象なら、実行前に同期対象から除外するか同期を停止する
 - [ ] `--execute --confirm PURGE_LEGACY_VIEWING_HISTORY` 実行後、DBバックアップと旧履歴CSVのパス・SHA-256・削除件数が表示される
 - [ ] `APP_PLAYBACK`、`NULL`、未知methodの行数は不変で、`FILE_ACCESS_DETECTED` / `MANUAL_ENTRY` だけが0件になる
 - [ ] 再実行は対象0件のno-opとなり、新しいバックアップを作らない

@@ -97,6 +97,22 @@ def test_ranking_tie_breaker_uses_app_playback_only(client, ranking_type, expect
     assert [item["score"] for item in items[:2]] == [expected_score, expected_score]
 
 
+def test_ranking_likes_full_tie_uses_id_ascending(client):
+    """同スコアかつ APP 履歴なしの likes ランキングは id 昇順で固定する。"""
+    first = _insert("z-first.mp4", "C:/x/z-first.mp4", 1)
+    second = _insert("a-second.mp4", "C:/x/a-second.mp4", 1)
+    with get_db_connection() as conn:
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (first, "2026-01-03"))
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (second, "2026-01-03"))
+
+    items = client.get(
+        "/api/ranking",
+        params={"type": "likes", "period": "全期間", "top_n": 10},
+    ).json()["items"]
+
+    assert [item["video"]["id"] for item in items] == [first, second]
+
+
 def test_ranking_view_count_nests_video(client):
     """ランキングは {rank, video, score} を返し視聴回数降順に並ぶ。"""
     _insert("a.mp4", "C:/x/###_a.mp4", 3)
@@ -196,6 +212,34 @@ def test_ranking_all_excludes_logically_deleted(client):
     ).json()["items"]
 
     assert [item["video"]["essential_filename"] for item in items] == ["alive.mp4"]
+
+
+def test_ranking_unavailable_only_excludes_available_and_deleted(client):
+    """availability=利用不可のみは非削除の利用不可動画だけを返す。"""
+    unavailable = _insert("unavailable.mp4", "D:/x/unavailable.mp4", 1, available=0)
+    available = _insert("available.mp4", "C:/x/available.mp4", 1)
+    deleted = _insert(
+        "deleted-unavailable.mp4",
+        "D:/x/deleted-unavailable.mp4",
+        1,
+        available=0,
+        deleted=1,
+    )
+    for video_id in (unavailable, available, deleted):
+        _add_view_day(video_id, "2026-05-01 09:00:00")
+
+    items = client.get(
+        "/api/ranking",
+        params={
+            "type": "view_count",
+            "period": "全期間",
+            "availability": "利用不可のみ",
+            "top_n": 10,
+        },
+    ).json()["items"]
+
+    assert [item["video"]["id"] for item in items] == [unavailable]
+    assert items[0]["video"]["is_available"] is False
 
 
 # --- 総合（composite）スコア式（SPEC_NEXTJS.md §9 の不変条件を固定）---
