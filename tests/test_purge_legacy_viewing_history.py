@@ -4,6 +4,7 @@ import csv
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 import config
 from core import database
@@ -128,6 +129,97 @@ def test_backup_failure_aborts_without_deleting(tmp_db, tmp_path, monkeypatch):
         "UNKNOWN_METHOD",
         None,
     ]
+
+
+def test_confirmation_mismatch_aborts_before_backup(tmp_db, tmp_path, monkeypatch):
+    _seed_history()
+    backup_dir = tmp_path / "backups"
+    monkeypatch.setattr(config, "BACKUP_DIR", backup_dir)
+
+    result = purge.purge_legacy_viewing_history(
+        execute=True,
+        confirmation="WRONG_PHRASE",
+        check_services=False,
+    )
+
+    assert result["status"] == "error"
+    assert result["message"] == "削除確認文字列が一致しません"
+    assert not backup_dir.exists()
+    assert len(_all_methods()) == 5
+
+
+def test_running_service_aborts_before_backup(tmp_db, tmp_path, monkeypatch):
+    _seed_history()
+    backup_dir = tmp_path / "backups"
+    monkeypatch.setattr(config, "BACKUP_DIR", backup_dir)
+    monkeypatch.setattr(purge, "_running_services", lambda: ["FastAPI(8000)"])
+
+    result = purge.purge_legacy_viewing_history(
+        execute=True,
+        confirmation=purge.CONFIRMATION_PHRASE,
+    )
+
+    assert result["status"] == "error"
+    assert result["running_services"] == ["FastAPI(8000)"]
+    assert "停止してから再実行" in result["message"]
+    assert not backup_dir.exists()
+    assert len(_all_methods()) == 5
+
+
+def test_post_delete_verification_failure_rolls_back(tmp_db, tmp_path, monkeypatch):
+    _seed_history()
+    monkeypatch.setattr(config, "BACKUP_DIR", tmp_path / "backups")
+    checks = iter([["ok"], ["corrupt"]])
+    monkeypatch.setattr(purge, "_integrity_check", lambda conn: next(checks))
+
+    result = purge.purge_legacy_viewing_history(
+        execute=True,
+        confirmation=purge.CONFIRMATION_PHRASE,
+        check_services=False,
+    )
+
+    assert result["status"] == "error"
+    assert "削除後DBの整合性検証に失敗" in result["message"]
+    assert _all_methods() == [
+        "APP_PLAYBACK",
+        "FILE_ACCESS_DETECTED",
+        "MANUAL_ENTRY",
+        "UNKNOWN_METHOD",
+        None,
+    ]
+
+
+def test_copy_and_temp_cleanup_failures_report_both_without_deleting(
+    tmp_db, tmp_path, monkeypatch
+):
+    _seed_history()
+    monkeypatch.setattr(config, "BACKUP_DIR", tmp_path / "backups")
+
+    def fail_copy(source, destination):
+        destination.write_bytes(b"partial")
+        raise OSError("copy failed")
+
+    original_unlink = Path.unlink
+
+    def fail_temp_unlink(path, *args, **kwargs):
+        if path.suffix == ".tmp":
+            raise OSError("access denied")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(purge, "_copy_database_snapshot", fail_copy)
+    monkeypatch.setattr(Path, "unlink", fail_temp_unlink)
+
+    result = purge.purge_legacy_viewing_history(
+        execute=True,
+        confirmation=purge.CONFIRMATION_PHRASE,
+        check_services=False,
+    )
+
+    assert result["status"] == "error"
+    assert "copy failed" in result["message"]
+    assert "cleanupにも失敗" in result["message"]
+    assert "access denied" in result["message"]
+    assert len(_all_methods()) == 5
 
 
 def test_lock_failure_aborts_before_backup(tmp_db, tmp_path, monkeypatch):

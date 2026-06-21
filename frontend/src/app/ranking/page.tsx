@@ -19,6 +19,11 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const RANKING_LABELS: Record<RankingType, string> = {
   view_count: "視聴回数",
@@ -35,10 +40,12 @@ const SCORE_SUFFIX: Record<RankingType, string> = {
 };
 
 const PERIODS: RankingPeriod[] = ["180日", "1年", "全期間"];
-const AVAILABILITY_OPTIONS: { value: RankingAvailability; label: string }[] = [
-  { value: "利用可能のみ", label: "再生可能だけ" },
-  { value: "すべて", label: "全動画" },
-];
+const AVAILABILITY_LABELS: Record<RankingAvailability, string> = {
+  利用可能のみ: "再生可能だけ",
+  利用不可のみ: "利用不可のみ",
+  すべて: "全動画",
+};
+const AVAILABILITY_OPTIONS: RankingAvailability[] = ["利用可能のみ", "すべて"];
 const TOP_N_OPTIONS = [10, 20, 50];
 const LEVEL_OPTIONS = [
   { value: "none", label: "制限なし" },
@@ -218,24 +225,35 @@ function RankingFilterBar({
         </SelectContent>
       </Select>
 
-      <Select
-        value={availability}
-        onValueChange={(value) => onAvailability(value as RankingAvailability)}
-      >
-        <SelectTrigger className="w-32" size="sm">
-          <span className="flex flex-1 text-left">
-            {AVAILABILITY_OPTIONS.find((option) => option.value === availability)
-              ?.label ?? "再生可能だけ"}
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          {AVAILABILITY_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-1.5">
+        <Select
+          value={availability}
+          onValueChange={(value) => onAvailability(value as RankingAvailability)}
+        >
+          <SelectTrigger className="w-32" size="sm">
+            <span className="flex flex-1 text-left">
+              {AVAILABILITY_LABELS[availability]}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {AVAILABILITY_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {AVAILABILITY_LABELS[option]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className="inline-flex size-5 cursor-help items-center justify-center rounded-full border text-xs text-muted-foreground" />
+            }
+          >
+            ?
+          </TooltipTrigger>
+          <TooltipContent>「全動画」でも論理削除済みは除外します。</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }

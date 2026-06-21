@@ -77,6 +77,18 @@ def _write_legacy_csv(path: Path, rows: Iterable[sqlite3.Row]) -> None:
         writer.writerows(tuple(row[column] for column in CSV_COLUMNS) for row in rows)
 
 
+def _cleanup_temp_files(paths: Iterable[Path]) -> list[str]:
+    """一時ファイルを削除し、失敗内容を呼び出し元で報告できる形で返す。"""
+    errors: list[str] = []
+    for path in paths:
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError as exc:
+            errors.append(f"{path}: {exc}")
+    return errors
+
+
 def _verify_backup(
     backup_path: Path,
     expected_counts: dict[str | None, int],
@@ -207,6 +219,7 @@ def purge_legacy_viewing_history(
             if any(path.exists() for path in (backup_path, csv_path, backup_temp, csv_temp)):
                 raise RuntimeError("同じタイムスタンプのバックアップファイルが既に存在します")
 
+            artifact_error: Exception | None = None
             try:
                 source_sha256 = _sha256(db_path)
                 _copy_database_snapshot(db_path, backup_temp)
@@ -216,10 +229,19 @@ def purge_legacy_viewing_history(
                 csv_sha256 = _verify_csv(csv_temp, target_count)
                 backup_temp.replace(backup_path)
                 csv_temp.replace(csv_path)
-            finally:
-                for temp_path in (backup_temp, csv_temp):
-                    if temp_path.exists():
-                        temp_path.unlink()
+            except Exception as exc:
+                artifact_error = exc
+
+            cleanup_errors = _cleanup_temp_files((backup_temp, csv_temp))
+            if artifact_error is not None:
+                message = str(artifact_error)
+                if cleanup_errors:
+                    message += f" / 一時ファイルのcleanupにも失敗しました: {'; '.join(cleanup_errors)}"
+                raise RuntimeError(message) from artifact_error
+            if cleanup_errors:
+                raise RuntimeError(
+                    f"一時ファイルのcleanupに失敗しました: {'; '.join(cleanup_errors)}"
+                )
 
             app_count_before = counts.get(VIEWING_METHOD_APP_PLAYBACK, 0)
             placeholders = ",".join("?" for _ in LEGACY_VIEWING_METHODS)

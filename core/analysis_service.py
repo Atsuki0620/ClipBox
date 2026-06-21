@@ -715,13 +715,13 @@ def get_ranked_videos_for_tab(
 ) -> list:
     """
     ランキングタブ用: (Video, score) のリストを返す。
-    同スコア時は last_viewed_at 降順（タイブレーカー）。
+    同スコア時は last_viewed_at 降順、さらに id 昇順（タイブレーカー）。
 
     Args:
         ranking_type: "view_count" | "view_days" | "likes" | "composite"
         period_label: "180日" | "1年" | "全期間"
         min_level: None=フィルタなし, 3=Lv3以上, 4=Lv4のみ
-        availability_filter: "利用可能のみ" | "すべて"
+        availability_filter: "利用可能のみ" | "利用不可のみ" | "すべて"
         top_n: 上位何件を返すか
     """
     from datetime import datetime, timedelta
@@ -857,9 +857,13 @@ def get_ranked_videos_for_tab(
     if df.empty:
         return []
 
-    # タイブレーカー: score DESC → last_viewed_at DESC
+    # タイブレーカー: score DESC → last_viewed_at DESC → id ASC
     df["_lv_dt"] = pd.to_datetime(df.get("last_viewed_at"), errors="coerce")
-    df = df.sort_values([score_col, "_lv_dt"], ascending=[False, False], na_position="last")
+    df = df.sort_values(
+        [score_col, "_lv_dt", "id"],
+        ascending=[False, False, True],
+        na_position="last",
+    )
     df = df.head(top_n)
 
     return [(_df_row_to_video(row), int(row[score_col])) for _, row in df.iterrows()]
