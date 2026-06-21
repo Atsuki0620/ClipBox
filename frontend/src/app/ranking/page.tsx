@@ -246,7 +246,11 @@ function RankingFilterBar({
         <Tooltip>
           <TooltipTrigger
             render={
-              <span className="inline-flex size-5 cursor-help items-center justify-center rounded-full border text-xs text-muted-foreground" />
+              <button
+                type="button"
+                aria-label="表示範囲の説明"
+                className="inline-flex size-5 cursor-help items-center justify-center rounded-full border text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
             }
           >
             ?

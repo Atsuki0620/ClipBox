@@ -4,6 +4,7 @@ ClipBox API - 統計・ランキングエンドポイントのテスト。
 
 import pytest
 
+from core import analysis_service as app_service
 from core.database import get_db_connection
 
 
@@ -97,17 +98,32 @@ def test_ranking_tie_breaker_uses_app_playback_only(client, ranking_type, expect
     assert [item["score"] for item in items[:2]] == [expected_score, expected_score]
 
 
-def test_ranking_likes_full_tie_uses_id_ascending(client):
-    """同スコアかつ APP 履歴なしの likes ランキングは id 昇順で固定する。"""
+def test_ranking_likes_full_tie_uses_id_ascending(client, monkeypatch):
+    """完全同点では入力順によらず id 昇順で top_n を確定する。"""
     first = _insert("z-first.mp4", "C:/x/z-first.mp4", 1)
     second = _insert("a-second.mp4", "C:/x/a-second.mp4", 1)
+    third = _insert("m-third.mp4", "C:/x/m-third.mp4", 1)
     with get_db_connection() as conn:
-        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (first, "2026-01-03"))
-        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (?, ?)", (second, "2026-01-03"))
+        for video_id in (first, second, third):
+            conn.execute(
+                "INSERT INTO likes (video_id, liked_at) VALUES (?, ?)",
+                (video_id, "2026-01-03"),
+            )
+
+    original_load = app_service.load_analysis_data
+
+    def load_analysis_data_id_desc(is_deleted_filter):
+        return original_load(is_deleted_filter).sort_values("id", ascending=False)
+
+    monkeypatch.setattr(
+        app_service,
+        "load_analysis_data",
+        load_analysis_data_id_desc,
+    )
 
     items = client.get(
         "/api/ranking",
-        params={"type": "likes", "period": "全期間", "top_n": 10},
+        params={"type": "likes", "period": "全期間", "top_n": 2},
     ).json()["items"]
 
     assert [item["video"]["id"] for item in items] == [first, second]
