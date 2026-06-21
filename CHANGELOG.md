@@ -11,6 +11,13 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-21 — docs(reports): ランキング公平化後の実データスモーク確認を記録
+
+- Pull request #60〜#64 のランキング公平化後、ユーザーが実データでスモーク確認を完了し、旧視聴履歴 purge は dry-run のみ確認したことを、公開情報だけのレポート `docs/reports/RANKING_APP_PLAYBACK_POST_MERGE_SMOKE_20260621.md` として記録（`docs/reports/README.md` の入口にも追加）。
+- purge `--execute` は未実行。実装・UI・API・DB スキーマ・migration・ランキング式・生履歴 API の変更はなし（docs-only）。動画名・パス・件数・順位・個人情報は記載しない。
+
+---
+
 ## 2026-06-21 — fix: PR #60〜#62 のレビュー指摘を反映
 
 - ランキングの完全同点時の最終キーを `id ASC` に固定し、ID降順の入力と`top_n`境界でも最小IDを選ぶテスト、`availability=利用不可のみ`のAPI回帰テストを追加。
