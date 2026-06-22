@@ -1,0 +1,145 @@
+# Tier1 UIラボ 改善指示書（variant-k 実装用 Prompt）
+
+> 作成日: 2026-06-22 / 種別: ラボ（モック）実装用の指示書（Prompt）
+> 出典: `frontend/src/app/lab/tier1-library|tier1-random|tier1-fate/variant-j` のレビュー指摘。
+> 挙動の正本は `docs/context/SPEC_NEXTJS.md`。本指示は **ラボ（モック）改修のみ**で、本体挙動を変えない。
+
+---
+
+## 0. この指示書の使い方
+
+- **対象**: Codex / Claude Code。Tier1 UIラボ（モック）の次イテレーションを実装させるための Prompt。
+- **背景**: Tier1 の3タブ（ライブラリ / ランダム / 運命の1本）の現行モック `variant-j` をレビューし、改善点を確定した。本書はその改善点を実装可能な粒度に落としたもの。
+- **渡し方**: 本書をそのまま、または §1〜§3 を抜粋して実装エージェントに渡す。一度に全部やらせず、§6 の分割案に沿って段階実行を推奨。
+- **用語**: 「Pull request」は略さず表記する（略語表記は使わない）。
+
+---
+
+## 1. スコープと前提（必読・絶対）
+
+1. **ラボはモック専用**。実 DB / API / localStorage に接続しない。純粋な定数（`_data/labMock.ts`）とローカル state のみで成立させる。
+2. **本体（production）を変更しない**。`frontend/src/app/`（`lab/` 以外）・`frontend/src/components/SidebarNav.tsx`・実 API/DB には触れない。
+3. **既存 variant A〜J は無変更**（比較用に残す）。改善は **新 Variant `variant-k`** として3タブ分を新規追加する。`variant-j` を雛形にコピーして改修するのが早い。
+   - ※もし「J を直接更新（edit-in-place）」を選ぶ場合は、この1点だけ読み替えてよい。既定は variant-k 新規。
+4. **共有部品を既存 variant に波及させない**。`_components/ConsoleCard.tsx` / `ConsoleKpi.tsx` / `ModernSidebar.tsx` は G/H/I/J や設定モックでも使われている。これらを破壊的に変更すると旧 variant の見た目が変わる。改修は次のいずれかで行う:
+   - (a) variant-k 専用にフォークした部品を作る、または
+   - (b) **後方互換のオプション props を追加**し、変更は variant-k からの呼び出し時のみ有効化する（既存呼び出しは既定値で従来通り）。
+5. サムネ・画像枠は使わない（情報カード方針）。寒色テーマ（`variant-j` の THEME 流用）。
+6. API 応答相当の項目は **snake_case** のまま（`labMock.ts` の `LabVideo` も snake_case）。
+7. 個人情報・実動画名・実パスを書かない（モックは合成プレースホルダのみ）。
+
+### 現状ファイル対応表（改修の起点）
+
+| 関心 | ライブラリ | ランダム | 運命の1本 |
+|---|---|---|---|
+| ページ | `tier1-library/variant-j/page.tsx` | `tier1-random/variant-j/page.tsx` | `tier1-fate/variant-j/page.tsx` |
+| ツールバー/操作 | `tier1-library/variant-j/JToolbar.tsx` | `tier1-random/variant-j/RandomControls.tsx` | `tier1-fate/variant-j/FateControls.tsx` |
+| 一覧/カード描画 | `tier1-library/variant-j/JContent.tsx`（inline `JCard`） | 共有 `_components/ConsoleCard.tsx` | 共有 `_components/ConsoleCard.tsx`（`featured`） |
+| KPI | `tier1-library/variant-j/JKpiBar.tsx`（4セル・bar+spark） | 共有 `_components/ConsoleKpi.tsx`（3セル） | 共有 `_components/ConsoleKpi.tsx`（3セル） |
+| サイドバー | 共有 `_components/ModernSidebar.tsx`（3タブ共通） | 同左 | 同左 |
+| モックデータ | `_data/labMock.ts`（`LAB_VIDEOS` 15件・`LAB_KPI`・`formatDate`） | 同左 | 同左 |
+
+> 注: `JCard`（ライブラリ）と `ConsoleCard`（ランダム/運命）は構造的に同等だが別ファイル。「カードを完全に合わせる」＝**両方に同じ改修を当てる**こと。
+
+---
+
+## 2. 共通変更（サイドバー & 見出し & カード）
+
+### 2-1. サイドバー（ラボ `ModernSidebar` 相当・variant-k のみ）
+
+- **ロゴ追加**: 「ClipBox」の**左に簡素な自作SVGロゴ**を置く。
+  - `frontend/public/` に新規 SVG を作成（例: `clipbox-mark.svg`）。デザインは単色ミニマル（寒色アクセント1色）。案: 角丸の「箱（box）」の中に再生三角、またはクリップを想起させる図形。`currentColor` を使い CSS から色を当てられると望ましい。サイズは 16〜20px 相当。
+  - 現状 `ModernSidebar.tsx` のブランドは text-only（「ClipBox」＋副題）。**`brandIcon?: React.ReactNode`（または `showBrandMark?: boolean`）の optional prop を追加**し、variant-k から渡したときだけアイコンを「ClipBox」左に表示。既存 variant（G/H/I/J/設定）は prop 未指定でアイコン無し＝従来通り。
+- **副題削除**: 「ローカル動画判定パネル」を variant-k では非表示にする。`subtitle?: string | null`（既定は現行文言）等の optional prop を追加し、variant-k からは `null` を渡して隠す。既存 variant は従来通り表示。
+- **対象は本書ではラボのみ**。本体 `frontend/src/components/SidebarNav.tsx` の同一ヘッダ（同じ文言が `SidebarNav.tsx` にも存在）は今回触れない（必要なら別途）。
+
+### 2-2. 見出し（3タブ共通）
+
+- 各ページ上部の見出しを **「Tier1」だけ**に統一し、**副題は全削除**する。現在地はツールバー/タブ（ライブラリ/ランダム/運命の1本）が示すため重複を避ける。
+  - ライブラリ: 現「Tier 1 ライブラリ」＋副題「未判定をさばく・探す」→ 「Tier1」のみ。
+  - ランダム: 現「Tier 1 ランダム」＋副題「ランダムに引く・見る・判定する」→ 「Tier1」のみ。
+  - 運命: 現「Tier 1 運命の1本」＋副題「今日の1本を引いて、見て、判定する」→ 「Tier1」のみ。
+
+### 2-3. カード（`JCard` と `ConsoleCard` の両方を一致改修）
+
+- **タイトル2行表示**: `line-clamp-2` は維持しつつ、**2行ぶんの高さを常に確保**してカード高さを揃える（短いタイトルでもカードが不揃いにならないよう、タイトル領域に2行分の min-height を与える）。
+- **日付＝作成日「作成 yyyy/mm/dd」**: 現状メタ行は `last_viewed` を無ラベルで表示している。これを**作成日に置き換え**、`作成 ` ラベル付き・`yyyy/mm/dd` で表示する。
+  - `_data/labMock.ts` の `LabVideo` 型に **`file_created: string | null`（ISO）** を追加し、`LAB_VIDEOS` 15件すべてに妥当な作成日を付与する（`last_file_modified` は意味が違うので流用しない。作成日 ≤ 更新日 ≤ 最終視聴 の整合が取れる値が望ましい）。
+  - 表示は `作成 {formatDate(video.file_created)}`（`formatDate` は既存ヘルパで `yyyy/mm/dd` 整形）。
+- **グレーアウト維持**: 判定済み（レベル付き）/ 利用不可カードの淡色化（`opacity-45` 相当）は現状どおり維持する。
+
+---
+
+## 3. タブ別変更
+
+### 3-1. ライブラリ（`tier1-library/variant-k`）
+
+1. **KPIパネルのレイアウト改善**（内容は維持、余白バランスのみ）。現状 `JKpiBar.tsx`:
+   - 各セルの中身が左に寄り過ぎて見にくい → **パディング/配置を見直し、左詰まり感を解消**（セル内で適切な余白・整列にする）。
+   - 「判定率」の横バー、「本日の判定」のスパークラインが**数値と隣接し過ぎて圧迫感**がある → **数値とバー/折れ線の間隔を広げる**、または**数値の下段に配置**する等で圧迫感を解消する。4セル（未判定 / 判定済み / 判定率＋バー / 本日の判定＋折れ線）の構成・数値・指標自体は変えない。
+2. **カードモードにもページャを追加し、両モードを機能させる**。現状はテーブルモードのみ footer があり、しかも静的（件数ハードコード・矢印 disabled・`1ページあたり50件` 固定）。
+   - 「全N件」を実件数で表示。
+   - 「1ページあたり N件」を**セレクト可能**にする（例: 50 / 100 / 200）。
+   - ページ送り（`‹ p / total ›`）を**機能**させる（現在ページ/総ページを state 管理し、前後ボタンを有効化）。
+   - **カードモードにも同じ footer を表示**し、`page` / `pageSize` でモックリストをスライスして描画する。
+   - 実装の参考に本体の `frontend/src/components/Pagination.tsx`（page / pageSize 50・100・200 / 件数表示）がある。ラボはモック専用なので本体importに拘らず、ラボ内で機能する小さな pager を用意してよい（テーブル/カードで共有）。
+3. **フィルタ Popover / 並び替え2段 Popover は現状維持**（レビューで高評価。変更しない）。
+
+### 3-2. ランダム（`tier1-random/variant-k`）
+
+1. **条件パネルを完全撤去**。現状 `RandomControls.tsx` の「条件」Popover（未判定を優先 / レベル / 保存先 C・HDD / 再生可のみ / あとで見るも含める / リセット）と、それに紐づく state を**すべて削除**。この画面は常に **「未判定かつ再生可能」** から抽出する固定仕様にする（抽出ロジックもこの固定条件に合わせて簡素化）。
+2. **引き数トグルの単位「本」を削除**。現状「5 / 10 / 15 / 20 本」→ 数値のみ「5 / 10 / 15 / 20」。
+3. **説明キャプションを削除**: 「気になる1枠は ↻ で入れ替え／全体は『シャッフル』で引き直し」の文言を削除。
+4. **カード右上の入れ替え(↻)ボタンを削除**: `ConsoleCard` の `corner` スロットに渡している swap ボタンと `handleSwap` を撤去。
+5. **カードをライブラリと完全一致**（§2-3 の2行タイトル・作成日「作成 yyyy/mm/dd」・グレーアウトを適用）。
+6. **判定済みカードはライブラリ同様グレーアウト**（`dim` を有効化して `opacity-45`）。
+7. **主ボタン「シャッフル」は残す**（全体を引き直す導線）。空状態の文言などは簡潔に整える。
+
+### 3-3. 運命の1本（`tier1-fate/variant-k`）
+
+1. **見出し「Tier1」のみ・副題削除**（§2-2）。
+2. **KPI をライブラリと完全一致**: 現状の `ConsoleKpi` 3セル（未判定 / 最近見てない候補 / 本日の判定）を、**ライブラリと同じ4セル KPI（§3-1 で改善後の `JKpiBar` 相当）に置換**する。共有 `JKpiBar` 化するか variant-k 用に同等品を用意（既存 variant に波及させない）。
+3. **選出関連の説明を全削除**: hero カードの「選出理由」footer（Sparkles＋理由文）と、右側「選出について / 最近見ていない候補」side panel を**撤去**。
+4. **「運命の1本を引く」ボタンを大きく**: 現状 `h-7` の小ボタン → **分かりやすい大型 primary ボタン**にする（高さ・横幅・フォントを上げ、主操作として目立たせる）。
+5. **hero カードはライブラリ/ランダムのカードと基本一致**（§2-3）だが、**もっとワイドに横幅を広げる**。**特別扱いは撤去**（`featured` の上部アクセント strip・`ring` を外す）。選出理由は無し。判定済み/利用不可のグレーアウトは共通仕様どおり。
+6. **「前回引いた1本」セクションを完全撤去**（履歴カード表示・関連 state ともに削除）。
+
+---
+
+## 4. 受け入れ確認（実装者向け）
+
+1. `npm run lint`（= eslint）/ `npm run typecheck`（= `tsc --noEmit`）を通す。自動テストは無い。
+2. `/lab/tier1-library/variant-k` / `/lab/tier1-random/variant-k` / `/lab/tier1-fate/variant-k` を起動し、Playwright で全体スクリーンショットを取得（ラボの既知作法: DPR≈0.667・`clip` はデバイスpx＝css×dpr で算出）。
+3. 既存 `variant-j` のスクリーンショットと並べ、before/after を該当 `_review/` に残す（`COMPARISON_K.md` の新規作成は任意だが推奨）。
+4. **既存 variant A〜J の見た目が変わっていない**ことを確認（共有部品をオプション化した場合の回帰チェック）。
+5. 反映チェックリスト（各要望を満たしたか）:
+   - [ ] サイドバー: ClipBox 左に SVG ロゴ、副題削除（variant-k のみ・既存不変）
+   - [ ] 見出し: 3タブとも「Tier1」のみ・副題削除
+   - [ ] カード: タイトル2行確保 / 「作成 yyyy/mm/dd」/ グレーアウト維持（JCard・ConsoleCard 両方）
+   - [ ] ライブラリ: KPI 余白改善（左詰まり/圧迫感の解消）
+   - [ ] ライブラリ: カードモードにも機能するページャ（全N件・1ページあたり可変・ページ送り）
+   - [ ] ライブラリ: フィルタ/並び替え Popover は不変
+   - [ ] ランダム: 条件パネル撤去 / 単位「本」削除 / 説明文削除 / ↻ボタン削除 / カード一致 / 判定済みグレーアウト
+   - [ ] 運命: KPI ライブラリ一致 / 説明撤去 / 大型「引く」ボタン / ワイドで特別扱いなしカード / 履歴撤去
+
+---
+
+## 5. やらないこと（実装者向け制約）
+
+- 本体 `app/`（`lab/` 以外）・`SidebarNav.tsx`・実 DB / API / localStorage を変更しない。
+- 既存 variant A〜J の見た目を変えない（共有部品の破壊的変更は禁止。必要なら variant-k 専用フォーク or 後方互換 props）。
+- サムネ追加・新規ドメイン機能追加をしない。
+- 「Pull request」の略語表記を使わない。
+
+---
+
+## 6. Pull request 分割の目安（任意）
+
+小さく戻せる単位での段階実行を推奨:
+
+1. **共通基盤**: SVG ロゴ作成＋`ModernSidebar` のオプション props＋カード共通改修（`JCard`/`ConsoleCard` の2行タイトル・作成日）＋`labMock.ts` への `file_created` 追加。
+2. **ライブラリ variant-k**: KPI 余白改善＋カード/テーブル両対応の機能的ページャ。
+3. **ランダム variant-k**: 条件パネル撤去・単位/説明/↻削除・カード一致・グレーアウト。
+4. **運命 variant-k**: KPI 一致・説明撤去・大型ボタン・ワイドカード・履歴撤去。
+
+各段階で §4 の lint/typecheck＋スクリーンショット確認を行い、既存 variant 無変更を担保する。
