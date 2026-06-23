@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-23 — docs(ui): Next.js UI改修 Phase 0 方針を整理
+
+- `docs/nextjs-ui-renovation-master-memo.md` に Phase 0 の決定事項と UI LAB 不足画面の比較対象を追記し、設定は scan-first 上部タブ版を主案、Runtime control はサイドバー下部維持として整理。
+- Tier1 の `/tier1` 正規URL化（`/` は redirect）と、AVP再生であとで見るを自動解除しない採用方針を、未実装の次回実装方針として `SPEC_NEXTJS.md` / `API_SPEC.md` / `ACCEPTANCE_CRITERIA.md` / メモに追記。
+- 実装、React/CSS、API、DB、migration、設定ファイル、実データの変更はなし（docs-only）。
+
+---
+
 ## 2026-06-21 — docs(reports): ランキング公平化後の実データスモーク確認を記録
 
 - Pull request #60〜#64 のランキング公平化後、ユーザーが実データでスモーク確認を完了し、旧視聴履歴 purge は dry-run のみ確認したことを、公開情報だけのレポート `docs/reports/RANKING_APP_PLAYBACK_POST_MERGE_SMOKE_20260621.md` として記録（`docs/reports/README.md` の入口にも追加）。

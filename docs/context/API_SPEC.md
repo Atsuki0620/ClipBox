@@ -14,6 +14,9 @@ DB バックアップとマイグレーションは起動スクリプト `run_ap
 ### ベースパス
 すべてのエンドポイントは `/api` 配下に置く。
 
+### フロントエンドURL方針（次回実装・未実装）
+Tier1 画面の正規URLは次回実装で `/tier1` にし、`/` は `/tier1` へ redirect する方針。これは Next.js ルートだけの変更であり、本書の `/api` エンドポイント、リクエスト/レスポンス、snake_case 方針は変更しない。
+
 ### API 境界方針（ファサード一本化）
 FastAPI の各エンドポイントは **`core/app_service.py` のみ**を呼び出す（ファサード一本化）。
 ただし現状 `app_service.py` には未公開の実体がある:
@@ -351,9 +354,10 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 - `subprocess.Popen([avp_exe_path, ...paths])` で FastAPI 実行マシン上の AVP を起動する。
 - AVP 起動成功後、指定 ID すべてに `viewing_history`（`APP_PLAYBACK`）を記録する。
 - `play_history` は記録しない。候補追加や再生対象チェックだけでは履歴を記録せず、AVP 起動成功時だけ記録する。
-- 視聴履歴記録と同一トランザクション内で、処理済み条件を満たす動画の `watch_later` を解除する。
+- 視聴履歴記録と同一トランザクション内で、処理済み条件を満たす動画の `watch_later` を解除する（現行実装）。
   処理済み条件は「Tier1判定済み通常動画（`current_favorite_level >= 0 AND needs_selection = 0`）」または「Tier2選別済み（`is_selection_completed = 1`）」。
   `needs_selection = 1` の Tier2 未選別は、レベル値が 0..4 でも解除しない。
+- **次回実装方針（未実装・現行実装との差分あり）**: **AVP再生であとで見るを自動解除しない**。AVP 起動成功・AVP再生履歴記録では `watch_later` を解除せず、解除は判定/選別完了と処理済み動画へのいいねに限定する。
 - 評価・いいねは既存の `PUT /api/videos/{id}/level`・`POST /api/videos/{id}/like` を使う。
 
 **レスポンス**: `{ "status": "success", "message": "..." }`（200 OK）
