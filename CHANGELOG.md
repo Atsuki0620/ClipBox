@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-25 — docs(ui): Next.js UI改修フィードバック記録を汎用名へリネーム＋作業フロー追記
+
+- `docs/nextjs-ui-tier1-improvement-brief.md` を `docs/nextjs-ui-renovation-feedback.md` へリネームし、Tier1専用の実装指示書から UI改修全体（Tier1 / Tier2 / あとで見る / AVP / ランキング / 分析 / 検索 / 設定 / Runtime control の9画面）のフィードバック記録へ再構成。画面ごとに採用判断 / 未決事項 / 改善要望 / 不具合メモを残す枠組みを新設し、既存の Tier1 variant-k 実装指示は付録として原文のまま保持。旧ファイル名を参照する箇所はリポジトリ内に無く、リンク切れは発生しない。
+- `docs/nextjs-ui-renovation-master-memo.md` に §3-C「今後の作業フロー」を追記。UI LAB → 全画面フィードバック一巡 → 全画面統合版 Variant K → 実DB匿名化サンプルDB → サンプルDB接続 Variant K 版 ClipBox → 本体統合、の手順と、実DB接続時は本体 ClipBox を停止し同一実DBへ同時書き込みしない並列運用の注意点を明記。
+- docs-only。実装・React/CSS・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。動画名・パス・個人情報は記載しない。
+
+---
+
 ## 2026-06-25 — docs(lab): AVP画面に案D（上下分割・候補=上 / 再生セット=下リッチカード）を追加
 
 - ユーザー要望（上下分割を採るが候補一覧を上に、下の再生セットは他画面と同じ動画カードでレベル判定/いいね/あとで見るができるように）に応え、`frontend/src/app/lab/avp/variant-d/` を追加。上=候補一覧（再生対象を選ぶボタン操作中心の `AvpCard`）、下=再生セット最大4本を**本体 `VideoCard` の見た目・操作を複製したモックカード `AvpRichCard`** で表示。
