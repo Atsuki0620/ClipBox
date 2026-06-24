@@ -5,7 +5,7 @@
 // 【依存関係】next/link と lucide のみ。
 
 import Link from "next/link";
-import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings } from "lucide-react";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay } from "lucide-react";
 
 const AREAS = [
   {
@@ -35,6 +35,22 @@ const AREAS = [
     title: "設定画面",
     summary:
       "設定メニューのモダン UI 案。スキャンを主役にした scan-first（単一カラム／カテゴリレール／上部タブ）と、左カテゴリレール＋右フォームの Variant J を見比べる。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/watch-later",
+    icon: Bookmark,
+    title: "あとで見る画面",
+    summary:
+      "あとで見る（DB永続）の UI 改善案。3セクション維持の現行改善(A)・付与理由表示(B)・作業台型(C)を見比べる。サムネなし情報カード。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/avp",
+    icon: MonitorPlay,
+    title: "AVP画面",
+    summary:
+      "AVP（並列再生・localStorage永続）の UI 改善案。候補管理と再生対象選択（最大4本）の見せ方を、左右分割(A)・上下分割(B)・タブ分離(C)・上下分割/候補上(D)で見比べる。",
     status: "検討中",
   },
   // 今後ここに他タブ/メニューの探索エリアを追加する（例: ランキング …）。

@@ -11,6 +11,31 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-25 — docs(lab): AVP画面に案D（上下分割・候補=上 / 再生セット=下リッチカード）を追加
+
+- ユーザー要望（上下分割を採るが候補一覧を上に、下の再生セットは他画面と同じ動画カードでレベル判定/いいね/あとで見るができるように）に応え、`frontend/src/app/lab/avp/variant-d/` を追加。上=候補一覧（再生対象を選ぶボタン操作中心の `AvpCard`）、下=再生セット最大4本を**本体 `VideoCard` の見た目・操作を複製したモックカード `AvpRichCard`** で表示。
+- `AvpRichCard` は本体カードと同じ shadcn プリミティブ・操作配置（再生 / レベル `Select` / いいね / あとで見る / 再生対象＋外す）を持つが、`@/lib/api`・`@tanstack/react-query`・`useAvpStore` を **import せず**、操作はページ内 `useState`（`useAvpLibrary`）のみ＝実 DB/API/localStorage 非接続・保存しない。下の編集は上の候補バッジにも反映（単一ソース）。
+- 比較レポート `frontend/src/app/lab/avp/_review/COMPARISON.md` を4案構成に更新し、案D 節・スクショ2枚（`avp-d-candidates-top-set-bottom` / `avp-d-rich-card`）・評価表 D 列・推奨/未決を追記。`/lab` ハブと AVP 索引、各 variant の切替リストに D を追加。
+- モック専用で実 DB/API/localStorage 非接続。AVP候補/再生対象=localStorage、あとで見る=DB の境界は不変更。本体 `/avp`・`VideoCard`・`store.ts`・API・DB・migration・実データの変更はなし。案A/B/C も変更なし（docs/lab のみ）。
+
+---
+
+## 2026-06-24 — docs(lab): AVP画面の UI 改善案3案を UI LAB に追加
+
+- `frontend/src/app/lab/avp/` に AVP（並列再生）画面の比較用モック3案（A 左右分割 / B 上下分割 / C タブ分離）を追加。候補プール管理と再生対象選択（最大4本）の見せ方を比較する。サムネなし情報カード＋4枠スロット表現で実装し、共有プリミティブ（`ModernSidebar` / `LabFrame` / `ConsoleKpi`）と寒色テーマを read-only 再利用。再生対象の4本上限・候補上限なし・候補/対象の cascade は `usePlayTargets`（ページ内ローカル）で本体 `store.ts` の挙動を再現。
+- スクリーンショット付き比較レポートを `frontend/src/app/lab/avp/_review/COMPARISON.md`（＋ `COMPARISON/` 配下に画像5枚）として追加。推奨は「案A ベース＋将来 案C 補助」。`/lab` ハブに索引エントリを1件追加。
+- モック専用で実 DB/API/localStorage 非接続。AVP候補/再生対象=localStorage、あとで見る=DB の境界は不変更。本体 `/avp`・`VideoCard`・`store.ts`・API・DB・migration・実データの変更はなし（docs/lab のみ）。
+
+---
+
+## 2026-06-24 — docs(lab): あとで見る画面の UI 改善案3案を UI LAB に追加
+
+- `frontend/src/app/lab/watch-later/` に「あとで見る」画面の比較用モック3案（A 現行改善 / B 付与理由 / C 作業台）を追加。3セクション（未処理 / 確認・見直し / 処理済み候補）構成は維持し、サムネなし情報カードで実装。共有プリミティブ（`ModernSidebar` / `LabFrame` / `LevelButtons`）と寒色テーマを read-only 再利用。
+- スクリーンショット付き比較レポートを `frontend/src/app/lab/watch-later/_review/COMPARISON.md`（＋ `COMPARISON/` 配下に画像）として追加。推奨は「案B ベース＋案C サマリー任意」。`/lab` ハブに索引エントリを1件追加。
+- モック専用で実 DB/API/localStorage 非接続。あとで見る=DB / AVP候補=localStorage の境界は不変更。AVP再生で自動解除しない方針は将来方針の可視化のみで本体挙動は変更しない。本体 `/watch-later`・`VideoCard`・API・DB・migration・実データの変更はなし（docs/lab のみ）。
+
+---
+
 ## 2026-06-23 — docs(ui): Next.js UI改修 Phase 0 方針を整理
 
 - `docs/nextjs-ui-renovation-master-memo.md` に Phase 0 の決定事項と UI LAB 不足画面の比較対象を追記し、設定は scan-first 上部タブ版を主案、Runtime control はサイドバー下部維持として整理。
