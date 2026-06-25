@@ -5,7 +5,7 @@
 // 【依存関係】next/link と lucide のみ。
 
 import Link from "next/link";
-import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay } from "lucide-react";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay, BarChart3, Search } from "lucide-react";
 
 const AREAS = [
   {
@@ -53,7 +53,22 @@ const AREAS = [
       "AVP（並列再生・localStorage永続）の UI 改善案。候補管理と再生対象選択（最大4本）の見せ方を、左右分割(A)・上下分割(B)・タブ分離(C)・上下分割/候補上(D)で見比べる。",
     status: "検討中",
   },
-  // 今後ここに他タブ/メニューの探索エリアを追加する（例: ランキング …）。
+  {
+    href: "/lab/ranking",
+    icon: BarChart3,
+    title: "ランキング画面",
+    summary:
+      "ランキングの UI 改善案。順位と指標の見せ方を、カードランキング(A)・テーブル(B)・上位カード＋下位テーブル(C)で見比べる。順位/スコアは UI 確認用のモック（本体計算式は不変）。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/search",
+    icon: Search,
+    title: "検索画面",
+    summary:
+      "検索の UI 改善案。結果の見せ方と絞り込みの幅を、現状改善(A)・Tier1/Tier2カード整合(B)・高機能フィルタ(C)で見比べる。検索結果は別状態として永続化しない。",
+    status: "検討中",
+  },
 ];
 
 export default function LabHubPage() {

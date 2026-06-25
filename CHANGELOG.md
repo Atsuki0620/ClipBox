@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-25 — lab: ランキング・検索画面の UI LAB 3案と比較レポートを追加
+
+- `frontend/src/app/lab/ranking/`（カードランキング A / テーブル B / 上位カード＋下位テーブル C）と `frontend/src/app/lab/search/`（現状改善 A / Tier1・Tier2カード整合 B / 高機能フィルタ C）を UI LAB に新規追加。各エリアに索引ページ・3 Variant・寒色テーマ・モックデータ・ローカル部品を実装し、`/lab` ハブに2エントリを追加。共有部品（LabFrame / ModernSidebar / ConsoleCard / LevelButtons）は read-only 流用し、足りない表現はエリア配下のローカル部品（RankingFilterBar / RankingRow / RankingTable・SearchFilterPanel / SearchResultCard）で新設。
+- スクリーンショット付き比較レポート `frontend/src/app/lab/{ranking,search}/_review/COMPARISON.md`（＋ `_review/COMPARISON/` に各3枚）を追加。推奨はランキング=案C有力、検索=案A基線＋案B合流が有力（いずれも採用判断はユーザーレビュー待ち・未確定）。
+- `docs/nextjs-ui-renovation-feedback.md` のランキング・検索エントリを「UI LAB あり（A/B/C）」へ更新（採用判断は未記入のまま）。
+- モック専用で実 DB/API/localStorage 非接続。**本体画面（`/ranking`・`/search`・`VideoCard`・`store.ts`）・API・DB・migration・実データは未変更**。ランキングの順位・スコアは UI 確認用のダミーで、本体 APP_PLAYBACK 総合計算式・タイブレークは不変。検索結果は別状態として永続化しない。保存場所は匿名化分類のみ（実パス・実フォルダ名・実動画名なし）。`npm run lint` / `npm run typecheck` パス。
+
+---
+
 ## 2026-06-25 — docs(ui): Next.js UI改修フィードバック記録を汎用名へリネーム＋作業フロー追記
 
 - `docs/nextjs-ui-tier1-improvement-brief.md` を `docs/nextjs-ui-renovation-feedback.md` へリネームし、Tier1専用の実装指示書から UI改修全体（Tier1 / Tier2 / あとで見る / AVP / ランキング / 分析 / 検索 / 設定 / Runtime control の9画面）のフィードバック記録へ再構成。画面ごとに採用判断 / 未決事項 / 改善要望 / 不具合メモを残す枠組みを新設し、既存の Tier1 variant-k 実装指示は付録として原文のまま保持。旧ファイル名を参照する箇所はリポジトリ内に無く、リンク切れは発生しない。
