@@ -5,7 +5,7 @@
 // 【依存関係】next/link と lucide のみ。
 
 import Link from "next/link";
-import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay, BarChart3, Search } from "lucide-react";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay, BarChart3, Search, LineChart } from "lucide-react";
 
 const AREAS = [
   {
@@ -67,6 +67,14 @@ const AREAS = [
     title: "検索画面",
     summary:
       "検索の UI 改善案。結果の見せ方と絞り込みの幅を、現状改善(A)・Tier1/Tier2カード整合(B)・高機能フィルタ(C)で見比べる。検索結果は別状態として永続化しない。",
+    status: "検討中",
+  },
+  {
+    href: "/lab/analysis",
+    icon: LineChart,
+    title: "分析画面",
+    summary:
+      "分析の UI 改善案。KPI・グラフ・次アクションの比重を、概況ダッシュボード(A)・期間推移グラフ重視(B)・進捗/偏り/次アクション(C)で見比べる。グラフ・KPI は UI 確認用のダミー（本体集計は不変）。",
     status: "検討中",
   },
 ];

@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-25 — lab: 分析画面の UI LAB 3案と比較レポートを追加
+
+- `frontend/src/app/lab/analysis/` に分析ダッシュボードの比較用モック3案（A 概況ダッシュボード / B 期間推移・グラフ重視 / C 進捗・偏り・次アクション）を追加。索引ページ・3 Variant・寒色テーマ・匿名ダミーデータ・ローカル部品（AnalysisKpi / AnalysisCharts / AnalysisListCard）を実装し、`/lab` ハブに1エントリを追加。共有部品（LabFrame / ModernSidebar）は read-only 流用。チャートは既存 Recharts ＋依存なしの div バーで、**新規依存は追加していない**。
+- スクショ付き比較レポート `frontend/src/app/lab/analysis/_review/COMPARISON.md`（＋ `_review/COMPARISON/` に3枚）を追加。推奨は案A ベース＋案C 導線、案B 詳細タブ（採用判断はユーザーレビュー待ち・未確定）。
+- `docs/nextjs-ui-renovation-feedback.md` の分析エントリを「UI LAB あり（A/B/C）」へ更新し、`docs/nextjs-ui-renovation-master-memo.md` §3-B/§3-C に作成状況と次ステップ（全画面フィードバック一巡→Variant K 統合方針）を追記。
+- モック専用で実 DB/API/localStorage 非接続。**本体画面（`/analysis` ほか）・API・DB・migration・集計SQL・実データは未変更**。KPI・グラフ・進捗・偏りは UI 確認用ダミーで、本体の分析ロジック・APP_PLAYBACK 計算・ランキング式は不変。保存場所は匿名化分類のみ（実名・実パスなし）。`npm run lint` / `npm run typecheck` / `npm run build` パス。
+
+---
+
 ## 2026-06-25 — lab: ランキング・検索画面の UI LAB 3案と比較レポートを追加
 
 - `frontend/src/app/lab/ranking/`（カードランキング A / テーブル B / 上位カード＋下位テーブル C）と `frontend/src/app/lab/search/`（現状改善 A / Tier1・Tier2カード整合 B / 高機能フィルタ C）を UI LAB に新規追加。各エリアに索引ページ・3 Variant・寒色テーマ・モックデータ・ローカル部品を実装し、`/lab` ハブに2エントリを追加。共有部品（LabFrame / ModernSidebar / ConsoleCard / LevelButtons）は read-only 流用し、足りない表現はエリア配下のローカル部品（RankingFilterBar / RankingRow / RankingTable・SearchFilterPanel / SearchResultCard）で新設。
