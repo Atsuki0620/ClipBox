@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — feat(analysis): NextActionTab に Stage E（Tier1/Tier2 判定・選別）を追加
+
+- 未判定候補行に Tier1 レベルセレクト（未判定/Lv0〜Lv4）を追加。`setLevel` 経由で DB 更新・ファイル名リネーム・judgment_history 追記をサーバーに委譲（ロジック複製なし）。
+- 未選別候補行に Tier2 選別セレクト（未選別/Lv0〜Lv4）を追加。「未選別」選択で `unselectVideo`、Lv 選択で `setLevel`。Tier2 セレクトに「未判定」の選択肢は出さない。
+- レベル変更後は KPI（kpi/selection-kpi）・判定/選別トレンド・選別分布・偏り指標・該当候補リスト、および watch_later 系（SPEC §134/§135 の自動解除）を invalidate。
+- 利用不可動画はレベル変更も disabled。`displayContext` は不変、新 API・DB スキーマ変更なし。
+
+---
+
 ## 2026-06-27 — feat(analysis): NextActionTab に Stage D（再生・いいね・あとで見る・AVP）を追加
 
 - 候補一覧の各行から再生・いいね・あとで見るトグル・AVP候補登録ができるようになった（read-only → 操作可能な作業面へ）。

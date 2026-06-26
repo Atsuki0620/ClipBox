@@ -1,12 +1,12 @@
 "use client";
 
 // 詰まり・次アクション タブ — Stage D: 候補行から再生・いいね・あとで見る・AVP候補操作が可能。
-//   Stage E（Tier1判定・Tier2選別）は未着手。
-// 【設計制約】既存 likeVideo / toggleWatchLater / usePlayVideo / useAvpStore を流用。
+//   Stage E: 未判定候補は Tier1 レベル変更（未判定/Lv0〜Lv4）、未選別候補は Tier2 選別（未選別/Lv0〜Lv4）が可能。
+// 【設計制約】既存 setLevel / unselectVideo / likeVideo / toggleWatchLater / usePlayVideo を流用。
 //   新 API・DB スキーマ変更・displayContext 4値目・ファイル名プレフィックスロジック複製は禁止。
 //   状態境界: DB 状態は API 経由、AVP候補/再生中ハイライトは localStorage（SPEC_NEXTJS.md §0）。
-// 【依存関係】@/lib/api、@/lib/types、@/lib/store、@/lib/usePlayVideo、
-//   @/components/KpiCard、@/components/ui/button、checkbox、tooltip、lucide-react。
+// 【依存関係】@/lib/api、@/lib/types、@/lib/levels、@/lib/store、@/lib/usePlayVideo、
+//   @/components/KpiCard、@/components/ui/button、checkbox、select、tooltip、lucide-react。
 
 import Link from "next/link";
 import { useMemo, useState, type ComponentType } from "react";
@@ -35,9 +35,11 @@ import {
   likeVideo,
   listSelectionVideos,
   listVideos,
+  setLevel,
   toggleWatchLater,
+  unselectVideo,
 } from "@/lib/api";
-import { levelName, storageLabel } from "@/lib/levels";
+import { LEVEL_OPTIONS, levelName, storageLabel } from "@/lib/levels";
 import { useAvpStore } from "@/lib/store";
 import { usePlayVideo } from "@/lib/usePlayVideo";
 import type {
@@ -51,6 +53,12 @@ import type {
 import { KpiCard } from "@/components/KpiCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -406,7 +414,7 @@ export function NextActionTab({
           <div>
             <h2 className="text-sm font-semibold">候補一覧</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              各カテゴリ最大 {candidateLimit} 件。各候補行から再生・いいね・あとで見る・AVP候補操作ができます。
+              各カテゴリ最大 {candidateLimit} 件。各候補行から再生・いいね・あとで見る・AVP候補操作ができ、未判定・未選別は判定・選別操作も可能です。
             </p>
           </div>
         </div>
@@ -414,7 +422,7 @@ export function NextActionTab({
           <CandidateSection
             title="未判定"
             href="/"
-            kind="plain"
+            kind="tier1"
             total={unratedCandidatesQ.data?.total}
             items={unratedCandidatesQ.data?.items ?? []}
             loading={unratedCandidatesQ.isLoading}
@@ -427,7 +435,7 @@ export function NextActionTab({
           <CandidateSection
             title="未選別"
             href="/tier2"
-            kind="plain"
+            kind="tier2"
             total={unselectedCandidatesQ.data?.total}
             items={unselectedCandidatesQ.data?.items ?? []}
             loading={configQ.isLoading || unselectedCandidatesQ.isLoading}
@@ -720,6 +728,7 @@ function CandidateReadOnlyRow({
 }
 
 function CandidateInteractiveRow({
+  kind,
   href,
   video,
   lastViewed,
@@ -785,13 +794,77 @@ function CandidateInteractiveRow({
     onSettled: invalidateWatchLaterKeys,
   });
 
+  // Tier1判定（未判定セクション）/ Tier2選別（未選別セクション）のレベル変更。
+  // setLevel は DB 更新・ファイル名リネーム・judgment_history 追記をサーバー側で行う（複製しない）。
+  const levelM = useMutation({
+    mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["kpi"] });
+      qc.invalidateQueries({ queryKey: ["selection-kpi"] });
+      qc.invalidateQueries({ queryKey: ["likes"] });
+      qc.invalidateQueries({
+        queryKey: [
+          "analysis",
+          "next-action",
+          "candidates",
+          kind === "tier1" ? "unrated" : "unselected",
+        ],
+      });
+      qc.invalidateQueries({ queryKey: ["analysis", "judgment-trend"] });
+      qc.invalidateQueries({ queryKey: ["analysis", "selection-trend"] });
+      qc.invalidateQueries({
+        queryKey: ["analysis", "selection-distribution"],
+      });
+      qc.invalidateQueries({ queryKey: ["analysis", "data"] });
+      // 判定/選別完了で watch_later が自動解除され得る（SPEC §134/§135）。
+      invalidateWatchLaterKeys();
+    },
+  });
+
+  // Tier2 の「未選別」戻し（! プレフィックス付与・needs_selection=1）。
+  const unselectM = useMutation({
+    mutationFn: () => unselectVideo(id),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["selection-kpi"] });
+      qc.invalidateQueries({ queryKey: ["likes"] });
+      qc.invalidateQueries({
+        queryKey: ["analysis", "next-action", "candidates", "unselected"],
+      });
+      qc.invalidateQueries({ queryKey: ["analysis", "selection-trend"] });
+      qc.invalidateQueries({
+        queryKey: ["analysis", "selection-distribution"],
+      });
+      invalidateWatchLaterKeys();
+    },
+  });
+
   const busy =
-    playM.isPending || likeM.isPending || watchLaterM.isPending;
-  // 再生は利用不可で抑止。いいね・あとで見るは利用不可でも許可（busy のみ）。AVP は利用不可で不可。
+    playM.isPending ||
+    likeM.isPending ||
+    watchLaterM.isPending ||
+    levelM.isPending ||
+    unselectM.isPending;
+  // 再生・レベル変更は利用不可で抑止。いいね・あとで見るは利用不可でも許可（busy のみ）。AVP は利用不可で不可。
   const mutateDisabled = busy || !video.is_available;
   const avpDisabled = !video.is_available;
-  const error = playM.error || likeM.error || watchLaterM.error;
+  const error =
+    playM.error ||
+    likeM.error ||
+    watchLaterM.error ||
+    levelM.error ||
+    unselectM.error;
   const isAvpSelected = avpCandidateIds.includes(id);
+
+  // Tier2 では needs_selection=true または level=-1 を「未選別」と表示（「未判定」は Tier2 では出さない）。
+  const isTier2Unselected =
+    kind === "tier2" &&
+    (video.needs_selection || video.current_favorite_level === -1);
+  const levelDisplay = isTier2Unselected
+    ? "未選別"
+    : levelName(video.current_favorite_level);
+  const levelSelectValue = isTier2Unselected
+    ? "unselect"
+    : String(video.current_favorite_level);
 
   return (
     <div className="space-y-2 rounded-md border px-3 py-2">
@@ -800,7 +873,7 @@ function CandidateInteractiveRow({
         video={video}
         lastViewed={lastViewed}
         viewCount={viewCount}
-        levelLabel={levelName(video.current_favorite_level)}
+        levelLabel={levelDisplay}
       />
 
       {error && (
@@ -857,6 +930,39 @@ function CandidateInteractiveRow({
           </TooltipTrigger>
           <TooltipContent>AVPで再生する候補に追加</TooltipContent>
         </Tooltip>
+
+        {(kind === "tier1" || kind === "tier2") && (
+          <Select
+            value={levelSelectValue}
+            onValueChange={(v) => {
+              if (v === "unselect") unselectM.mutate();
+              else levelM.mutate(Number(v));
+            }}
+            disabled={mutateDisabled}
+          >
+            <SelectTrigger className="w-28" size="sm">
+              <span>{levelDisplay}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {kind === "tier2" ? (
+                <>
+                  <SelectItem value="unselect">未選別</SelectItem>
+                  {[0, 1, 2, 3, 4].map((l) => (
+                    <SelectItem key={l} value={String(l)}>
+                      {levelName(l)}
+                    </SelectItem>
+                  ))}
+                </>
+              ) : (
+                LEVEL_OPTIONS.map((l) => (
+                  <SelectItem key={l} value={String(l)}>
+                    {levelName(l)}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        )}
       </div>
     </div>
   );
