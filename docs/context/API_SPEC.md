@@ -275,8 +275,9 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 - **通常動画**: `null`=プレフィックスなし、`0`=`_`、`1`〜`4`=`#`×n+`_`。
 - **セレクション動画（`!` 未選別 / `+` 完了）の状態遷移**:
   - `level>=0` → **選別完了** `+`（`needs_selection=0` / `is_selection_completed=1`）。再判定でレベルだけ変えても `+` を維持。
-  - `null`（未判定） → **未選別** `!` へ差し戻す（`needs_selection=1` / `is_selection_completed=0`）。
-    `+` のままレベルだけ消す不正状態（`+name`）は作らない。レベルを保ったまま未選別へ戻すには `PUT /unselect` を使う。
+  - `null`（未判定） → **未選別** `!` へ差し戻す。**元のレベルは維持**する（例: `+###_name` → `!###_name`、Lv3 保持）。
+    `needs_selection=1` / `is_selection_completed=0` に更新。`+` のままレベルだけ消す不正状態（`+name`）は作らない。
+    この差し戻しは「判定」ではないため `judgment_history` は記録せず、`watch_later` も解除しない（`PUT /unselect` と同等）。
 - **ファイル不在時**: **`is_available = 0` に更新**し、エラーを返す。
   **レベル・ファイル名・判定履歴は変更しない**（`core/video_manager.py:326-331`）。
 
