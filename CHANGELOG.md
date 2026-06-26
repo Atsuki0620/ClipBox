@@ -11,6 +11,81 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-26 — docs(ui): 検索UIフィードバックを案D採用候補へ更新
+
+- `docs/nextjs-ui-renovation-feedback.md` の検索欄を更新し、UI LAB 既存3案はそのまま採用せず、案D「高機能フィルタ + 操作付きテーブル」を採用候補として記録。ランキングとは統合せず、検索はキーワードや条件で探してその場で処理する画面、ランキングは数値指標で並べる画面として責務を分ける方針を整理。
+- `docs/nextjs-ui-renovation-master-memo.md` は検索関連メモを短く更新し、詳細はフィードバック記録へ集約。共通の操作付きテーブル土台は共有するが、検索結果の永続化、ランキング計算式、APP_PLAYBACK 基準、API 契約、DB スキーマ、設定キーは変えない前提を明記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
+## 2026-06-26 — docs(ui): ランキングUIフィードバックを案D方針へ更新
+
+- `docs/nextjs-ui-renovation-feedback.md` のランキング欄を更新し、UI LAB 既存3案（A カードランキング / B テーブル / C 上位カード＋下位テーブル）は不採用、新方針は案D「操作付きスコアテーブル」として記録。Tier1 Variant J の「全体（テーブル表示）」を参考方向にし、通常表示・詳細列ON・行内アクション・詳細フィルタの方針を整理。
+- `docs/nextjs-ui-renovation-master-memo.md` はランキング関連メモを短く更新し、詳細はフィードバック記録へ誘導。ランキング計算式、APP_PLAYBACK 基準、タイブレーク、表示範囲、`displayContext` 3値固定、`GET /api/ranking` の契約は変えない前提を明記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
+## 2026-06-25 — lab: 分析画面の UI LAB 3案と比較レポートを追加
+
+- `frontend/src/app/lab/analysis/` に分析ダッシュボードの比較用モック3案（A 概況ダッシュボード / B 期間推移・グラフ重視 / C 進捗・偏り・次アクション）を追加。索引ページ・3 Variant・寒色テーマ・匿名ダミーデータ・ローカル部品（AnalysisKpi / AnalysisCharts / AnalysisListCard）を実装し、`/lab` ハブに1エントリを追加。共有部品（LabFrame / ModernSidebar）は read-only 流用。チャートは既存 Recharts ＋依存なしの div バーで、**新規依存は追加していない**。
+- スクショ付き比較レポート `frontend/src/app/lab/analysis/_review/COMPARISON.md`（＋ `_review/COMPARISON/` に3枚）を追加。推奨は案A ベース＋案C 導線、案B 詳細タブ（採用判断はユーザーレビュー待ち・未確定）。
+- `docs/nextjs-ui-renovation-feedback.md` の分析エントリを「UI LAB あり（A/B/C）」へ更新し、`docs/nextjs-ui-renovation-master-memo.md` §3-B/§3-C に作成状況と次ステップ（全画面フィードバック一巡→Variant K 統合方針）を追記。
+- モック専用で実 DB/API/localStorage 非接続。**本体画面（`/analysis` ほか）・API・DB・migration・集計SQL・実データは未変更**。KPI・グラフ・進捗・偏りは UI 確認用ダミーで、本体の分析ロジック・APP_PLAYBACK 計算・ランキング式は不変。保存場所は匿名化分類のみ（実名・実パスなし）。`npm run lint` / `npm run typecheck` / `npm run build` パス。
+
+---
+
+## 2026-06-25 — lab: ランキング・検索画面の UI LAB 3案と比較レポートを追加
+
+- `frontend/src/app/lab/ranking/`（カードランキング A / テーブル B / 上位カード＋下位テーブル C）と `frontend/src/app/lab/search/`（現状改善 A / Tier1・Tier2カード整合 B / 高機能フィルタ C）を UI LAB に新規追加。各エリアに索引ページ・3 Variant・寒色テーマ・モックデータ・ローカル部品を実装し、`/lab` ハブに2エントリを追加。共有部品（LabFrame / ModernSidebar / ConsoleCard / LevelButtons）は read-only 流用し、足りない表現はエリア配下のローカル部品（RankingFilterBar / RankingRow / RankingTable・SearchFilterPanel / SearchResultCard）で新設。
+- スクリーンショット付き比較レポート `frontend/src/app/lab/{ranking,search}/_review/COMPARISON.md`（＋ `_review/COMPARISON/` に各3枚）を追加。推奨はランキング=案C有力、検索=案A基線＋案B合流が有力（いずれも採用判断はユーザーレビュー待ち・未確定）。
+- `docs/nextjs-ui-renovation-feedback.md` のランキング・検索エントリを「UI LAB あり（A/B/C）」へ更新（採用判断は未記入のまま）。
+- モック専用で実 DB/API/localStorage 非接続。**本体画面（`/ranking`・`/search`・`VideoCard`・`store.ts`）・API・DB・migration・実データは未変更**。ランキングの順位・スコアは UI 確認用のダミーで、本体 APP_PLAYBACK 総合計算式・タイブレークは不変。検索結果は別状態として永続化しない。保存場所は匿名化分類のみ（実パス・実フォルダ名・実動画名なし）。`npm run lint` / `npm run typecheck` パス。
+
+---
+
+## 2026-06-25 — docs(ui): Next.js UI改修フィードバック記録を汎用名へリネーム＋作業フロー追記
+
+- `docs/nextjs-ui-tier1-improvement-brief.md` を `docs/nextjs-ui-renovation-feedback.md` へリネームし、Tier1専用の実装指示書から UI改修全体（Tier1 / Tier2 / あとで見る / AVP / ランキング / 分析 / 検索 / 設定 / Runtime control の9画面）のフィードバック記録へ再構成。画面ごとに採用判断 / 未決事項 / 改善要望 / 不具合メモを残す枠組みを新設し、既存の Tier1 variant-k 実装指示は付録として原文のまま保持。旧ファイル名を参照する箇所はリポジトリ内に無く、リンク切れは発生しない。
+- `docs/nextjs-ui-renovation-master-memo.md` に §3-C「今後の作業フロー」を追記。UI LAB → 全画面フィードバック一巡 → 全画面統合版 Variant K → 実DB匿名化サンプルDB → サンプルDB接続 Variant K 版 ClipBox → 本体統合、の手順と、実DB接続時は本体 ClipBox を停止し同一実DBへ同時書き込みしない並列運用の注意点を明記。
+- docs-only。実装・React/CSS・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。動画名・パス・個人情報は記載しない。
+
+---
+
+## 2026-06-25 — docs(lab): AVP画面に案D（上下分割・候補=上 / 再生セット=下リッチカード）を追加
+
+- ユーザー要望（上下分割を採るが候補一覧を上に、下の再生セットは他画面と同じ動画カードでレベル判定/いいね/あとで見るができるように）に応え、`frontend/src/app/lab/avp/variant-d/` を追加。上=候補一覧（再生対象を選ぶボタン操作中心の `AvpCard`）、下=再生セット最大4本を**本体 `VideoCard` の見た目・操作を複製したモックカード `AvpRichCard`** で表示。
+- `AvpRichCard` は本体カードと同じ shadcn プリミティブ・操作配置（再生 / レベル `Select` / いいね / あとで見る / 再生対象＋外す）を持つが、`@/lib/api`・`@tanstack/react-query`・`useAvpStore` を **import せず**、操作はページ内 `useState`（`useAvpLibrary`）のみ＝実 DB/API/localStorage 非接続・保存しない。下の編集は上の候補バッジにも反映（単一ソース）。
+- 比較レポート `frontend/src/app/lab/avp/_review/COMPARISON.md` を4案構成に更新し、案D 節・スクショ2枚（`avp-d-candidates-top-set-bottom` / `avp-d-rich-card`）・評価表 D 列・推奨/未決を追記。`/lab` ハブと AVP 索引、各 variant の切替リストに D を追加。
+- モック専用で実 DB/API/localStorage 非接続。AVP候補/再生対象=localStorage、あとで見る=DB の境界は不変更。本体 `/avp`・`VideoCard`・`store.ts`・API・DB・migration・実データの変更はなし。案A/B/C も変更なし（docs/lab のみ）。
+
+---
+
+## 2026-06-24 — docs(lab): AVP画面の UI 改善案3案を UI LAB に追加
+
+- `frontend/src/app/lab/avp/` に AVP（並列再生）画面の比較用モック3案（A 左右分割 / B 上下分割 / C タブ分離）を追加。候補プール管理と再生対象選択（最大4本）の見せ方を比較する。サムネなし情報カード＋4枠スロット表現で実装し、共有プリミティブ（`ModernSidebar` / `LabFrame` / `ConsoleKpi`）と寒色テーマを read-only 再利用。再生対象の4本上限・候補上限なし・候補/対象の cascade は `usePlayTargets`（ページ内ローカル）で本体 `store.ts` の挙動を再現。
+- スクリーンショット付き比較レポートを `frontend/src/app/lab/avp/_review/COMPARISON.md`（＋ `COMPARISON/` 配下に画像5枚）として追加。推奨は「案A ベース＋将来 案C 補助」。`/lab` ハブに索引エントリを1件追加。
+- モック専用で実 DB/API/localStorage 非接続。AVP候補/再生対象=localStorage、あとで見る=DB の境界は不変更。本体 `/avp`・`VideoCard`・`store.ts`・API・DB・migration・実データの変更はなし（docs/lab のみ）。
+
+---
+
+## 2026-06-24 — docs(lab): あとで見る画面の UI 改善案3案を UI LAB に追加
+
+- `frontend/src/app/lab/watch-later/` に「あとで見る」画面の比較用モック3案（A 現行改善 / B 付与理由 / C 作業台）を追加。3セクション（未処理 / 確認・見直し / 処理済み候補）構成は維持し、サムネなし情報カードで実装。共有プリミティブ（`ModernSidebar` / `LabFrame` / `LevelButtons`）と寒色テーマを read-only 再利用。
+- スクリーンショット付き比較レポートを `frontend/src/app/lab/watch-later/_review/COMPARISON.md`（＋ `COMPARISON/` 配下に画像）として追加。推奨は「案B ベース＋案C サマリー任意」。`/lab` ハブに索引エントリを1件追加。
+- モック専用で実 DB/API/localStorage 非接続。あとで見る=DB / AVP候補=localStorage の境界は不変更。AVP再生で自動解除しない方針は将来方針の可視化のみで本体挙動は変更しない。本体 `/watch-later`・`VideoCard`・API・DB・migration・実データの変更はなし（docs/lab のみ）。
+
+---
+
+## 2026-06-23 — docs(ui): Next.js UI改修 Phase 0 方針を整理
+
+- `docs/nextjs-ui-renovation-master-memo.md` に Phase 0 の決定事項と UI LAB 不足画面の比較対象を追記し、設定は scan-first 上部タブ版を主案、Runtime control はサイドバー下部維持として整理。
+- Tier1 の `/tier1` 正規URL化（`/` は redirect）と、AVP再生であとで見るを自動解除しない採用方針を、未実装の次回実装方針として `SPEC_NEXTJS.md` / `API_SPEC.md` / `ACCEPTANCE_CRITERIA.md` / メモに追記。
+- 実装、React/CSS、API、DB、migration、設定ファイル、実データの変更はなし（docs-only）。
+
+---
+
 ## 2026-06-21 — docs(reports): ランキング公平化後の実データスモーク確認を記録
 
 - Pull request #60〜#64 のランキング公平化後、ユーザーが実データでスモーク確認を完了し、旧視聴履歴 purge は dry-run のみ確認したことを、公開情報だけのレポート `docs/reports/RANKING_APP_PLAYBACK_POST_MERGE_SMOKE_20260621.md` として記録（`docs/reports/README.md` の入口にも追加）。
