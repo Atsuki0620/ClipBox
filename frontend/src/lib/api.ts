@@ -13,7 +13,6 @@ import type {
   FilterOptions,
   Kpi,
   LikeResponse,
-  LikesTrendItem,
   RankingParams,
   RankingResponse,
   ResponseTimeItem,
@@ -164,12 +163,8 @@ export function getJudgmentTrend(
   return request<TrendItem[]>(`/analysis/judgment-trend${toQuery({ ...params })}`);
 }
 
-export function getLikesTrend(
-  params: Pick<AnalysisTrendQuery, "bucket" | "start" | "end">,
-): Promise<LikesTrendItem[]> {
-  return request<LikesTrendItem[]>(
-    `/analysis/likes-trend${toQuery({ ...params })}`,
-  );
+export function getLikesTrend(params: AnalysisTrendQuery): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/likes-trend${toQuery({ ...params })}`);
 }
 
 export function getResponseTime(): Promise<ResponseTimeItem[]> {

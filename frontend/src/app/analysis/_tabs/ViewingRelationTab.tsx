@@ -74,11 +74,6 @@ export function ViewingRelationTab({
     () => getHistoryRange(period, customStart, customEnd),
     [period, customStart, customEnd],
   );
-  const likesTrendQuery = useMemo(
-    () => ({ ...historyRange, bucket }),
-    [bucket, historyRange],
-  );
-
   const viewingTrendQ = useQuery({
     queryKey: ["analysis", "viewing-trend", trendQuery],
     queryFn: () => getViewingTrend(trendQuery),
@@ -95,8 +90,8 @@ export function ViewingRelationTab({
     enabled,
   });
   const likesTrendQ = useQuery({
-    queryKey: ["analysis", "likes-trend", likesTrendQuery],
-    queryFn: () => getLikesTrend(likesTrendQuery),
+    queryKey: ["analysis", "likes-trend", trendQuery],
+    queryFn: () => getLikesTrend(trendQuery),
     enabled,
   });
 
@@ -156,7 +151,7 @@ export function ViewingRelationTab({
 
         <ChartPanel
           title="Tier2 選別数推移"
-          note="日次集計のみ（bucket 設定は反映されません）"
+          note="APIは日次取得。画面側で選択粒度に再集計します。"
         >
           {selectionTrendQ.isLoading ? (
             <EmptyMini>読み込み中...</EmptyMini>

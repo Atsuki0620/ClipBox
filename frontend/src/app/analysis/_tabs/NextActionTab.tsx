@@ -1,6 +1,6 @@
 "use client";
 
-// 詰まり・次アクション タブ — KPI・進捗・偏り指標・候補一覧で次に触るべき動画を把握する（Stage C/D）。
+// 詰まり・次アクション タブ — read-only の候補一覧と既存画面への導線（Stage C 相当）。Stage D の操作実装は未着手。
 // 【設計制約】VideoCard は載せず、DB 書き込み・localStorage 状態変更はしない。既存 read API の範囲のみ。
 //   候補一覧は read-only のコンパクト行。次アクションは既存画面（/ /tier2 /watch-later /search）への導線のみ。
 //   displayContext 3値・状態永続境界は変更しない。

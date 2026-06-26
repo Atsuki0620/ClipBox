@@ -1,7 +1,7 @@
 "use client";
 // 分析ページ — 4 タブシェル（旧分析 / 作業量・結果分布 / 視聴との関係 / 詰まり・次アクション）。
 // 【設計制約】フィルタ state はここで一元管理しタブへ props 渡し。タブ間で同一クエリキーを共有しキャッシュ重複取得を防ぐ。
-//   Stage C: 詰まり・次アクションも読取専用で共通フィルタを受け取る。DB変更なし・VideoCard操作なし。
+//   Stage C 相当: NextActionTab は read-only 候補一覧と既存画面への導線のみ。Stage D の操作実装は未着手。DB変更なし・VideoCard操作なし。
 // 【依存関係】@/lib/types、@/components/ui/tabs、./_components/AnalysisFilterBar、./_tabs/ 配下。
 
 import { useState } from "react";

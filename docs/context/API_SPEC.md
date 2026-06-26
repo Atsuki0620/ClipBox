@@ -529,15 +529,17 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 ### GET /api/analysis/likes-trend
 **説明**: いいね数トレンドを `likes.liked_at` 基準で**サーバー側でバケット集計**して返す。
-`videos` とは JOIN せず、`availability` / `include_deleted` / `period` は受け取らない。
+他のトレンドエンドポイントと同じ共通フィルタ（period / availability / include_deleted）を受け取る。
 
-**クエリパラメータ**: `start` / `end`: datetime（任意）/ `bucket`: `day` | `week` | `month`。
+**クエリパラメータ**: `period` / `start` / `end` / `availability`（`利用可能のみ`|`利用不可のみ`|`すべて`）/
+`include_deleted`: bool / `bucket`: `day` | `week` | `month`。
 
 **レスポンス**: `[ { "label": "2026-06-08", "count": 12 } ]`（200 OK）
 - `label`: day=`YYYY-MM-DD` / week=月曜開始日(`YYYY-MM-DD`) / month=`YYYY-MM`。
-- `count`: `likes` テーブルの行数。期間指定は `liked_at` に適用する。
+- `count`: `likes` テーブルの行数（availability / include_deleted でフィルタ後）。期間指定は `liked_at` に適用する。
 
-**実装**: `likes` 単体の SQL 集計（`app_service.get_likes_trend`）。
+**実装**: `likes l JOIN videos v ON v.id = l.video_id` の SQL 集計（`app_service.get_likes_trend`）。
+`availability` は `videos.is_available`、`include_deleted=false` は `is_deleted=0` に写像。
 
 ---
 

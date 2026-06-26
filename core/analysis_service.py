@@ -419,28 +419,24 @@ def get_judgment_trend(
 def get_likes_trend(
     period_start: Optional[datetime],
     period_end: Optional[datetime],
+    is_available: Optional[bool],
+    include_deleted: bool,
     bucket: str = "day",
     conn: Optional[Connection] = None,
 ) -> pd.DataFrame:
-    """いいね数のバケット別推移を返す（likes.liked_at 基準・SQL 集計）。
-
-    videos とは JOIN せず、availability / include_deleted / period プリセットも持たない。
+    """いいね数のバケット別推移を返す（likes.liked_at 基準・videos JOIN・SQL 集計）。
 
     Returns:
         DataFrame: columns = ["label", "count"]
     """
-    label = _bucket_label_expr("liked_at", bucket)
-    where = ""
-    params: list = []
-    if period_start is not None:
-        where += " AND liked_at >= ?"
-        params.append(period_start)
-    if period_end is not None:
-        where += " AND liked_at <= ?"
-        params.append(period_end)
+    label = _bucket_label_expr("l.liked_at", bucket)
+    where, params = _trend_filters(
+        "l.liked_at", period_start, period_end, is_available, include_deleted
+    )
     query = (
         f"SELECT {label} AS label, COUNT(*) AS count"
-        f" FROM likes WHERE 1=1{where}"
+        f" FROM likes l JOIN videos v ON v.id = l.video_id"
+        f" WHERE 1=1{where}"
         f" GROUP BY label ORDER BY label"
     )
 

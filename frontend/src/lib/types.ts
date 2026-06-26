@@ -230,11 +230,6 @@ export interface TrendItem {
   count: number;
 }
 
-export interface LikesTrendItem {
-  label: string;
-  count: number;
-}
-
 export interface ResponseTimeItem {
   duration_ms: number;
   storage: string | null;

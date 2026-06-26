@@ -11,19 +11,20 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
-## 2026-06-26 — feat(analysis): ダッシュボード Stage D の候補一覧つきドリルダウンを追加
+## 2026-06-26 — feat(analysis): NextActionTab に read-only の次アクション候補一覧を追加（Stage C 相当）
 
 - `NextActionTab` に未判定・未選別・あとで見る・利用不可の候補一覧（read-only）を追加。各カテゴリは `getConfig`、`listVideos`、`listSelectionVideos`、`getLastViewed`、`getViewCounts` で取得し、保存場所・利用可否・最終再生・再生回数をコンパクト行で表示。
 - 次アクションは既存画面（`/`、`/tier2`、`/watch-later`、`/search`）への導線のみ。VideoCard 操作・DB 書き込み・localStorage 永続境界・`displayContext` 3値は変更なし。
 - `/analysis` の共通フィルタ（period/availability/includeDeleted/topN 等）を `NextActionTab` に渡すよう `page.tsx` を更新。
-- `SPEC_NEXTJS.md` と `ACCEPTANCE_CRITERIA.md` を Stage D の read-only 候補一覧・既存画面への導線に更新。
+- `SPEC_NEXTJS.md` と `ACCEPTANCE_CRITERIA.md` を read-only 候補一覧・既存画面への導線に更新。
+- Stage D の操作実装（再生・いいね・あとで見る・Tier1判定・Tier2選別）は未着手。
 
 ---
 
 ## 2026-06-26 — feat(analysis): ダッシュボード Stage B の Tier/いいね推移を追加
 
 - `GET /api/analysis/judgment-trend` に optional `tier=1|2` を追加。未指定時は既存どおり Tier1+Tier2 を含め、Tier1 は `was_selection_judgment=0`、Tier2 は `was_selection_judgment=1` に絞る。
-- `GET /api/analysis/likes-trend` を追加。`likes.liked_at` 基準で day/week/month 集計し、`availability` / `include_deleted` / `period` は受け取らない。
+- `GET /api/analysis/likes-trend` を追加。`likes.liked_at` 基準で day/week/month 集計し、`videos` と JOIN して `availability` / `include_deleted` / `period` と連動する。
 - `WorkloadDistributionTab` に「Tier1 判定数推移」を追加し、`ViewingRelationTab` の判定推移を Tier1 固定に変更。あわせて「いいね数推移」を追加。
 - API 仕様、型定義、API ラッパ、分析 API テストを更新。DB スキーマ・migration、Stage A の旧分析/次アクションタブ、`displayContext` 3値は変更なし。
 

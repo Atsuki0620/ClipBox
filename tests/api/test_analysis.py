@@ -171,7 +171,7 @@ def test_judgment_trend_invalid_tier_422(client):
 
 
 def test_likes_trend_day_filters_by_liked_at(client):
-    """likes-trend は liked_at の start/end で絞り、日次件数を返す。"""
+    """likes-trend は period=カスタム + date start/end で絞り、日次件数を返す。"""
     with get_db_connection() as conn:
         conn.execute(
             "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
@@ -184,11 +184,7 @@ def test_likes_trend_day_filters_by_liked_at(client):
 
     body = client.get(
         "/api/analysis/likes-trend",
-        params={
-            "bucket": "day",
-            "start": "2026-06-01T00:00:00",
-            "end": "2026-06-02T23:59:59",
-        },
+        params={"period": "カスタム", "bucket": "day", "start": "2026-06-01", "end": "2026-06-02"},
     ).json()
 
     assert body == [
@@ -198,7 +194,7 @@ def test_likes_trend_day_filters_by_liked_at(client):
 
 
 def test_likes_trend_month_counts_all_likes(client):
-    """likes-trend の月次集計は likes 単体の件数を月ラベルで返す。"""
+    """likes-trend の月次集計は videos JOIN 後の件数を月ラベルで返す。"""
     with get_db_connection() as conn:
         conn.execute(
             "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
@@ -214,6 +210,78 @@ def test_likes_trend_month_counts_all_likes(client):
         {"label": "2026-05", "count": 1},
         {"label": "2026-06", "count": 2},
     ]
+
+
+def test_likes_trend_excludes_unavailable_videos(client):
+    """availability=利用可能のみ のとき is_available=0 の動画のいいねは含まれない。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (2, 'b.mp4', 'C:/b.mp4', 3, 'C_DRIVE', 0, 0)"
+        )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 10:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (2, '2026-06-01 11:00:00')")
+
+    body = client.get(
+        "/api/analysis/likes-trend",
+        params={"bucket": "day", "availability": "利用可能のみ"},
+    ).json()
+
+    assert len(body) == 1
+    assert body[0]["count"] == 1  # 利用可能動画(id=1)のいいねのみ
+
+
+def test_likes_trend_excludes_deleted_videos(client):
+    """include_deleted=false（デフォルト）のとき is_deleted=1 の動画のいいねは除外される。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (2, 'b.mp4', 'C:/b.mp4', 3, 'C_DRIVE', 1, 1)"
+        )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 10:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (2, '2026-06-01 11:00:00')")
+
+    body = client.get("/api/analysis/likes-trend", params={"bucket": "day"}).json()
+
+    assert len(body) == 1
+    assert body[0]["count"] == 1  # 未削除動画(id=1)のいいねのみ
+
+
+def test_likes_trend_includes_deleted_when_flagged(client):
+    """include_deleted=true のとき is_deleted=1 の動画のいいねも count に含まれる。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (2, 'b.mp4', 'C:/b.mp4', 3, 'C_DRIVE', 1, 1)"
+        )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 10:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (2, '2026-06-01 11:00:00')")
+
+    body = client.get(
+        "/api/analysis/likes-trend",
+        params={"bucket": "day", "include_deleted": "true"},
+    ).json()
+
+    assert len(body) == 1
+    assert body[0]["count"] == 2  # 削除済み動画(id=2)も含む
+
+
+def test_likes_trend_custom_period_without_dates_returns_422(client):
+    """period=カスタム で start/end なしは 422 を返す。"""
+    r = client.get("/api/analysis/likes-trend", params={"period": "カスタム", "bucket": "day"})
+    assert r.status_code == 422
 
 
 def test_response_time(client):

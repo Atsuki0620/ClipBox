@@ -1,7 +1,7 @@
 "use client";
 // 作業量・結果分布 タブ — Tier1/Tier2 の判定件数KPIと分布グラフ（Stage B）。
 // 【設計制約】Tier1 判定推移は judgment-trend?tier=1、Tier2 は selection-trend/selection-distribution を使う。
-//   分布集計は getAnalysisData のフロント集計に依存。selection-trend は日次固定。
+//   分布集計は getAnalysisData のフロント集計に依存。selection-trend は日次APIで取得し、クライアント側で bucket に応じて再集計。
 // 【依存関係】@/lib/api、@/lib/types、@/lib/levels、@/components/KpiCard、../_components/ 配下。
 
 import { useMemo } from "react";
@@ -184,7 +184,7 @@ export function WorkloadDistributionTab({
 
         <ChartPanel
           title="Tier2 選別数推移"
-          note="日次集計のみ（bucket 設定は反映されません）"
+          note="APIは日次取得。画面側で選択粒度に再集計します。"
         >
           {selectionTrendQ.isLoading ? (
             <EmptyMini>読み込み中...</EmptyMini>
