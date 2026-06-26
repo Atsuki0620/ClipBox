@@ -140,6 +140,82 @@ def test_judgment_trend_week_distinct(client):
     assert body[0]["count"] == 1
 
 
+def test_judgment_trend_tier_filter_keeps_default_behavior(client):
+    """tier 未指定は既存どおり Tier1+Tier2、tier 指定時だけ判定種別で絞る。"""
+    _seed()
+
+    default_body = client.get(
+        "/api/analysis/judgment-trend", params={"period": "全期間", "bucket": "day"}
+    ).json()
+    tier1_body = client.get(
+        "/api/analysis/judgment-trend",
+        params={"period": "全期間", "bucket": "day", "tier": 1},
+    ).json()
+    tier2_body = client.get(
+        "/api/analysis/judgment-trend",
+        params={"period": "全期間", "bucket": "day", "tier": 2},
+    ).json()
+
+    assert sum(item["count"] for item in default_body) == 2
+    assert sum(item["count"] for item in tier1_body) == 1
+    assert sum(item["count"] for item in tier2_body) == 1
+
+
+def test_judgment_trend_invalid_tier_422(client):
+    """tier は 1/2 のみ許可する。"""
+    r = client.get(
+        "/api/analysis/judgment-trend",
+        params={"period": "全期間", "bucket": "day", "tier": 3},
+    )
+    assert r.status_code == 422
+
+
+def test_likes_trend_day_filters_by_liked_at(client):
+    """likes-trend は liked_at の start/end で絞り、日次件数を返す。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-05-31 12:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 10:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 11:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-02 12:00:00')")
+
+    body = client.get(
+        "/api/analysis/likes-trend",
+        params={
+            "bucket": "day",
+            "start": "2026-06-01T00:00:00",
+            "end": "2026-06-02T23:59:59",
+        },
+    ).json()
+
+    assert body == [
+        {"label": "2026-06-01", "count": 2},
+        {"label": "2026-06-02", "count": 1},
+    ]
+
+
+def test_likes_trend_month_counts_all_likes(client):
+    """likes-trend の月次集計は likes 単体の件数を月ラベルで返す。"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO videos (id, essential_filename, current_full_path, current_favorite_level,"
+            " storage_location, is_available, is_deleted) VALUES (1, 'a.mp4', 'C:/a.mp4', 3, 'C_DRIVE', 1, 0)"
+        )
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-05-31 12:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-01 10:00:00')")
+        conn.execute("INSERT INTO likes (video_id, liked_at) VALUES (1, '2026-06-02 12:00:00')")
+
+    body = client.get("/api/analysis/likes-trend", params={"bucket": "month"}).json()
+
+    assert body == [
+        {"label": "2026-05", "count": 1},
+        {"label": "2026-06", "count": 2},
+    ]
+
+
 def test_response_time(client):
     """応答時間データが返る。"""
     _seed()

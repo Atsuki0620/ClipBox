@@ -221,10 +221,16 @@ export type AnalysisBucket = "day" | "week" | "month";
 // 視聴/判定トレンド（サーバー集計）のクエリ。video_ids は送らない。
 export interface AnalysisTrendQuery extends AnalysisQuery {
   bucket: AnalysisBucket;
+  tier?: 1 | 2;
 }
 
 // バケット別件数（label=日/週(月曜開始日)/月）。
 export interface TrendItem {
+  label: string;
+  count: number;
+}
+
+export interface LikesTrendItem {
   label: string;
   count: number;
 }

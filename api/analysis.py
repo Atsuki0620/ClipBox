@@ -156,13 +156,29 @@ def judgment_trend(
     availability: Availability = Query(default="すべて"),
     include_deleted: bool = Query(default=False),
     bucket: Bucket = Query(default="day"),
+    tier: Optional[int] = Query(default=None, ge=1, le=2),
 ):
     """判定のバケット別推移（バケットごとに COUNT(DISTINCT video_id)・サーバー側 SQL 集計）。"""
     period_start, period_end = _resolve_period(period, start, end)
     df = app_service.get_judgment_trend(
-        period_start, period_end, _AVAIL_TO_FILTER[availability], include_deleted, bucket
+        period_start,
+        period_end,
+        _AVAIL_TO_FILTER[availability],
+        include_deleted,
+        bucket,
+        tier,
     )
     return df_records(df)
+
+
+@router.get("/analysis/likes-trend", response_model=List[TrendItem])
+def likes_trend(
+    start: Optional[datetime] = Query(default=None),
+    end: Optional[datetime] = Query(default=None),
+    bucket: Bucket = Query(default="day"),
+):
+    """いいね数のバケット別推移（likes.liked_at 基準・サーバー側 SQL 集計）。"""
+    return df_records(app_service.get_likes_trend(start, end, bucket))
 
 
 @router.get("/analysis/response-time", response_model=List[ResponseTimeItem])

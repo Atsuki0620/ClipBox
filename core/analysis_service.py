@@ -388,10 +388,12 @@ def get_judgment_trend(
     is_available: Optional[bool],
     include_deleted: bool,
     bucket: str = "day",
+    tier: Optional[int] = None,
 ) -> pd.DataFrame:
     """判定のバケット別推移を返す（バケットごとに COUNT(DISTINCT video_id)・SQL 集計）。
 
     週/月でも同一動画はバケット内で1カウントになる（client 側合算では過大計上になるため SQL で distinct）。
+    tier=1 は Tier1 判定、tier=2 は Tier2 選別判定だけに絞る。None は既存どおり両方を含む。
 
     Returns:
         DataFrame: columns = ["label", "count"]
@@ -400,6 +402,10 @@ def get_judgment_trend(
     where, params = _trend_filters(
         "jh.judged_at", period_start, period_end, is_available, include_deleted
     )
+    if tier == 1:
+        where += " AND jh.was_selection_judgment = 0"
+    elif tier == 2:
+        where += " AND jh.was_selection_judgment = 1"
     query = (
         f"SELECT {label} AS label, COUNT(DISTINCT jh.video_id) AS count"
         f" FROM judgment_history jh JOIN videos v ON v.id = jh.video_id"
@@ -408,6 +414,41 @@ def get_judgment_trend(
     )
     with get_db_connection() as conn:
         return pd.read_sql_query(query, conn, params=params)
+
+
+def get_likes_trend(
+    period_start: Optional[datetime],
+    period_end: Optional[datetime],
+    bucket: str = "day",
+    conn: Optional[Connection] = None,
+) -> pd.DataFrame:
+    """いいね数のバケット別推移を返す（likes.liked_at 基準・SQL 集計）。
+
+    videos とは JOIN せず、availability / include_deleted / period プリセットも持たない。
+
+    Returns:
+        DataFrame: columns = ["label", "count"]
+    """
+    label = _bucket_label_expr("liked_at", bucket)
+    where = ""
+    params: list = []
+    if period_start is not None:
+        where += " AND liked_at >= ?"
+        params.append(period_start)
+    if period_end is not None:
+        where += " AND liked_at <= ?"
+        params.append(period_end)
+    query = (
+        f"SELECT {label} AS label, COUNT(*) AS count"
+        f" FROM likes WHERE 1=1{where}"
+        f" GROUP BY label ORDER BY label"
+    )
+
+    if conn is not None:
+        return pd.read_sql_query(query, conn, params=params)
+
+    with get_db_connection() as local_conn:
+        return pd.read_sql_query(query, local_conn, params=params)
 
 
 def get_view_count_ranking(df_filtered: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:

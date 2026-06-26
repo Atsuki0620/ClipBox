@@ -515,13 +515,29 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **クエリパラメータ**: `period` / `start` / `end` / `availability`（`利用可能のみ`|`利用不可のみ`|`すべて`）/
 `include_deleted`: bool / `bucket`: `day` | `week` | `month`。
+`judgment-trend` のみ `tier`: `1` | `2` を任意指定できる（省略時は既存どおり Tier1+Tier2）。
 
 **レスポンス**: `[ { "label": "2026-06-08", "count": 12 } ]`（200 OK）
 - `label`: day=`YYYY-MM-DD` / week=月曜開始日(`YYYY-MM-DD`) / month=`YYYY-MM`（selection-trend と書式統一）。
 - viewing は `APP_PLAYBACK` の `COUNT(*)`、judgment は **バケットごとに `COUNT(DISTINCT video_id)`**（週/月でも同一動画は1カウント）。
+- `judgment-trend?tier=1` は `was_selection_judgment=0`、`tier=2` は `was_selection_judgment=1` に絞る。不正な `tier` は 422。
 
 **実装**: `viewing_history`/`judgment_history` × `videos` を JOIN した SQL 集計（`app_service.get_viewing_trend` /
 `get_judgment_trend`）。`availability` は `videos.is_available`、`include_deleted=false` は `is_deleted=0` に写像。
+
+---
+
+### GET /api/analysis/likes-trend
+**説明**: いいね数トレンドを `likes.liked_at` 基準で**サーバー側でバケット集計**して返す。
+`videos` とは JOIN せず、`availability` / `include_deleted` / `period` は受け取らない。
+
+**クエリパラメータ**: `start` / `end`: datetime（任意）/ `bucket`: `day` | `week` | `month`。
+
+**レスポンス**: `[ { "label": "2026-06-08", "count": 12 } ]`（200 OK）
+- `label`: day=`YYYY-MM-DD` / week=月曜開始日(`YYYY-MM-DD`) / month=`YYYY-MM`。
+- `count`: `likes` テーブルの行数。期間指定は `liked_at` に適用する。
+
+**実装**: `likes` 単体の SQL 集計（`app_service.get_likes_trend`）。
 
 ---
 
