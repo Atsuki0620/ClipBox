@@ -11,6 +11,22 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-26 — docs(ui): 検索UIフィードバックを案D採用候補へ更新
+
+- `docs/nextjs-ui-renovation-feedback.md` の検索欄を更新し、UI LAB 既存3案はそのまま採用せず、案D「高機能フィルタ + 操作付きテーブル」を採用候補として記録。ランキングとは統合せず、検索はキーワードや条件で探してその場で処理する画面、ランキングは数値指標で並べる画面として責務を分ける方針を整理。
+- `docs/nextjs-ui-renovation-master-memo.md` は検索関連メモを短く更新し、詳細はフィードバック記録へ集約。共通の操作付きテーブル土台は共有するが、検索結果の永続化、ランキング計算式、APP_PLAYBACK 基準、API 契約、DB スキーマ、設定キーは変えない前提を明記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
+## 2026-06-26 — docs(ui): ランキングUIフィードバックを案D方針へ更新
+
+- `docs/nextjs-ui-renovation-feedback.md` のランキング欄を更新し、UI LAB 既存3案（A カードランキング / B テーブル / C 上位カード＋下位テーブル）は不採用、新方針は案D「操作付きスコアテーブル」として記録。Tier1 Variant J の「全体（テーブル表示）」を参考方向にし、通常表示・詳細列ON・行内アクション・詳細フィルタの方針を整理。
+- `docs/nextjs-ui-renovation-master-memo.md` はランキング関連メモを短く更新し、詳細はフィードバック記録へ誘導。ランキング計算式、APP_PLAYBACK 基準、タイブレーク、表示範囲、`displayContext` 3値固定、`GET /api/ranking` の契約は変えない前提を明記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
 ## 2026-06-25 — lab: 分析画面の UI LAB 3案と比較レポートを追加
 
 - `frontend/src/app/lab/analysis/` に分析ダッシュボードの比較用モック3案（A 概況ダッシュボード / B 期間推移・グラフ重視 / C 進捗・偏り・次アクション）を追加。索引ページ・3 Variant・寒色テーマ・匿名ダミーデータ・ローカル部品（AnalysisKpi / AnalysisCharts / AnalysisListCard）を実装し、`/lab` ハブに1エントリを追加。共有部品（LabFrame / ModernSidebar）は read-only 流用。チャートは既存 Recharts ＋依存なしの div バーで、**新規依存は追加していない**。
