@@ -212,6 +212,7 @@ get_selection_judgment_trend = analysis_service.get_selection_judgment_trend
 get_selection_level_distribution = analysis_service.get_selection_level_distribution
 get_viewing_trend = analysis_service.get_viewing_trend
 get_judgment_trend = analysis_service.get_judgment_trend
+get_likes_trend = analysis_service.get_likes_trend
 get_response_time_data = analysis_service.get_response_time_data
 get_ranked_videos_for_tab = analysis_service.get_ranked_videos_for_tab
 

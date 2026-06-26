@@ -377,6 +377,91 @@ def test_non_selection_judgment_clears_watch_later_without_plus(tmp_path, tmp_db
     assert row["watch_later"] == 0, "判定済み(level>=0)で あとで見る が自動解除される"
 
 
+def test_selection_completed_to_unrated_reverts_to_unselected_keeping_level(tmp_path, tmp_db):
+    """選別完了(+)動画を未判定(-1)に戻すと、元のレベルを維持して未選別(!)へ差し戻す。
+
+    +###_movie → !###_movie（Lv3 維持）。+name の不正状態を作らず、判定ではないため
+    judgment_history も記録しない（unselect_video と同義）。
+    """
+    completed_file = tmp_path / "+###_movie.mp4"
+    completed_file.write_text("dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection,
+                is_selection_completed, watch_later
+            ) VALUES (?, ?, 3, 'C_DRIVE', 1, 0, 0, 1, 1)
+            """,
+            ("movie.mp4", str(completed_file)),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("movie.mp4",)
+        ).fetchone()[0]
+
+    result = VideoManager().set_favorite_level_with_rename(video_id, None)
+    assert result["status"] == "success"
+
+    new_path = tmp_path / "!###_movie.mp4"
+    assert new_path.exists(), "元のレベルを維持して未選別(!)へ差し戻す"
+    assert not completed_file.exists()
+
+    with database.get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT current_full_path, current_favorite_level, needs_selection,"
+            " is_selection_completed, watch_later FROM videos WHERE id = ?",
+            (video_id,),
+        ).fetchone()
+        history = conn.execute(
+            "SELECT COUNT(*) FROM judgment_history WHERE video_id = ?", (video_id,)
+        ).fetchone()[0]
+    assert Path(row["current_full_path"]).name == "!###_movie.mp4"
+    assert row["current_favorite_level"] == 3, "元のレベル(Lv3)を維持する"
+    assert row["needs_selection"] == 1, "未選別に戻る"
+    assert row["is_selection_completed"] == 0, "完了フラグは解除される"
+    assert row["watch_later"] == 1, "未選別差し戻しでは あとで見る を解除しない"
+    assert history == 0, "差し戻しは判定ではないため judgment_history を記録しない"
+
+
+def test_selection_completed_relevel_keeps_plus(tmp_path, tmp_db):
+    """選別完了(+)動画のレベル再判定(level>=0)は + 完了状態を維持する。"""
+    completed_file = tmp_path / "+###_movie.mp4"
+    completed_file.write_text("dummy")
+
+    with database.get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (
+                essential_filename, current_full_path, current_favorite_level,
+                storage_location, is_available, is_deleted, needs_selection, is_selection_completed
+            ) VALUES (?, ?, 3, 'C_DRIVE', 1, 0, 0, 1)
+            """,
+            ("movie.mp4", str(completed_file)),
+        )
+        video_id = conn.execute(
+            "SELECT id FROM videos WHERE essential_filename = ?", ("movie.mp4",)
+        ).fetchone()[0]
+
+    result = VideoManager().set_favorite_level_with_rename(video_id, 2)
+    assert result["status"] == "success"
+
+    new_path = tmp_path / "+##_movie.mp4"
+    assert new_path.exists(), "+ 完了のままレベルだけ ## に変わる"
+
+    with database.get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT current_full_path, current_favorite_level, needs_selection,"
+            " is_selection_completed FROM videos WHERE id = ?",
+            (video_id,),
+        ).fetchone()
+    assert Path(row["current_full_path"]).name == "+##_movie.mp4"
+    assert row["current_favorite_level"] == 2
+    assert row["needs_selection"] == 0
+    assert row["is_selection_completed"] == 1
+
+
 def test_video_from_row_carries_watch_later(tmp_db):
     """row→Video マッパーが watch_later を保持する（R8）"""
     with database.get_db_connection() as conn:

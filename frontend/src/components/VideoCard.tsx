@@ -136,12 +136,16 @@ export function VideoCard({
   const levelM = useMutation({
     mutationFn: (level: number) => setLevel(id, level === -1 ? null : level),
     onSuccess: async (_data, level) => {
-      setLocalCardVideo((current) => ({
-        ...current,
-        current_favorite_level: level,
-        needs_selection:
-          displayContext === "tier2" ? false : current.needs_selection,
-      }));
+      setLocalCardVideo((current) => {
+        // セレクション動画にレベル(>=0)を付けたら選別完了（needs_selection=0, completed=1）。
+        const isSel = current.needs_selection || current.is_selection_completed;
+        return {
+          ...current,
+          current_favorite_level: level,
+          needs_selection: isSel ? false : current.needs_selection,
+          is_selection_completed: isSel ? true : current.is_selection_completed,
+        };
+      });
       await refreshCardVideo();
     },
     onSettled: invalidateAfterCardWrite,
@@ -178,12 +182,14 @@ export function VideoCard({
     onSettled: invalidateWatchLater,
   });
 
-  // Tier2 では needs_selection=true または level=-1 の動画を「未選別」と表示する（「未判定」は Tier2 では不要）。
+  // セレクション動画（! 未選別 / + 完了）は displayContext に関わらず「未選別」を表示・選択肢に出す。
+  // /avp 等 tier2 以外の画面でも選別状態を正しく扱う（Tier1 の通常動画は従来どおり 未判定/Lv0-4）。
   const displayLevel = cardVideo.current_favorite_level;
   const localNeedsSelection = cardVideo.needs_selection;
   const localWatchLater = cardVideo.watch_later;
-  const isTier2Unselected = displayContext === "tier2" && (localNeedsSelection || displayLevel === -1);
-  const levelDisplay = isTier2Unselected ? "未選別" : levelName(displayLevel);
+  const isSelectionVideo = localNeedsSelection || cardVideo.is_selection_completed;
+  const isUnselected = isSelectionVideo && (localNeedsSelection || displayLevel === -1);
+  const levelDisplay = isUnselected ? "未選別" : levelName(displayLevel);
 
   const displayTitle =
     settings.card_title_max_length > 0
@@ -240,7 +246,7 @@ export function VideoCard({
               <TooltipContent>AVPで再生する候補に追加</TooltipContent>
             </Tooltip>
           )}
-          {isJudged && !isTier2Unselected && (
+          {isJudged && !isUnselected && (
             <TBadge
               tip={`お気に入りレベル: ${levelName(displayLevel)}`}
               style={{ backgroundColor: levelColor(displayLevel) }}
@@ -302,7 +308,7 @@ export function VideoCard({
           </Button>
 
           <Select
-            value={isTier2Unselected ? "unselect" : String(displayLevel)}
+            value={isUnselected ? "unselect" : String(displayLevel)}
             onValueChange={(v) => {
               if (v === "unselect") unselectM.mutate();
               else levelM.mutate(Number(v));
@@ -313,7 +319,7 @@ export function VideoCard({
               <span>{levelDisplay}</span>
             </SelectTrigger>
             <SelectContent>
-              {displayContext === "tier2" ? (
+              {isSelectionVideo ? (
                 <>
                   <SelectItem value="unselect">未選別</SelectItem>
                   {[0, 1, 2, 3, 4].map((l) => (

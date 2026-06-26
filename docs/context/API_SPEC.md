@@ -272,6 +272,12 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **副作用**:
 - **成功時**: ファイルをリネームし、`current_favorite_level` を更新、`judgment_history` を記録。
+- **通常動画**: `null`=プレフィックスなし、`0`=`_`、`1`〜`4`=`#`×n+`_`。
+- **セレクション動画（`!` 未選別 / `+` 完了）の状態遷移**:
+  - `level>=0` → **選別完了** `+`（`needs_selection=0` / `is_selection_completed=1`）。再判定でレベルだけ変えても `+` を維持。
+  - `null`（未判定） → **未選別** `!` へ差し戻す。**元のレベルは維持**する（例: `+###_name` → `!###_name`、Lv3 保持）。
+    `needs_selection=1` / `is_selection_completed=0` に更新。`+` のままレベルだけ消す不正状態（`+name`）は作らない。
+    この差し戻しは「判定」ではないため `judgment_history` は記録せず、`watch_later` も解除しない（`PUT /unselect` と同等）。
 - **ファイル不在時**: **`is_available = 0` に更新**し、エラーを返す。
   **レベル・ファイル名・判定履歴は変更しない**（`core/video_manager.py:326-331`）。
 
@@ -515,13 +521,31 @@ localStorage 永続候補の掃除に使える。空配列は `items` 空・`mis
 
 **クエリパラメータ**: `period` / `start` / `end` / `availability`（`利用可能のみ`|`利用不可のみ`|`すべて`）/
 `include_deleted`: bool / `bucket`: `day` | `week` | `month`。
+`judgment-trend` のみ `tier`: `1` | `2` を任意指定できる（省略時は既存どおり Tier1+Tier2）。
 
 **レスポンス**: `[ { "label": "2026-06-08", "count": 12 } ]`（200 OK）
 - `label`: day=`YYYY-MM-DD` / week=月曜開始日(`YYYY-MM-DD`) / month=`YYYY-MM`（selection-trend と書式統一）。
 - viewing は `APP_PLAYBACK` の `COUNT(*)`、judgment は **バケットごとに `COUNT(DISTINCT video_id)`**（週/月でも同一動画は1カウント）。
+- `judgment-trend?tier=1` は `was_selection_judgment=0`、`tier=2` は `was_selection_judgment=1` に絞る。不正な `tier` は 422。
 
 **実装**: `viewing_history`/`judgment_history` × `videos` を JOIN した SQL 集計（`app_service.get_viewing_trend` /
 `get_judgment_trend`）。`availability` は `videos.is_available`、`include_deleted=false` は `is_deleted=0` に写像。
+
+---
+
+### GET /api/analysis/likes-trend
+**説明**: いいね数トレンドを `likes.liked_at` 基準で**サーバー側でバケット集計**して返す。
+他のトレンドエンドポイントと同じ共通フィルタ（period / availability / include_deleted）を受け取る。
+
+**クエリパラメータ**: `period` / `start` / `end` / `availability`（`利用可能のみ`|`利用不可のみ`|`すべて`）/
+`include_deleted`: bool / `bucket`: `day` | `week` | `month`。
+
+**レスポンス**: `[ { "label": "2026-06-08", "count": 12 } ]`（200 OK）
+- `label`: day=`YYYY-MM-DD` / week=月曜開始日(`YYYY-MM-DD`) / month=`YYYY-MM`。
+- `count`: `likes` テーブルの行数（availability / include_deleted でフィルタ後）。期間指定は `liked_at` に適用する。
+
+**実装**: `likes l JOIN videos v ON v.id = l.video_id` の SQL 集計（`app_service.get_likes_trend`）。
+`availability` は `videos.is_available`、`include_deleted=false` は `is_deleted=0` に写像。
 
 ---
 
