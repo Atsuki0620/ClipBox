@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — docs: analysis dashboard の正本整合確認と NextActionTab 分割候補を記録
+
+- analysis-real-dashboard の main 合流後に `docs/context` と現行実装を突き合わせ、`/analysis` の4タブ構成、Stage D/E 操作、`judgment-trend?tier=1|2`、`likes-trend`、DB/localStorage境界、APP_PLAYBACK基準、`displayContext` 3値固定が正本記述と整合していることを確認。
+- `ACCEPTANCE_CRITERIA.md` に `NextActionTab.tsx` の後続分割候補を短く追記。分割候補は KPI / 進捗 / 偏り指標 / 導線 / 候補セクション / 候補行 / query / mutation / formatter の責務単位に限定し、分割時も既存 API・既存 mutation・invalidate の意味・Tier1/Tier2 ラベルを維持する前提を明記。
+- docs-only。実装コード、API、DBスキーマ、migration、設定ファイル、実データ、動画ファイルの変更はなし。
+
+---
+
 ## 2026-06-27 — fix(ui): VideoCard の未選別表示を displayContext 非依存にし `/avp` 等でも選別状態を反映
 
 - **症状**: `/avp` で選別動画を未選別に戻すとファイル名は正しく `!#_` になるが、レベルプルダウンが `Lv1` のままで「未選別」を表示しなかった。
