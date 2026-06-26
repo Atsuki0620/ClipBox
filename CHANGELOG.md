@@ -11,6 +11,16 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — feat(analysis): NextActionTab に Stage D（再生・いいね・あとで見る・AVP）を追加
+
+- 候補一覧の各行から再生・いいね・あとで見るトグル・AVP候補登録ができるようになった（read-only → 操作可能な作業面へ）。
+- 再生エラーを含む全 mutation 失敗を行内に表示。再生は利用不可で抑止、いいね・あとで見るは利用不可でも可、AVP は利用不可で不可（`VideoCard` と同方針）。
+- 再生後は `/analysis` 自身のソート済み候補（last_viewed 順）・view 系ランキング・偏り指標を、いいね後はいいねランキングを invalidate。いいね/あとで見るはタブ内「あとで見る」件数・候補リストも更新（SPEC §135 の自動解除に対応）。
+- `id == null` の動画は read-only 行に落とし、操作行は別コンポーネントに分離（React Hooks ルール順守）。
+- 既存 `likeVideo` / `toggleWatchLater` / `usePlayVideo` / `useAvpStore` を流用。新 API・DB スキーマ変更・`displayContext` 変更なし。Tier1判定・Tier2選別（Stage E）は別途。
+
+---
+
 ## 2026-06-26 — feat(analysis): NextActionTab に read-only の次アクション候補一覧を追加（Stage C 相当）
 
 - `NextActionTab` に未判定・未選別・あとで見る・利用不可の候補一覧（read-only）を追加。各カテゴリは `getConfig`、`listVideos`、`listSelectionVideos`、`getLastViewed`、`getViewCounts` で取得し、保存場所・利用可否・最終再生・再生回数をコンパクト行で表示。

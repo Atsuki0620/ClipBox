@@ -1,21 +1,25 @@
 "use client";
 
-// 詰まり・次アクション タブ — read-only の候補一覧と既存画面への導線（Stage C 相当）。Stage D の操作実装は未着手。
-// 【設計制約】VideoCard は載せず、DB 書き込み・localStorage 状態変更はしない。既存 read API の範囲のみ。
-//   候補一覧は read-only のコンパクト行。次アクションは既存画面（/ /tier2 /watch-later /search）への導線のみ。
-//   displayContext 3値・状態永続境界は変更しない。
-// 【依存関係】@/lib/api、@/lib/types、@/lib/levels、@/components/KpiCard、lucide-react。
+// 詰まり・次アクション タブ — Stage D: 候補行から再生・いいね・あとで見る・AVP候補操作が可能。
+//   Stage E（Tier1判定・Tier2選別）は未着手。
+// 【設計制約】既存 likeVideo / toggleWatchLater / usePlayVideo / useAvpStore を流用。
+//   新 API・DB スキーマ変更・displayContext 4値目・ファイル名プレフィックスロジック複製は禁止。
+//   状態境界: DB 状態は API 経由、AVP候補/再生中ハイライトは localStorage（SPEC_NEXTJS.md §0）。
+// 【依存関係】@/lib/api、@/lib/types、@/lib/store、@/lib/usePlayVideo、
+//   @/components/KpiCard、@/components/ui/button、checkbox、tooltip、lucide-react。
 
 import Link from "next/link";
-import { useMemo, type ComponentType } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, type ComponentType } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
   Bookmark,
   ClipboardCheck,
+  Heart,
   ListChecks,
+  Play,
   type LucideProps,
 } from "lucide-react";
 
@@ -25,12 +29,17 @@ import {
   getConfig,
   getLastViewed,
   getKpi,
+  getLikes,
   getSelectionKpi,
   getViewCounts,
+  likeVideo,
   listSelectionVideos,
   listVideos,
+  toggleWatchLater,
 } from "@/lib/api";
 import { levelName, storageLabel } from "@/lib/levels";
+import { useAvpStore } from "@/lib/store";
+import { usePlayVideo } from "@/lib/usePlayVideo";
 import type {
   AnalysisAvailability,
   AnalysisPeriodPreset,
@@ -40,6 +49,13 @@ import type {
   Video,
 } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type NextActionTabProps = {
   period: AnalysisPeriodPreset;
@@ -51,6 +67,10 @@ type NextActionTabProps = {
 };
 
 type IconComponent = ComponentType<LucideProps>;
+
+// 候補セクションの種別。tier1=未判定（Tier1判定）、tier2=未選別（Tier2選別）、plain=操作のみ。
+// Stage D 時点では全セクション plain。Stage E で未判定/未選別に tier1/tier2 を割り当てる。
+type CandidateKind = "tier1" | "tier2" | "plain";
 
 export function NextActionTab({
   period,
@@ -253,6 +273,14 @@ export function NextActionTab({
     queryFn: getViewCounts,
     enabled: candidateIds.length > 0,
   });
+  // 4カテゴリ連結の candidateIds は同一動画が重複し得るため、getLikes 前に重複排除する。
+  // queryKey は ["likes", ...] prefix にマッチするので like/play 後の invalidate(["likes"]) で再取得される。
+  const likeIds = useMemo(() => [...new Set(candidateIds)], [candidateIds]);
+  const candidateLikesQ = useQuery({
+    queryKey: ["likes", likeIds],
+    queryFn: () => getLikes(likeIds),
+    enabled: likeIds.length > 0,
+  });
 
   const tier1Total =
     (kpiQ.data?.unrated_count ?? 0) + (kpiQ.data?.judged_count ?? 0);
@@ -378,7 +406,7 @@ export function NextActionTab({
           <div>
             <h2 className="text-sm font-semibold">候補一覧</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              各カテゴリ最大 {candidateLimit} 件。ここでは操作せず、既存画面で確認します。
+              各カテゴリ最大 {candidateLimit} 件。各候補行から再生・いいね・あとで見る・AVP候補操作ができます。
             </p>
           </div>
         </div>
@@ -386,6 +414,7 @@ export function NextActionTab({
           <CandidateSection
             title="未判定"
             href="/"
+            kind="plain"
             total={unratedCandidatesQ.data?.total}
             items={unratedCandidatesQ.data?.items ?? []}
             loading={unratedCandidatesQ.isLoading}
@@ -393,10 +422,12 @@ export function NextActionTab({
             emptyMessage="未判定の候補はありません。"
             lastViewed={candidateLastViewedQ.data ?? {}}
             viewCounts={candidateViewCountsQ.data ?? {}}
+            likeCounts={candidateLikesQ.data ?? {}}
           />
           <CandidateSection
             title="未選別"
             href="/tier2"
+            kind="plain"
             total={unselectedCandidatesQ.data?.total}
             items={unselectedCandidatesQ.data?.items ?? []}
             loading={configQ.isLoading || unselectedCandidatesQ.isLoading}
@@ -409,10 +440,12 @@ export function NextActionTab({
             disabled={!selectionFolder}
             lastViewed={candidateLastViewedQ.data ?? {}}
             viewCounts={candidateViewCountsQ.data ?? {}}
+            likeCounts={candidateLikesQ.data ?? {}}
           />
           <CandidateSection
             title="あとで見る"
             href="/watch-later"
+            kind="plain"
             total={watchLaterCandidatesQ.data?.total}
             items={watchLaterCandidatesQ.data?.items ?? []}
             loading={watchLaterCandidatesQ.isLoading}
@@ -420,10 +453,12 @@ export function NextActionTab({
             emptyMessage="あとで見るの候補はありません。"
             lastViewed={candidateLastViewedQ.data ?? {}}
             viewCounts={candidateViewCountsQ.data ?? {}}
+            likeCounts={candidateLikesQ.data ?? {}}
           />
           <CandidateSection
             title="利用不可"
             href="/search"
+            kind="plain"
             total={unavailableCandidatesQ.data?.total}
             items={unavailableCandidatesQ.data?.items ?? []}
             loading={unavailableCandidatesQ.isLoading}
@@ -431,6 +466,7 @@ export function NextActionTab({
             emptyMessage="利用不可の候補はありません。"
             lastViewed={candidateLastViewedQ.data ?? {}}
             viewCounts={candidateViewCountsQ.data ?? {}}
+            likeCounts={candidateLikesQ.data ?? {}}
           />
         </div>
       </section>
@@ -536,6 +572,7 @@ function ActionLink({
 function CandidateSection({
   title,
   href,
+  kind,
   total,
   items,
   loading,
@@ -544,9 +581,11 @@ function CandidateSection({
   disabled = false,
   lastViewed,
   viewCounts,
+  likeCounts,
 }: {
   title: string;
   href: string;
+  kind: CandidateKind;
   total: number | undefined;
   items: Video[];
   loading: boolean;
@@ -555,6 +594,7 @@ function CandidateSection({
   disabled?: boolean;
   lastViewed: Record<number, string>;
   viewCounts: Record<number, number>;
+  likeCounts: Record<number, number>;
 }) {
   return (
     <div className="rounded-md border bg-card">
@@ -578,7 +618,7 @@ function CandidateSection({
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-14 animate-pulse rounded-md bg-muted" />
+              <div key={index} className="h-20 animate-pulse rounded-md bg-muted" />
             ))}
           </div>
         ) : error ? (
@@ -592,10 +632,12 @@ function CandidateSection({
             {items.map((video) => (
               <CandidateRow
                 key={video.id ?? video.current_full_path}
+                kind={kind}
                 href={href}
                 video={video}
                 lastViewed={video.id == null ? undefined : lastViewed[video.id]}
                 viewCount={video.id == null ? undefined : viewCounts[video.id]}
+                likeCount={video.id == null ? undefined : likeCounts[video.id]}
               />
             ))}
           </div>
@@ -605,23 +647,42 @@ function CandidateSection({
   );
 }
 
-function CandidateRow({
+type CandidateRowProps = {
+  kind: CandidateKind;
+  href: string;
+  video: Video;
+  lastViewed: string | undefined;
+  viewCount: number | undefined;
+  likeCount: number | undefined;
+};
+
+// id が取れない動画は操作できないため read-only 行に落とす。
+// Hooks ルール（早期 return の前に hooks を置けない）を守るため、操作行は別コンポーネントに分離する。
+function CandidateRow(props: CandidateRowProps) {
+  if (props.video.id == null) return <CandidateReadOnlyRow {...props} />;
+  return <CandidateInteractiveRow {...props} id={props.video.id} />;
+}
+
+// タイトル + メタ情報の共通ヘッダー（read-only / interactive で共有）。
+function CandidateRowHeader({
   href,
   video,
   lastViewed,
   viewCount,
+  levelLabel,
 }: {
   href: string;
   video: Video;
   lastViewed: string | undefined;
   viewCount: number | undefined;
+  levelLabel: string;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-3 py-2">
-      <div className="min-w-0">
+    <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{video.essential_filename}</div>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span>{levelName(video.current_favorite_level)}</span>
+          <span>{levelLabel}</span>
           <span>{storageLabel(video.storage_location)}</span>
           <span>{video.is_available ? "利用可" : "利用不可"}</span>
           <span>最終再生 {formatLastViewed(lastViewed)}</span>
@@ -635,6 +696,168 @@ function CandidateRow({
         確認
         <ArrowRight className="size-3" />
       </Link>
+    </div>
+  );
+}
+
+function CandidateReadOnlyRow({
+  href,
+  video,
+  lastViewed,
+  viewCount,
+}: CandidateRowProps) {
+  return (
+    <div className="rounded-md border px-3 py-2">
+      <CandidateRowHeader
+        href={href}
+        video={video}
+        lastViewed={lastViewed}
+        viewCount={viewCount}
+        levelLabel={levelName(video.current_favorite_level)}
+      />
+    </div>
+  );
+}
+
+function CandidateInteractiveRow({
+  href,
+  video,
+  lastViewed,
+  viewCount,
+  likeCount,
+  id,
+}: CandidateRowProps & { id: number }) {
+  const qc = useQueryClient();
+  const avpCandidateIds = useAvpStore((state) => state.avpCandidateIds);
+  const toggleAvpCandidateId = useAvpStore(
+    (state) => state.toggleAvpCandidateId,
+  );
+
+  // あとで見るは応答値で即時反映し、video prop が refetch で変わったら追従する。
+  // prop 変化の検知はレンダー中に行う（React 推奨。effect 内 setState を避ける）。
+  const [localWatchLater, setLocalWatchLater] = useState(video.watch_later);
+  const [prevWatchLater, setPrevWatchLater] = useState(video.watch_later);
+  if (video.watch_later !== prevWatchLater) {
+    setPrevWatchLater(video.watch_later);
+    setLocalWatchLater(video.watch_later);
+  }
+
+  // 再生は /analysis 自身のソート済み候補・集計・ランキングに影響するため、
+  // usePlayVideo の共通 invalidate（kpi/likes/view-counts/last-viewed）に加えて以下を渡す。
+  // - candidates prefix: 4カテゴリの last_viewed 順並びを再取得（不在検出時の利用不可移動も反映）
+  // - ranking prefix: view_count / view_days ランキングへ反映
+  // - data: 偏り指標など analysisQ
+  // - unavailable-total: 再生失敗（不在検出）時の件数更新
+  const playM = usePlayVideo([
+    ["analysis", "next-action", "candidates"],
+    ["analysis", "next-action", "ranking"],
+    ["analysis", "next-action", "unavailable-total"],
+    ["analysis", "data"],
+  ]);
+
+  // あとで見る系（/watch-later キャッシュ + タブ内件数 + 候補リスト）の無効化をまとめる。
+  const invalidateWatchLaterKeys = () => {
+    qc.invalidateQueries({ queryKey: ["watch-later-videos"] });
+    qc.invalidateQueries({
+      queryKey: ["analysis", "next-action", "watch-later-total"],
+    });
+    qc.invalidateQueries({
+      queryKey: ["analysis", "next-action", "candidates", "watch-later"],
+    });
+  };
+
+  const likeM = useMutation({
+    mutationFn: () => likeVideo(id),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["likes"] });
+      // いいねランキング（kind=likes）へ反映。
+      qc.invalidateQueries({
+        queryKey: ["analysis", "next-action", "ranking", "likes"],
+      });
+      // SPEC §135: 処理済み動画はいいねで watch_later が自動解除され得る。
+      invalidateWatchLaterKeys();
+    },
+  });
+
+  const watchLaterM = useMutation({
+    mutationFn: () => toggleWatchLater(id),
+    onSuccess: (res) => setLocalWatchLater(res.watch_later),
+    onSettled: invalidateWatchLaterKeys,
+  });
+
+  const busy =
+    playM.isPending || likeM.isPending || watchLaterM.isPending;
+  // 再生は利用不可で抑止。いいね・あとで見るは利用不可でも許可（busy のみ）。AVP は利用不可で不可。
+  const mutateDisabled = busy || !video.is_available;
+  const avpDisabled = !video.is_available;
+  const error = playM.error || likeM.error || watchLaterM.error;
+  const isAvpSelected = avpCandidateIds.includes(id);
+
+  return (
+    <div className="space-y-2 rounded-md border px-3 py-2">
+      <CandidateRowHeader
+        href={href}
+        video={video}
+        lastViewed={lastViewed}
+        viewCount={viewCount}
+        levelLabel={levelName(video.current_favorite_level)}
+      />
+
+      {error && (
+        <div className="text-xs text-destructive">操作に失敗しました。</div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="default"
+          disabled={mutateDisabled}
+          onClick={() => playM.mutate(id)}
+        >
+          <Play className="size-4" />
+          再生
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => likeM.mutate()}
+        >
+          <Heart className="size-4" />
+          {formatCount(likeCount)}
+        </Button>
+
+        <Button
+          size="sm"
+          variant={localWatchLater ? "default" : "outline"}
+          disabled={busy}
+          onClick={() => watchLaterM.mutate()}
+          title={localWatchLater ? "あとで見るを解除" : "あとで見るに追加"}
+        >
+          <Bookmark className="size-4" />
+        </Button>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <label
+                className={`flex w-fit items-center gap-1 text-xs ${
+                  avpDisabled ? "text-muted-foreground" : ""
+                }`}
+              />
+            }
+          >
+            <Checkbox
+              checked={isAvpSelected}
+              disabled={avpDisabled}
+              onCheckedChange={() => toggleAvpCandidateId(id)}
+            />
+            AVP
+          </TooltipTrigger>
+          <TooltipContent>AVPで再生する候補に追加</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }
