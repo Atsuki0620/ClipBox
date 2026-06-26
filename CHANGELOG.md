@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — fix(ui): VideoCard の未選別表示を displayContext 非依存にし `/avp` 等でも選別状態を反映
+
+- **症状**: `/avp` で選別動画を未選別に戻すとファイル名は正しく `!#_` になるが、レベルプルダウンが `Lv1` のままで「未選別」を表示しなかった。
+- **原因**: VideoCard は `displayContext === "tier2"` のときだけ「未選別」表示・選択肢を出していたため、`/avp`（`displayContext="avp"`）では選別動画でも `未判定/Lv0-4` のままだった。
+- **修正**: 「未選別」表示・選択肢の判定を **displayContext ではなくセレクション状態（`needs_selection || is_selection_completed`）** に基づくよう変更（`frontend/src/components/VideoCard.tsx`）。`/avp`・`/watch-later` 等どの画面でも選別動画は「未選別」を正しく表示し、未選別へ戻せる。Tier1 の通常動画は従来どおり `未判定/Lv0-4`。`/tier2` の挙動は不変。
+
+---
+
 ## 2026-06-27 — fix(selection): 選別完了(+)動画を未判定にすると `+name` 不正状態になる既存バグを修正
 
 - **症状**: `+###_name`（選別完了 Lv3）を未判定(`level=null`)にすると、`!###_` でなく `+name`（完了なのにレベル無し）になっていた。`/avp`・`/tier2`・Tier1 など `VideoCard` を使う全画面で再現する既存挙動（Stage D/E の新規バグではない）。
