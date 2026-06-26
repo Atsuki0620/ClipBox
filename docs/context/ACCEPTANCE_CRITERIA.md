@@ -208,6 +208,12 @@ Phase 5 の詳細条件は `PHASE5_STREAMLIT_ARCHIVE.md` を参照。
 - [ ] `id` が取れない候補は read-only 行（操作ボタンなし）になる
 - [ ] DB スキーマ・設定ファイルが変更されない
 
+#### 詰まり・次アクション 後続リファクタ候補
+- [ ] `NextActionTab.tsx` は現状大きいが、動作安定を優先して今は分割しない
+- [ ] 後続で分割するなら `NextActionKpiPanel` / `NextActionProgressPanel` / `NextActionSignalPanel` / `NextActionLinks` / `CandidateSection` / `CandidateRow` / `useNextActionQueries` / `useNextActionMutations` / `nextActionFormatters` を候補にする
+- [ ] 分割時は DB/localStorage 境界を変えず、`displayContext` を増やさず、既存 API・既存 mutation を維持する
+- [ ] invalidate 範囲を変える場合は Stage D/E 操作を再スモークし、Tier1 の `未判定 / Lv0〜Lv4` と Tier2 の `未選別 / Lv0〜Lv4` を混同しない
+
 ### 異常系
 - [ ] 対象期間にデータがないとき、空のチャート/メッセージが表示されエラーにならない
 
