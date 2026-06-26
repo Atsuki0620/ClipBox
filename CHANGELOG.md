@@ -11,6 +11,22 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — fix(selection): 選別完了(+)動画を未判定にすると `+name` 不正状態になる既存バグを修正
+
+- **症状**: `+###_name`（選別完了 Lv3）を未判定(`level=null`)にすると、`!###_` でなく `+name`（完了なのにレベル無し）になっていた。`/avp`・`/tier2`・Tier1 など `VideoCard` を使う全画面で再現する既存挙動（Stage D/E の新規バグではない）。
+- **原因**: `set_favorite_level_with_rename` が `+` 始まりファイルに未判定リネームしても `+` を再付与していた（`core/video_manager.py`）。
+- **修正**: セレクション動画の状態遷移を一貫化。`level>=0`→選別完了(`+`)、`未判定(-1)`→未選別(`!`)へ差し戻す（`needs_selection=1` / `is_selection_completed=0`）。`+name` の不正状態を作らない。レベルを保ったまま未選別へ戻すのは従来どおり `PUT /unselect`。
+- テスト追加: `test_selection_completed_to_unrated_reverts_to_unselected` / `test_selection_completed_relevel_keeps_plus`（`tests/test_video_manager.py`）。`API_SPEC.md` の PUT level 副作用に状態遷移を明記。
+
+---
+
+## 2026-06-27 — fix(analysis): NextActionTab の候補リスト無効化を広域化し stale 行を排除
+
+- 判定/選別で動画はセクションを跨いで移動する（例: 未選別→選別完了で未選別リストから消える）が、`levelM`/`unselectM` が該当1サブリストしか無効化しておらず、別セクションに古い行が残り実状態と矛盾する操作を許していた。
+- `levelM`/`unselectM` の候補リスト無効化を `["analysis","next-action","candidates"]`（全候補 prefix）へ広域化（`playM` と同じ粒度）。スケルトンは初回ロードのみのため点滅は増えない。
+
+---
+
 ## 2026-06-27 — feat(analysis): NextActionTab に Stage E（Tier1/Tier2 判定・選別）を追加
 
 - 未判定候補行に Tier1 レベルセレクト（未判定/Lv0〜Lv4）を追加。`setLevel` 経由で DB 更新・ファイル名リネーム・judgment_history 追記をサーバーに委譲（ロジック複製なし）。

@@ -802,13 +802,12 @@ function CandidateInteractiveRow({
       qc.invalidateQueries({ queryKey: ["kpi"] });
       qc.invalidateQueries({ queryKey: ["selection-kpi"] });
       qc.invalidateQueries({ queryKey: ["likes"] });
+      // 判定/選別で動画は所属セクションを跨いで移動し得る（例: 未選別→選別完了で
+      // 未選別リストから消える）。特定サブリストだけ無効化すると別セクションに古い行が
+      // 残り、実状態と矛盾する操作（+ファイルへの未判定リネーム等）を許してしまうため、
+      // 全候補リスト（prefix）をまとめて無効化する。
       qc.invalidateQueries({
-        queryKey: [
-          "analysis",
-          "next-action",
-          "candidates",
-          kind === "tier1" ? "unrated" : "unselected",
-        ],
+        queryKey: ["analysis", "next-action", "candidates"],
       });
       qc.invalidateQueries({ queryKey: ["analysis", "judgment-trend"] });
       qc.invalidateQueries({ queryKey: ["analysis", "selection-trend"] });
@@ -827,8 +826,9 @@ function CandidateInteractiveRow({
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["selection-kpi"] });
       qc.invalidateQueries({ queryKey: ["likes"] });
+      // 未選別戻しもセクション移動を伴うため、全候補リスト（prefix）を無効化する（levelM と同じ理由）。
       qc.invalidateQueries({
-        queryKey: ["analysis", "next-action", "candidates", "unselected"],
+        queryKey: ["analysis", "next-action", "candidates"],
       });
       qc.invalidateQueries({ queryKey: ["analysis", "selection-trend"] });
       qc.invalidateQueries({
