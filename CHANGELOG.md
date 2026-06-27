@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — docs(ui): 全画面フィードバック棚卸しと H2（API取得可否）確認結果を記録
+
+- `docs/nextjs-ui-renovation-feedback.md` に「全画面フィードバック棚卸し（2026-06-28）」を追記。分析を除く全画面の UI LAB フィードバック一巡を受けた棚卸しとして、確定判断を記録: AVP再生で あとで見る を自動解除しない本体変更は**サンプルDB版 Variant K の前に実装**（H1）／視聴回数は UI から外し `type=view_count` は後方互換で温存（M1）／Tier2 の Tier1流用 vs 専用文言は Variant K 試作で判断。
+- H2（カード/テーブルに必要な値の既存 API 取得可否）を read-only で確認した結果を記録。作成日 `file_created_at`・保存先・利用可否・Tier状態・視聴回数・最終再生日は既存 API で取得可。**判定日/選別日**は core 関数 `get_latest_judged_at_map` は有るが HTTP 未公開、**視聴日数 `view_days`** は per-video マップ無し、**総合スコア/順位**は任意動画集合では引けず、サンプルDB前に **API 追加3件**（いずれも既存計算の流用・新規メトリクス定義は不要）が要ると整理。
+- `docs/nextjs-ui-renovation-master-memo.md`（§3-C 進捗メモ）に棚卸し完了と次工程（統合 Variant K 作成 Prompt 起草）を追記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。`frontend/src/lib/types.ts` / `docs/context/API_SPEC.md` / `core/` は読み取りのみ。視聴履歴・ランキング計算式・APP_PLAYBACK 基準・`displayContext` 3値固定・内部 config キーは変更しない。
+
+---
+
 ## 2026-06-27 — docs(ui): Runtime control・Tier2・全画面共通ルールを記録
 
 - `docs/nextjs-ui-renovation-feedback.md` の Runtime control 欄を記入。配置はサイドバー下部のまま維持し設定画面へ移設せず、**Streamlit の状態表示・停止ボタンを UI から削除**、**FastAPI / Next.js を個別表示**（状態ランプ / 起動状態 / ポート番号 / 最終確認時刻）、停止は `FastAPI停止`/`Next.js停止` に分けず **`アプリを停止` の1ボタン**にまとめる方針を記録。Streamlit 関連コードの削除可否は実装時調査とし、今回は削除しない。

@@ -242,6 +242,39 @@ UI改修フィードバックの対象は次の9画面。
 
 ---
 
+## 全画面フィードバック棚卸し（2026-06-28）
+
+> 分析を除く全画面の UI LAB フィードバックが一巡したのを受け、統合 Variant K 作成の前に棚卸しを実施。画面別採用方針・全画面共通ルール・壊してはいけない既存仕様・未決事項を突き合わせ、実装前の判断材料として確定判断と「要 API 確認」を整理した。本節は記録であり、挙動仕様の正本（`docs/context/SPEC_NEXTJS.md`）を上書きしない。
+
+### 確定した判断
+- **AVP再生であとで見るを自動解除しない（H1）**: 採用済み・未実装の本体差分について、**サンプルDB版 Variant K の前に本体バックエンドの自動解除除去**（`record_avp_viewing` / `like_service.add_like` の AVP 起動由来解除を外す）を実装し、`SPEC_NEXTJS.md` §4/§14・`API_SPEC.md`・`ACCEPTANCE_CRITERIA.md`・該当テストを同一 Pull request で更新する方針に確定。
+- **視聴回数の扱い（M1）**: UI からは視聴回数を外して視聴日数へ一本化するが、`GET /api/ranking` の `type=view_count` は後方互換で温存する。実装時に `SPEC_NEXTJS.md` §9・`ACCEPTANCE_CRITERIA.md` を更新。
+- **Tier2 の土台**: 案1（Tier1 variant-k 流用）/ 案2（Tier2専用文言強め）は先に1案へ絞らず、**Variant K 試作で両方を見比べてから判断**する。
+
+### H2: カード/テーブルに必要な値の既存 API 取得可否（read-only 確認）
+カード・テーブルが表示する値が既存 API で取れるかを `frontend/src/lib/types.ts` / `docs/context/API_SPEC.md` / `core/` の読み取りのみで確認した（変更なし）。
+
+| 項目 | 取得可否 | 出所 / 必要作業 |
+|---|---|---|
+| 作成日 `file_created_at` | 取れる | `Video` payload |
+| 保存先 / 利用可否 / Tier1・Tier2 状態 / 該当Tier / あとで見る | 取れる | `Video` payload（該当Tierは派生） |
+| 視聴回数 / 最終再生日 | 取れる | `GET /api/stats/view-counts` / `GET /api/stats/last-viewed` |
+| 判定日 / 選別日 | コア関数はあるが HTTP 未公開 | `get_latest_judged_at_map(conn, selection)`（SORT用）。**薄い API 公開が必要**（新規ロジック不要） |
+| 視聴日数 `view_days`（全カードの主役指標） | per-video マップが無い | ランキングの score のみ。**新規 view_days マップ API が必要**（既存集計を流用） |
+| 総合スコア / 総合順位（AVP上段・検索） | 任意の動画集合では引けない | `GET /api/ranking` は全体ランキングの top_n のみ。**新規 or ranking 拡張 API が必要**（既存 composite 式を流用） |
+
+### サンプルDB版 Variant K の前に行う本体バックエンド作業（束）
+統合 Variant K の**モック**は合成データで全項目を表示できるためブロックされない。ただし**サンプルDB / 実DB 接続段階の前提**として、以下を1束の本体作業として扱う（いずれも既存計算の流用・新規メトリクス定義は不要。本記録では実装しない）:
+1. AVP起動由来の あとで見る 自動解除の除去（H1）。
+2. 判定日 / 選別日マップの HTTP 公開。
+3. per-video 視聴日数（`view_days`）マップ API。
+4. 任意動画集合（AVP候補 / 検索結果）向けの総合スコア＋総合順位の取得 API。
+
+### 次工程
+- 統合 Variant K 作成 Prompt は、各画面の採用方針・全画面共通ルール・壊してはいけない既存仕様・上記確定判断・H2 の「要 API 確認」を前提として渡す。Variant K は全画面整合の**モック**として作る（サンプルDB接続・実DB統合は後段）。
+
+---
+
 ## 付録: Tier1 variant-k 実装指示（確定フィードバックの記録）
 
 > 以下は Tier1（ライブラリ / ランダム / 運命の1本の3タブ）の UI LAB レビューで確定したフィードバックから生まれた variant-k 実装指示。**原文をそのまま収録**しており、本付録内の節番号（§0〜§6）・相互参照は原文準拠（このファイル先頭の枠組みとは別系統）。
