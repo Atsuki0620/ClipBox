@@ -43,7 +43,7 @@ DB の状態（あとで見る・レベル・いいね）はサーバ機の `vid
 | `/watch-later` | あとで見る | `watch_later=1` の動画をまとめて確認し、未処理/確認・見直し/処理済み候補に分類する | `app/watch-later/page.tsx` + TanStack Query（DB 状態を既存 API で取得）／カードは既存3値の `displayContext` を使い分け |
 | `/avp` | AVP再生 | AVP候補の確認・再生対象（最大4本）選択・並列再生 | `app/avp/page.tsx` + `useAvpStore`（localStorage）／`displayContext="avp"` |
 | `/ranking` | ランキング | 視聴回数/視聴日数/いいね/総合 のランキング | `app/ranking/page.tsx` |
-| `/analysis` | 分析ダッシュボード | 期間別の視聴・判定トレンド、各種分布（Recharts） | `app/analysis/page.tsx` |
+| `/analysis` | 分析ダッシュボード | 旧分析 / 作業量・結果分布 / 視聴との関係 / 詰まり・次アクションの4タブ。期間別の視聴・判定トレンド、各種分布を表示する。詰まり・次アクションは候補一覧と既存画面への導線に加え、各候補行から操作可能: Stage D=再生・いいね・あとで見る・AVP候補、Stage E=未判定の Tier1 レベル変更（未判定/Lv0〜Lv4）と未選別の Tier2 選別（未選別/Lv0〜Lv4）。既存の `setLevel` / `unselectVideo` / `usePlayVideo` 経路を流用し、新規 DB 書き込み経路は追加しない。`id` が取れない候補は read-only 行に落とす。 | `app/analysis/page.tsx` |
 | `/search` | 検索 | 本質的ファイル名のキーワード検索 | `app/search/page.tsx` |
 | `/settings` | 設定 | ライブラリルート/プレイヤー/AVPパス、バックアップ、スキャン | `app/settings/page.tsx` + `getConfig`/`updateConfig` |
 

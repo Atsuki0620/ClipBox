@@ -27,6 +27,89 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-27 — docs: analysis dashboard の正本整合確認と NextActionTab 分割候補を記録
+
+- analysis-real-dashboard の main 合流後に `docs/context` と現行実装を突き合わせ、`/analysis` の4タブ構成、Stage D/E 操作、`judgment-trend?tier=1|2`、`likes-trend`、DB/localStorage境界、APP_PLAYBACK基準、`displayContext` 3値固定が正本記述と整合していることを確認。
+- `ACCEPTANCE_CRITERIA.md` に `NextActionTab.tsx` の後続分割候補を短く追記。分割候補は KPI / 進捗 / 偏り指標 / 導線 / 候補セクション / 候補行 / query / mutation / formatter の責務単位に限定し、分割時も既存 API・既存 mutation・invalidate の意味・Tier1/Tier2 ラベルを維持する前提を明記。
+- docs-only。実装コード、API、DBスキーマ、migration、設定ファイル、実データ、動画ファイルの変更はなし。
+
+---
+
+## 2026-06-27 — fix(ui): VideoCard の未選別表示を displayContext 非依存にし `/avp` 等でも選別状態を反映
+
+- **症状**: `/avp` で選別動画を未選別に戻すとファイル名は正しく `!#_` になるが、レベルプルダウンが `Lv1` のままで「未選別」を表示しなかった。
+- **原因**: VideoCard は `displayContext === "tier2"` のときだけ「未選別」表示・選択肢を出していたため、`/avp`（`displayContext="avp"`）では選別動画でも `未判定/Lv0-4` のままだった。
+- **修正**: 「未選別」表示・選択肢の判定を **displayContext ではなくセレクション状態（`needs_selection || is_selection_completed`）** に基づくよう変更（`frontend/src/components/VideoCard.tsx`）。`/avp`・`/watch-later` 等どの画面でも選別動画は「未選別」を正しく表示し、未選別へ戻せる。Tier1 の通常動画は従来どおり `未判定/Lv0-4`。`/tier2` の挙動は不変。
+
+---
+
+## 2026-06-27 — fix(selection): 選別完了(+)動画を未判定にすると `+name` 不正状態になる既存バグを修正
+
+- **症状**: `+###_name`（選別完了 Lv3）を未判定(`level=null`)にすると、`!###_` でなく `+name`（完了なのにレベル無し）になっていた。`/avp`・`/tier2`・Tier1 など `VideoCard` を使う全画面で再現する既存挙動（Stage D/E の新規バグではない）。
+- **原因**: `set_favorite_level_with_rename` が `+` 始まりファイルに未判定リネームしても `+` を再付与していた（`core/video_manager.py`）。
+- **修正**: セレクション動画の状態遷移を一貫化。`level>=0`→選別完了(`+`)、`未判定(-1)`→**未選別(`!`)へ差し戻す（元のレベルを維持**: `+###_name`→`!###_name`、`needs_selection=1` / `is_selection_completed=0`）。`+name` の不正状態を作らない。差し戻しは判定ではないため `judgment_history` は記録せず `watch_later` も解除しない（`PUT /unselect` と同等）。
+- テスト追加: `test_selection_completed_to_unrated_reverts_to_unselected_keeping_level` / `test_selection_completed_relevel_keeps_plus`（`tests/test_video_manager.py`）。`API_SPEC.md` の PUT level 副作用に状態遷移を明記。
+
+---
+
+## 2026-06-27 — fix(analysis): NextActionTab の候補リスト無効化を広域化し stale 行を排除
+
+- 判定/選別で動画はセクションを跨いで移動する（例: 未選別→選別完了で未選別リストから消える）が、`levelM`/`unselectM` が該当1サブリストしか無効化しておらず、別セクションに古い行が残り実状態と矛盾する操作を許していた。
+- `levelM`/`unselectM` の候補リスト無効化を `["analysis","next-action","candidates"]`（全候補 prefix）へ広域化（`playM` と同じ粒度）。スケルトンは初回ロードのみのため点滅は増えない。
+
+---
+
+## 2026-06-27 — feat(analysis): NextActionTab に Stage E（Tier1/Tier2 判定・選別）を追加
+
+- 未判定候補行に Tier1 レベルセレクト（未判定/Lv0〜Lv4）を追加。`setLevel` 経由で DB 更新・ファイル名リネーム・judgment_history 追記をサーバーに委譲（ロジック複製なし）。
+- 未選別候補行に Tier2 選別セレクト（未選別/Lv0〜Lv4）を追加。「未選別」選択で `unselectVideo`、Lv 選択で `setLevel`。Tier2 セレクトに「未判定」の選択肢は出さない。
+- レベル変更後は KPI（kpi/selection-kpi）・判定/選別トレンド・選別分布・偏り指標・該当候補リスト、および watch_later 系（SPEC §134/§135 の自動解除）を invalidate。
+- 利用不可動画はレベル変更も disabled。`displayContext` は不変、新 API・DB スキーマ変更なし。
+
+---
+
+## 2026-06-27 — feat(analysis): NextActionTab に Stage D（再生・いいね・あとで見る・AVP）を追加
+
+- 候補一覧の各行から再生・いいね・あとで見るトグル・AVP候補登録ができるようになった（read-only → 操作可能な作業面へ）。
+- 再生エラーを含む全 mutation 失敗を行内に表示。再生は利用不可で抑止、いいね・あとで見るは利用不可でも可、AVP は利用不可で不可（`VideoCard` と同方針）。
+- 再生後は `/analysis` 自身のソート済み候補（last_viewed 順）・view 系ランキング・偏り指標を、いいね後はいいねランキングを invalidate。いいね/あとで見るはタブ内「あとで見る」件数・候補リストも更新（SPEC §135 の自動解除に対応）。
+- `id == null` の動画は read-only 行に落とし、操作行は別コンポーネントに分離（React Hooks ルール順守）。
+- 既存 `likeVideo` / `toggleWatchLater` / `usePlayVideo` / `useAvpStore` を流用。新 API・DB スキーマ変更・`displayContext` 変更なし。Tier1判定・Tier2選別（Stage E）は別途。
+
+---
+
+## 2026-06-26 — feat(analysis): NextActionTab に read-only の次アクション候補一覧を追加（Stage C 相当）
+
+- `NextActionTab` に未判定・未選別・あとで見る・利用不可の候補一覧（read-only）を追加。各カテゴリは `getConfig`、`listVideos`、`listSelectionVideos`、`getLastViewed`、`getViewCounts` で取得し、保存場所・利用可否・最終再生・再生回数をコンパクト行で表示。
+- 次アクションは既存画面（`/`、`/tier2`、`/watch-later`、`/search`）への導線のみ。VideoCard 操作・DB 書き込み・localStorage 永続境界・`displayContext` 3値は変更なし。
+- `/analysis` の共通フィルタ（period/availability/includeDeleted/topN 等）を `NextActionTab` に渡すよう `page.tsx` を更新。
+- `SPEC_NEXTJS.md` と `ACCEPTANCE_CRITERIA.md` を read-only 候補一覧・既存画面への導線に更新。
+- Stage D の操作実装（再生・いいね・あとで見る・Tier1判定・Tier2選別）は未着手。
+
+---
+
+## 2026-06-26 — feat(analysis): ダッシュボード Stage B の Tier/いいね推移を追加
+
+- `GET /api/analysis/judgment-trend` に optional `tier=1|2` を追加。未指定時は既存どおり Tier1+Tier2 を含め、Tier1 は `was_selection_judgment=0`、Tier2 は `was_selection_judgment=1` に絞る。
+- `GET /api/analysis/likes-trend` を追加。`likes.liked_at` 基準で day/week/month 集計し、`videos` と JOIN して `availability` / `include_deleted` / `period` と連動する。
+- `WorkloadDistributionTab` に「Tier1 判定数推移」を追加し、`ViewingRelationTab` の判定推移を Tier1 固定に変更。あわせて「いいね数推移」を追加。
+- API 仕様、型定義、API ラッパ、分析 API テストを更新。DB スキーマ・migration、Stage A の旧分析/次アクションタブ、`displayContext` 3値は変更なし。
+
+---
+
+## 2026-06-26 — feat(analysis): 4タブ構成への改修 Stage A
+
+- `frontend/src/app/analysis/page.tsx` を 4 タブシェル（旧分析 / 作業量・結果分布 / 視聴との関係 / 詰まり・次アクション）に書き換え。フィルタ state は page.tsx で一元管理しタブへ props 渡し。
+- `_tabs/LegacyAnalysisTab.tsx` — 現行 960 行の表示を挙動同一のまま抽出。9 query・KPI 5 枚・Recharts 8 パネル・ストレージ表・ランキング 3 表を保持。
+- `_tabs/WorkloadDistributionTab.tsx` — 既存 API のみ。KPI 4 枚（Tier1未判定/今日判定・Tier2未選別/今日選別）＋ Tier1 レベル分布・Tier2 選別数推移・Tier2 選別レベル分布の 3 グラフ。
+- `_tabs/ViewingRelationTab.tsx` — 既存 API のみ。APP 再生数推移・判定数推移（Tier1+Tier2 混在・Stage B で分離予定）・Tier2 選別数推移の 3 折れ線グラフ。
+- `_tabs/NextActionTab.tsx` — Stage C/D/E 向けプレースホルダ（VideoCard 操作なし）。
+- `_components/{EmptyMini,ChartPanel,LineTrendChart,BarValueChart,AnalysisFilterBar}.tsx` — 共通 UI 部品を page.tsx から抽出。ChartPanel は任意 `note` props でラベル注記に対応。
+- 段階 A 制約厳守: バックエンド追加なし・DB変更なし・VideoCard操作なし・displayContext 3値固定。
+- `npm run lint` ＋ `npx tsc --noEmit` エラーゼロ確認済み。
+
+---
+
 ## 2026-06-26 — docs(ui): 検索UIフィードバックを案D採用候補へ更新
 
 - `docs/nextjs-ui-renovation-feedback.md` の検索欄を更新し、UI LAB 既存3案はそのまま採用せず、案D「高機能フィルタ + 操作付きテーブル」を採用候補として記録。ランキングとは統合せず、検索はキーワードや条件で探してその場で処理する画面、ランキングは数値指標で並べる画面として責務を分ける方針を整理。

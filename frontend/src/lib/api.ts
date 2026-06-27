@@ -163,6 +163,10 @@ export function getJudgmentTrend(
   return request<TrendItem[]>(`/analysis/judgment-trend${toQuery({ ...params })}`);
 }
 
+export function getLikesTrend(params: AnalysisTrendQuery): Promise<TrendItem[]> {
+  return request<TrendItem[]>(`/analysis/likes-trend${toQuery({ ...params })}`);
+}
+
 export function getResponseTime(): Promise<ResponseTimeItem[]> {
   return request<ResponseTimeItem[]>(`/analysis/response-time`);
 }

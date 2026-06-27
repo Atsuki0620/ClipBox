@@ -424,19 +424,43 @@ class VideoManager:
                 new_filename = f"{prefix}_{video.essential_filename}"
                 db_level = target_level
 
-            # セレクション経由（! or + プレフィックス）の場合は + を付与
+            # セレクション動画（! 未選別 or + 完了）の状態遷移:
+            #   - level>=0 を付けたら「選別完了」= + プレフィックス（needs_selection=0, completed=1）。
+            #   - 未判定(-1)へ戻す操作は「未選別(!)へ差し戻し」とみなす（unselect_video と同義）。
+            #     元のレベルは維持する（+###_ → !###_）。「判定」ではないため judgment_history は記録せず、
+            #     watch_later も解除しない。+ のまま level だけ消す不正状態 (+name) も作らない。
+            # 通常動画は needs_selection / is_selection_completed とも 0 のまま。
             was_selection = video.needs_selection  # ! prefix
             has_plus_prefix = current_path.name.startswith('+')  # + prefix（再判定時）
-            if was_selection or has_plus_prefix:
+            is_selection_video = was_selection or has_plus_prefix
+            is_unselect_revert = is_selection_video and target_level == -1
+
+            if is_unselect_revert:
+                db_level = video.current_favorite_level  # 元のレベルを維持
+                if db_level <= -1:
+                    level_prefix = ""
+                elif db_level == 0:
+                    level_prefix = "_"
+                else:
+                    level_prefix = "#" * db_level + "_"
+                new_filename = f"!{level_prefix}{video.essential_filename}"
+                new_needs_selection = 1
+                new_is_selection_completed = 0
+            elif is_selection_video:
                 new_filename = f"+{new_filename}"
+                new_needs_selection = 0
+                new_is_selection_completed = 1
+            else:
+                new_needs_selection = 0
+                new_is_selection_completed = 0
 
             new_path = current_path.with_name(new_filename)
 
-            # R5: is_selection_completed 列を + プレフィックス有無に同期する（列の陳腐化防止）。
-            # 列を使う SQL 集計（選別KPI/ランキング）とプロパティ（+由来）の乖離を解消する。
-            new_is_selection_completed = 1 if new_filename.startswith("+") else 0
             # 判定済み(level>=0) もしくは 選別完了(+付与) になった動画は「あとで見る」を自動解除する。
-            clear_watch_later = (db_level >= 0) or (new_is_selection_completed == 1)
+            # 未選別(!)へ差し戻した場合は未完了のため解除しない。
+            clear_watch_later = (not is_unselect_revert) and (
+                (db_level >= 0) or (new_is_selection_completed == 1)
+            )
 
             try:
                 if new_path != current_path:
@@ -447,7 +471,7 @@ class VideoManager:
                     UPDATE videos
                        SET current_full_path = ?,
                            current_favorite_level = ?,
-                           needs_selection = 0,
+                           needs_selection = ?,
                            is_selection_completed = ?,
                            watch_later = CASE WHEN ? = 1 THEN 0 ELSE watch_later END,
                            last_scanned_at = CURRENT_TIMESTAMP
@@ -456,6 +480,7 @@ class VideoManager:
                     (
                         str(new_path),
                         db_level,
+                        new_needs_selection,
                         new_is_selection_completed,
                         1 if clear_watch_later else 0,
                         video_id,
@@ -464,6 +489,19 @@ class VideoManager:
 
                 rename_completed_at = datetime.now()
                 rename_duration_ms = int((rename_completed_at - judged_at).total_seconds() * 1000)
+
+                # 未選別(!)への差し戻しは「判定」ではないため judgment_history を記録しない
+                # （unselect_video と挙動を揃える）。
+                if is_unselect_revert:
+                    logger.info(
+                        "operation=unselect video_id=%d via=set_level level=%d "
+                        "rename=success elapsed_ms=%d storage=%s",
+                        video_id,
+                        db_level,
+                        rename_duration_ms,
+                        video.storage_location or "unknown",
+                    )
+                    return {'status': 'success', 'message': '未選別に戻しました'}
 
                 conn.execute(
                     """
