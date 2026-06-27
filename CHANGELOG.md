@@ -11,6 +11,50 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — docs(ui): 全画面フィードバック棚卸しと H2（API取得可否）確認結果を記録
+
+- `docs/nextjs-ui-renovation-feedback.md` に「全画面フィードバック棚卸し（2026-06-28）」を追記。分析を除く全画面の UI LAB フィードバック一巡を受けた棚卸しとして、確定判断を記録: AVP再生で あとで見る を自動解除しない本体変更は**サンプルDB版 Variant K の前に実装**（H1）／視聴回数は UI から外し `type=view_count` は後方互換で温存（M1）／Tier2 の Tier1流用 vs 専用文言は Variant K 試作で判断。
+- H2（カード/テーブルに必要な値の既存 API 取得可否）を read-only で確認した結果を記録。作成日 `file_created_at`・保存先・利用可否・Tier状態・視聴回数・最終再生日は既存 API で取得可。**判定日/選別日**は core 関数 `get_latest_judged_at_map` は有るが HTTP 未公開、**視聴日数 `view_days`** は per-video マップ無し、**総合スコア/順位**は任意動画集合では引けず、サンプルDB前に **API 追加3件**（いずれも既存計算の流用・新規メトリクス定義は不要）が要ると整理。
+- `docs/nextjs-ui-renovation-master-memo.md`（§3-C 進捗メモ）に棚卸し完了と次工程（統合 Variant K 作成 Prompt 起草）を追記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。`frontend/src/lib/types.ts` / `docs/context/API_SPEC.md` / `core/` は読み取りのみ。視聴履歴・ランキング計算式・APP_PLAYBACK 基準・`displayContext` 3値固定・内部 config キーは変更しない。
+
+---
+
+## 2026-06-27 — docs(ui): Runtime control・Tier2・全画面共通ルールを記録
+
+- `docs/nextjs-ui-renovation-feedback.md` の Runtime control 欄を記入。配置はサイドバー下部のまま維持し設定画面へ移設せず、**Streamlit の状態表示・停止ボタンを UI から削除**、**FastAPI / Next.js を個別表示**（状態ランプ / 起動状態 / ポート番号 / 最終確認時刻）、停止は `FastAPI停止`/`Next.js停止` に分けず **`アプリを停止` の1ボタン**にまとめる方針を記録。Streamlit 関連コードの削除可否は実装時調査とし、今回は削除しない。
+- Tier2 欄を記入。専用 UI を決め切らず **案1「Tier1 Variant K 流用案」/ 案2「Tier2専用文言強め案」** を比較する方針。カード/操作部品は原則 Tier1 流用、専用化候補は見出し・空状態・フィルタ文言など文章部分のみ。該当Tierバッジは `Tier2` のみ（Lv・未選別/選別済みは書かない）、初期フィルタは 未選別+選別済み、フィルタ候補 すべて/未選別/選別済み・既定すべて。
+- `## 全画面共通フィードバック` を拡張し、統合 Variant K 前に固める共通ルールを追記（該当Tierバッジ詳細、バッジ初期表示、利用不可の表示、Tooltip 方針、テーブルとカードの使い分け、Runtime control 共通方針）。視聴回数→視聴日数一本化・更新日/登録日廃止は既存記載を維持。
+- `docs/nextjs-ui-renovation-master-memo.md`（§3-A / §3-C）に短く追記。GLOSSARY は前タスクで追加済みのため変更なし。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイル・Streamlit 関連コードの変更はなし。Runtime 仕様・既定無効・`displayContext` 3値固定・APP_PLAYBACK 基準は変更しない。
+
+---
+
+## 2026-06-27 — docs(ui): 設定画面UI LABレビュー結果と全画面共通の日付/視聴指標方針を記録
+
+- `docs/nextjs-ui-renovation-feedback.md` の設定欄を更新し、UI LAB scan-first 系のうち **scan-first の上部タブ案** を採用候補として記録。スキャンは バックアップ → Tier1 → Tier2 の3段を維持し、進捗バー・現在処理表示・経過時間・完了後の所要時間・結果詳細の折りたたみを追加要望として整理（Tier2未設定はスキップ表示、手動バックアップボタンは置かない、スキャン前 DB バックアップ自動作成は維持）。カード表示設定を **メタ項目**（初期ON: ストレージ / 視聴日数 / 作成日）と **バッジ項目**（初期ON: 該当Tier / あとで見る / 利用不可）に分離し、該当Tierバッジを新設（Tier名のみ表示・Tier1/Tier2 で色分け・具体色は統合 Variant K で決定）。レベル表示対象は `該当Tierのみ`（既定）/ `Tier1・Tier2を両方表示` の2択として記録。
+- 同ファイル冒頭に **全画面共通フィードバック** を追記。視聴回数ではなく視聴日数へ一本化（全画面で視聴回数表示を原則廃止・視聴履歴は削除しない）、更新日・登録日を全 UI から外す、使う日付は 作成日（動画ファイルの作成日 `file_created_at`）/ 判定日 / 選別日 を基本にする方針を記録。判定/選別日は設定項目名 `判定/選別日`・カード表示は Tier1=`判定日`・Tier2=`選別日`。
+- `docs/nextjs-ui-renovation-master-memo.md`（§3-A / §3-C）と `docs/context/GLOSSARY.md`（視聴日数 / 作成日・登録日・更新日 / 判定日・選別日 / 該当Tierバッジ）に短く追記。詳細はフィードバック記録へ集約。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。視聴履歴・ランキング計算式・APP_PLAYBACK 基準・`displayContext` 3値固定・内部 config キーは変更しない。
+
+---
+
+## 2026-06-27 — docs(ui): AVP UI LABレビュー結果を案D改方針で記録
+
+- `docs/nextjs-ui-renovation-feedback.md` の AVP 欄を更新し、UI LAB 案A〜D をそのまま採用せず、案Dを発展させた案D改「上段候補テーブル / 下段再生セット2×2カード」を採用候補として記録。上段はランキング/検索整合の操作付き候補テーブル（タイトル/総合スコア/視聴日数/いいね/あとで/Tier1/Tier2/アクションの列構成、総合スコア列はポイント＋総合順位で順位は既定で再生可能だけ・トグルで全動画、いいね列は表示のみクリック不可、あとで見るはバッジでなく `あとで` 列、Tier1/Tier2は別列、バッジ非表示で利用不可は薄表示・再生中は行ハイライト）、下段は Tier1 ライブラリ動画カード整合の2×2再生セットカード（個別いいね＋一括いいねは未いいねのみON・いいね済みはそのまま、`AVPで再生`は下段右上固定、全候補クリアと再生対象クリアを両方）を整理。説明はタイトル横 Tooltip に集約し主要ボタンには Tooltip を付けない方針も記録。
+- `docs/nextjs-ui-renovation-master-memo.md` の AVP 関連メモ（§3-A / §3-B / §3-C 進捗）を短く追記し、詳細はフィードバック記録へ集約。候補上限なし・再生対象最大4本・AVP候補/再生対象の状態境界・`displayContext` 3値固定、ランキング計算式・APP_PLAYBACK 基準・ランキング API 契約は変えない前提を明記。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
+## 2026-06-27 — docs(ui): あとで見るUI LABレビュー結果と分析画面の扱いを記録
+
+- `docs/nextjs-ui-renovation-feedback.md` に、あとで見るは UI LAB 案B「付与理由・状態説明強化型」ベース、案C上部サマリー不採用、3セクション維持、タイトル横 Tooltip、個別解除基本として記録。ステータス文言、DB/localStorage 境界、`displayContext` 3値固定、AVP再生非解除方針は今回実装しないことも明記。
+- 分析画面は UI LAB A/B/C の採用判断対象から外し、本体 ClipBox を実データで使いながら別枠でフィードバックする方針へ更新。既存 UI LAB レポートは参考資料として残し、分析ロジック・集計SQL・APP_PLAYBACK 基準・ランキング計算式は変更しない。
+- docs-only。実装・UI LAB・本体画面・API・DB・migration・設定ファイル・実データ・動画ファイルの変更はなし。
+
+---
+
 ## 2026-06-27 — docs: analysis dashboard の正本整合確認と NextActionTab 分割候補を記録
 
 - analysis-real-dashboard の main 合流後に `docs/context` と現行実装を突き合わせ、`/analysis` の4タブ構成、Stage D/E 操作、`judgment-trend?tier=1|2`、`likes-trend`、DB/localStorage境界、APP_PLAYBACK基準、`displayContext` 3値固定が正本記述と整合していることを確認。
