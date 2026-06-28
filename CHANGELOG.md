@@ -11,6 +11,23 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階2（統合シェル・共通部品の土台）を実装
+
+- `frontend/src/app/lab/variant-k/` に統合 Variant K の土台を新設（案B: マルチルート＋`layout.tsx` 統合シェル）。`layout.tsx`（server）＋ランディング `page.tsx` ＋ 8画面プレースホルダー（`tier1`/`tier2`/`watch-later`/`avp`/`ranking`/`search`/`settings`/`analysis`）。各画面は段階3以降で作り込む設計メモ表示のみ。
+- 共通部品 `_components/`: `VariantKShell`・`VariantKSidebar`（遷移ナビ・`usePathname`）・`VariantKRuntimeControl`（FastAPI/Next.js個別・「アプリを停止」は disabled モック・Streamlit非表示）・`VariantKBadge`・`VariantKVideoCard`（サムネなし）・`VariantKActionTable`・`VariantKEmptyState`・`VariantKTooltipLabel`・`VariantKSectionHeader`・`VariantKPlaceholder`・`theme.ts`（寒色モダン＋暫定バッジ色）・`navItems.ts`。合成データ `_data/variantKMock.ts`（`VariantKVideo` 型・snake_case・ダミー名8件＋Runtime モック）。Runtime control サイドバー下部は本段階2で作成し、計画書の「段階6で実装」は段階2版の確認/微修正へ読み替え。
+- `frontend/src/app/lab/page.tsx` の `AREAS` に `/lab/variant-k` 入口を1件追加（既存エントリ不変）。`_review/STAGE2_SHELL_AND_COMPONENTS.md` を追加。
+- UI LAB モックのみ。実 API・DB・migration・設定ファイル・実データ・localStorage/sessionStorage 本体仕様は変更なし。既存 Variant A〜K・共有 `Modern*`/`LabFrame` は無改変（variant-k 専用にフォーク）。`displayContext` 3値固定・永続境界・総合スコア式・AVP上限4本/候補上限なし・Runtime control 本体仕様は不変。Streamlit 表示は復活させない。
+
+---
+
+## 2026-06-28 — docs(ui): 統合 Variant K 実装計画書＋ワイヤー方針メモを作成
+
+- `frontend/src/app/lab/variant-k/_review/INTEGRATED_VARIANT_K_PLAN.md` を新規作成。画面別に検討してきた UI 案（Tier1=variant-k / Tier2=案1・案2比較 / あとで見る=案B / AVP=案D改 / ランキング・検索=案D / 設定=scan-first 上部タブ / Runtime control=サイドバー下部）を、ナビ・カード・余白・ボタン・状態バッジ・情報密度・テーブル/カードの使い分け・用語で揃えた **統合 Variant K**（全画面整合モック）の着手前計画として整理。サンプルDB接続前の UI LAB モックに向けた準備で、**実装はしない**。
+- 内容: 目的／参照ドキュメント／対象8画面（analysis は採用判断対象外で仮ページのみ）／UI LAB ディレクトリ構成 3 案と推奨（**案B: `lab/variant-k/<screen>` マルチルート＋`layout.tsx` 統合シェル**）／6段階の実装ステップ／全画面共通ルール（視聴日数主役・更新日/登録日廃止・該当Tierバッジ初期ON・AVP候補バッジ初期OFF・利用不可表示・テーブル/カード使い分け）／画面別ワイヤー方針／Tier2 案1・案2 比較／暫定デザイン項目（色・密度・余白・再生中ハイライト amber 暫定）／ユーザー確認チェックリスト／確認コマンド（typecheck + lint、節目で build。自動テストランナー無）／スクショ方針／旧 Tier1 variant-k 指示との関係明記。
+- docs/計画のみ。本体画面・lab 以外の UI・API・DB・migration・localStorage 本体仕様・設定ファイル・実データ・既存 Variant A〜K の見た目は変更なし。`displayContext` 3値固定・永続境界・総合スコア式・APP_PLAYBACK 基準・AVP上限4本/候補上限なしは変更しない。`docs/nextjs-ui-renovation-feedback.md` へは直接追記していない（将来反映項目として計画書内に列挙）。
+
+---
+
 ## 2026-06-28 — docs(ui): 全画面フィードバック棚卸しと H2（API取得可否）確認結果を記録
 
 - `docs/nextjs-ui-renovation-feedback.md` に「全画面フィードバック棚卸し（2026-06-28）」を追記。分析を除く全画面の UI LAB フィードバック一巡を受けた棚卸しとして、確定判断を記録: AVP再生で あとで見る を自動解除しない本体変更は**サンプルDB版 Variant K の前に実装**（H1）／視聴回数は UI から外し `type=view_count` は後方互換で温存（M1）／Tier2 の Tier1流用 vs 専用文言は Variant K 試作で判断。

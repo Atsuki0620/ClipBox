@@ -5,9 +5,17 @@
 // 【依存関係】next/link と lucide のみ。
 
 import Link from "next/link";
-import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay, BarChart3, Search, LineChart } from "lucide-react";
+import { ArrowRight, FlaskConical, Library, Shuffle, Dices, Settings, Bookmark, MonitorPlay, BarChart3, Search, LineChart, LayoutDashboard } from "lucide-react";
 
 const AREAS = [
+  {
+    href: "/lab/variant-k",
+    icon: LayoutDashboard,
+    title: "統合 Variant K（全画面整合）",
+    summary:
+      "画面別に決めた案を、ナビ・カード・余白・バッジ・テーブル/カードの使い分け・用語で揃えた全画面整合 UI モック。サンプルDB接続前・本体ではない・段階実装中。",
+    status: "段階実装中",
+  },
   {
     href: "/lab/tier1-library",
     icon: Library,
