@@ -33,7 +33,9 @@ export interface VariantKVideo {
   selected_at: string | null; // 選別日（Tier2・ISO）
 }
 
-// 合成のプレースホルダ動画（8件）。Tier1/Tier2 状態・利用可否・あとで見る・いいねに変化を持たせる。
+// 合成のプレースホルダ動画。Tier1/Tier2 状態・利用可否・あとで見る・いいねに変化を持たせる。
+// ids 13..17 は段階5（あとで見る/AVP）で 未処理／確認・見直し／処理済み候補 の3セクションと
+// 利用不可×あとで見る・いいね済み×あとで見るのバリエーションを見せるために追加した。
 export const VARIANT_K_VIDEOS: VariantKVideo[] = [
   { id: 1, title: "sample_clip_001", storage: "C_DRIVE", file_created_at: "2026-04-12", tier1_status: 4, tier2_status: 3, view_days: 12, liked: true, like_count: 7, watch_later: false, available: true, score: 128.4, rank: 1, last_played_at: "2026-05-30", judged_at: "2026-04-15", selected_at: "2026-04-20" },
   { id: 2, title: "demo_video_alpha", storage: "EXTERNAL_HDD", file_created_at: "2026-03-02", tier1_status: 3, tier2_status: "unselected", view_days: 9, liked: false, like_count: 4, watch_later: true, available: true, score: 96.1, rank: 2, last_played_at: "2026-05-18", judged_at: "2026-03-08", selected_at: null },
@@ -47,6 +49,17 @@ export const VARIANT_K_VIDEOS: VariantKVideo[] = [
   { id: 10, title: "dummy_clip_bb3", storage: "EXTERNAL_HDD", file_created_at: "2026-02-25", tier1_status: 0, tier2_status: "none", view_days: 2, liked: false, like_count: 0, watch_later: false, available: true, score: 22.5, rank: 7, last_played_at: "2026-05-04", judged_at: "2026-03-01", selected_at: null },
   { id: 11, title: "sample_clip_004", storage: "C_DRIVE", file_created_at: "2026-05-28", tier1_status: -1, tier2_status: "none", view_days: 1, liked: false, like_count: 0, watch_later: false, available: false, score: 0, rank: 9, last_played_at: "2026-06-02", judged_at: null, selected_at: null },
   { id: 12, title: "demo_video_delta", storage: "EXTERNAL_HDD", file_created_at: "2026-03-19", tier1_status: 3, tier2_status: "none", view_days: 8, liked: true, like_count: 5, watch_later: true, available: true, score: 88.3, rank: 3, last_played_at: "2026-05-25", judged_at: "2026-03-24", selected_at: null },
+  // --- 段階5 追加（あとで見る 3セクション・AVP バリエーション用） ---
+  // 確認・見直し：Tier1 判定済み × あとで見る × 最終再生なし。
+  { id: 13, title: "mock_sample_021", storage: "C_DRIVE", file_created_at: "2026-05-11", tier1_status: 2, tier2_status: "none", view_days: 4, liked: false, like_count: 1, watch_later: true, available: true, score: 47.5, rank: 6, last_played_at: null, judged_at: "2026-05-14", selected_at: null },
+  // 確認・見直し：Tier2 選別済み × あとで見る × 最終再生なし。
+  { id: 14, title: "demo_video_epsilon", storage: "EXTERNAL_HDD", file_created_at: "2026-04-02", tier1_status: 3, tier2_status: 2, view_days: 7, liked: false, like_count: 2, watch_later: true, available: true, score: 71.0, rank: 4, last_played_at: null, judged_at: "2026-04-05", selected_at: "2026-04-09" },
+  // 確認・見直し：Tier1 判定済み × いいね済み × あとで見る × 最終再生なし。
+  { id: 15, title: "dummy_clip_cc1", storage: "C_DRIVE", file_created_at: "2026-05-30", tier1_status: 1, tier2_status: "none", view_days: 3, liked: true, like_count: 3, watch_later: true, available: true, score: 38.6, rank: 7, last_played_at: null, judged_at: "2026-06-02", selected_at: null },
+  // 未処理：Tier2 未選別 × あとで見る（Tier1/Tier2 を混同しない表示確認用）。
+  { id: 16, title: "placeholder_reel_11", storage: "EXTERNAL_HDD", file_created_at: "2026-06-12", tier1_status: 2, tier2_status: "unselected", view_days: 1, liked: false, like_count: 0, watch_later: true, available: true, score: 18.0, rank: 8, last_played_at: null, judged_at: "2026-06-14", selected_at: null },
+  // 処理済み候補：Tier1 判定済み × あとで見る × 最終再生あり × 利用不可（利用不可×あとで見る確認用）。
+  { id: 17, title: "test_footage_d8", storage: "EXTERNAL_HDD", file_created_at: "2026-01-08", tier1_status: 4, tier2_status: "none", view_days: 11, liked: true, like_count: 6, watch_later: true, available: false, score: 102.4, rank: 2, last_played_at: "2026-05-12", judged_at: "2026-01-12", selected_at: null },
 ];
 
 // Tier1 KPI（モック固定値・見た目確認用。Recharts 等は使わず軽量表示に留める）。
