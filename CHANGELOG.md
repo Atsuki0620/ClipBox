@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階4（Tier2）を実装
+
+- `frontend/src/app/lab/variant-k/tier2/` を作り込み、`/lab/variant-k/tier2` を ライブラリ／ランダム／運命の1本 の3タブと `案1: Tier1流用案` / `案2: Tier2専用文言強め案` の文言比較トグルを持つ UI LAB モックにした。新規: `Tier2Library`/`Tier2Random`/`Tier2Fate`・`Tier2Card`/`Tier2CardActions`/`Tier2LevelButtons`/`Tier2KpiBar`・`shared.ts`・`useTier2MockCardState.ts`。
+- Tier2 の状態を video id 単位のページ内メモリで共有し、ライブラリ/ランダム/運命の1本で `未選別/Lv0..Lv4`、いいね、あとで見る、AVP候補、選別日が同期するようにした。`未選別 -> Lv0..Lv4` では選別日を当日に更新してあとで見るを自動解除し、`Lv0..Lv4 -> 未選別` では選別日を空扱いに戻す。
+- ライブラリ=軽量KPI＋フィルタ(すべて/未選別/選別済み・再生可能だけ)＋並び替え(視聴日数/作成日/選別日)＋カードグリッド。ランダム=「Tier2対象・再生可能・未選別優先」固定の代表1件。運命の1本=大型「引く」・現在カード・最近見てない優先トグルの見た目・保持説明のみ（実 sessionStorage 非接触）。
+- UI LAB モックのみ。本体画面・API・DB・migration・設定ファイル・実データ・localStorage/sessionStorage 本体仕様は変更なし。旧 `/lab/tier2-*/variant-k` は作らず、既存 Variant A〜K・lab 共通部品・Tier1 は無改変。`VariantKVideoCard` は `tierBadge="tier2"` / `statusLabel="選別"` / `dateLabel="選別日"` で流用し、視聴回数/更新日/登録日/サムネイル/Tier1 の判定操作は出していない。`_review/STAGE4_TIER2.md` を追加。
+
+---
+
 ## 2026-06-28 — fix(ui-lab): 統合 Variant K の実装済み範囲を補正
 
 - Tier1 のカード操作状態をカード単体ではなく video id 単位のページ内メモリ状態に変更。ライブラリ/ランダム/運命の1本で同じ動画の Lv・いいね・あとで見る・AVP候補が同期するようにした。
