@@ -15,6 +15,7 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 - `frontend/src/app/lab/variant-k/_review/STAGE7_FEEDBACK_AUDIT.md` を新規作成。`docs/nextjs-ui-renovation-feedback.md`（フィードバック正本）と `_review/INTEGRATED_VARIANT_K_PLAN.md`（実装計画）に対し、統合 Variant K（段階1〜6 マージ済み）の現行実装を画面別に突き合わせ、未反映・部分反映・要確認を ✅⚠️❌❓ で網羅記録した。
 - 主な未反映: Tier1 ライブラリのカード⇄テーブル切替＋ページャ欠如／ランキング・検索の Tier1・Tier2 列がプルダウン操作でない／AVP 主要ボタンの Tooltip 整理／検索の詳細フィルタ畳み込み＋保存先詳細列。細部（AVP 一括いいねボタン名・候補テーブルのタイトル省略＋全名 Tooltip・ランキング詳細フィルタ畳み込み・サイドバー自作 SVG ロゴ・あとで見る5列・AVP「AVPで再生」強調）と、要確認（Tier1 ランダムの多本引き、AVP 総合スコアの公式再計算統一、スコア桁の見せ方）も記載。
+- ユーザー追加指摘（§7・Tier1/カード共通部品）も同ドキュメントに追記: Tier1 のフィルタ（漏斗 Popover・全表示しない）欠如／並び替え（2段 Popover・項目＋降順昇順）相違／カードデザインの他画面共通部品化／レベル選択を 未・1・2・3・4 にし「判定」ラベル削除／アクション（再生・いいね・あとで見る・AVP）を横1段＋アイコン化（再生=アイコンのみ・あとで見る=栞・AVP=AVPメニューと同アイコン）。根拠は `tier1-library/_review/COMPARISON_J.md` §3/§4。
 - 本ラウンドは docs 記録のみ（コード・UI・API・DB・設定は変更なし）。修正は次ラウンドで本監査を基に実施する。`docs/nextjs-ui-renovation-feedback.md` には直接追記していない（正本は上書きしない）。
 
 ---
