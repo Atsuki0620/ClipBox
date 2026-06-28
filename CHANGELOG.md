@@ -11,6 +11,14 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — docs(ui-lab): 統合 Variant K フィードバック反映の網羅監査を記録
+
+- `frontend/src/app/lab/variant-k/_review/STAGE7_FEEDBACK_AUDIT.md` を新規作成。`docs/nextjs-ui-renovation-feedback.md`（フィードバック正本）と `_review/INTEGRATED_VARIANT_K_PLAN.md`（実装計画）に対し、統合 Variant K（段階1〜6 マージ済み）の現行実装を画面別に突き合わせ、未反映・部分反映・要確認を ✅⚠️❌❓ で網羅記録した。
+- 主な未反映: Tier1 ライブラリのカード⇄テーブル切替＋ページャ欠如／ランキング・検索の Tier1・Tier2 列がプルダウン操作でない／AVP 主要ボタンの Tooltip 整理／検索の詳細フィルタ畳み込み＋保存先詳細列。細部（AVP 一括いいねボタン名・候補テーブルのタイトル省略＋全名 Tooltip・ランキング詳細フィルタ畳み込み・サイドバー自作 SVG ロゴ・あとで見る5列・AVP「AVPで再生」強調）と、要確認（Tier1 ランダムの多本引き、AVP 総合スコアの公式再計算統一、スコア桁の見せ方）も記載。
+- 本ラウンドは docs 記録のみ（コード・UI・API・DB・設定は変更なし）。修正は次ラウンドで本監査を基に実施する。`docs/nextjs-ui-renovation-feedback.md` には直接追記していない（正本は上書きしない）。
+
+---
+
 ## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階6（ランキング・検索・設定）を実装
 
 - `frontend/src/app/lab/variant-k/ranking/` を作り込み、`/lab/variant-k/ranking` を 総合スコアで俯瞰する操作付きスコアテーブル（UI LAB モック）にした。新規: `page.tsx`（概要KPI＋詳細フィルタ＋詳細列ON/OFF＋既定=再生可能だけ）・`RankingTable.tsx`・`shared.ts`。通常列＝順位/タイトル/総合スコア/視聴日数/いいね/Tier1/Tier2/操作、詳細列ON で 基礎点/Tier1補正/Tier2補正/補正倍率/保存先 を追加。ソート可能ヘッダ（総合スコア/視聴日数/いいね）はクリックで降順⇔昇順、順位は現在の並び順での 1..N。
