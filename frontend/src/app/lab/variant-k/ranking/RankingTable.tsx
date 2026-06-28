@@ -17,8 +17,17 @@ import {
   type VariantKColumn,
 } from "../_components/VariantKActionTable";
 import { VariantKRowActions } from "../_components/VariantKRowActions";
+import { VariantKLevelSelect } from "../_components/VariantKLevelSelect";
 import type { VariantKRowStateController } from "../_components/useVariantKRowStates";
-import { tier1Label, tier2Label, type VariantKVideo } from "../_data/variantKMock";
+import {
+  TIER1_SELECT_OPTIONS,
+  TIER2_SELECT_OPTIONS,
+  tier1ToSelectValue,
+  tier2ToSelectValue,
+  selectValueToTier1,
+  selectValueToTier2,
+  type VariantKVideo,
+} from "../_data/variantKMock";
 import {
   baseScore,
   bonusMultiplier,
@@ -125,8 +134,40 @@ export function RankingTable({
         </span>
       ),
     },
-    { key: "tier1", header: "Tier1", align: "center", render: (row) => tier1Label(row.tier1_status) },
-    { key: "tier2", header: "Tier2", align: "center", render: (row) => tier2Label(row.tier2_status) },
+    {
+      key: "tier1",
+      header: "Tier1",
+      align: "center",
+      render: (row) => {
+        const state = controller.getRowState(row);
+        return (
+          <VariantKLevelSelect
+            ariaLabel="Tier1レベル"
+            value={tier1ToSelectValue(row.tier1_status)}
+            options={TIER1_SELECT_OPTIONS}
+            onChange={(v) => state.setTier1Level(selectValueToTier1(v))}
+          />
+        );
+      },
+    },
+    {
+      key: "tier2",
+      header: "Tier2",
+      align: "center",
+      // 対象外（none）は Tier2 候補ではないため「—」表示。未選別/Lv0..4 のみ行内変更可。
+      render: (row) => {
+        if (row.tier2_status === "none") return <span className="text-muted-foreground">—</span>;
+        const state = controller.getRowState(row);
+        return (
+          <VariantKLevelSelect
+            ariaLabel="Tier2レベル"
+            value={tier2ToSelectValue(row.tier2_status)}
+            options={TIER2_SELECT_OPTIONS}
+            onChange={(v) => state.setTier2Level(selectValueToTier2(v))}
+          />
+        );
+      },
+    },
     ...(showDetails
       ? ([
           { key: "base", header: "基礎点", align: "right", render: (row: VariantKVideo) => baseScore(row) },

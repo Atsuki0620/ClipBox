@@ -4,7 +4,8 @@
 // 【設計制約】
 //   - メモリのみ（永続しない）。実 localStorage / sessionStorage / DB / API には触れない。
 //   - あとで見る（DB相当）と AVP候補（localStorage相当）は別々の状態として持ち、混同しない。
-//   - 判定レベルは 0..4 を設定する操作のみ。設定時は判定済み化・判定日更新・あとで見る自動解除をモックで表現する。
+//   - 判定レベルは 未(-1)/0..4 を設定する操作。0..4 は判定済み化・判定日更新・あとで見る自動解除をモックで表現し、
+//     -1（未判定へ戻す）は判定日を null に戻す（あとで見るは触らない）。
 // 【依存関係】react, _data/variantKMock（VariantKVideo 型）。
 
 "use client";
@@ -82,12 +83,13 @@ export function useTier1MockCardStates(videos: VariantKVideo[]): Tier1MockCardSt
       return {
         ...snapshot,
         setLevel: (level) => {
-          updateVideoState(video, (current) => ({
-            ...current,
-            level,
-            judgedAt: todayIsoDate(),
-            watchLater: false,
-          }));
+          updateVideoState(video, (current) =>
+            level < 0
+              ? // 未判定へ戻す：判定日を消す。あとで見るは触らない。
+                { ...current, level, judgedAt: null }
+              : // 判定（0..4）：判定済み化・判定日更新・あとで見る自動解除（モック）。
+                { ...current, level, judgedAt: todayIsoDate(), watchLater: false },
+          );
         },
         toggleLike: () => {
           updateVideoState(video, (current) => ({

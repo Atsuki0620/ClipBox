@@ -15,12 +15,14 @@ export function Tier1Card({
   video,
   state,
   playing = false,
+  dimmed = false,
   onPlay,
   className,
 }: {
   video: VariantKVideo;
   state: Tier1MockCardState;
   playing?: boolean;
+  dimmed?: boolean;
   onPlay?: () => void;
   className?: string;
 }) {
@@ -31,6 +33,7 @@ export function Tier1Card({
       video={video}
       tierBadge="tier1"
       playing={playing}
+      dimmed={dimmed}
       watchLater={state.watchLater}
       statusLabel="判定"
       statusValue={tier1Label(state.level)}

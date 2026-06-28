@@ -11,6 +11,20 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-29 — feat(ui-lab): 統合 Variant K フィードバック反映（監査§1/§2/§7）を実装
+
+- `STAGE7_FEEDBACK_AUDIT.md` の §1（注力未反映）・§2（細部）・§7（Tier1/カード共通部品）を一括実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定/localStorage/sessionStorage 仕様・総合スコアの係数/タイブレークは変更なし（状態はページ内メモリ相当）。
+- 共通部品を新設: `_components/VariantKCardActions.tsx`（再生=アイコンのみ／いいね／あとで見る=栞／AVP候補=`MonitorPlay` の横1段アイコン操作・ハンドラ未指定は非描画）、`_components/VariantKLevelButtons.tsx`（options 駆動の汎用レベルボタン）、`_components/VariantKLevelSelect.tsx`（テーブル行内の Tier レベル Select）。Tier1/Tier2/あとで見る/AVP の操作行をこれらに統一（§7-C）。`VariantKRowActions` の state 型を使用フィールドのみに絞り Tier1 カード状態でも流用可能にした。
+- Tier1 ライブラリ（§1-A/§7-A/§7-B/§7-D）: カード⇄テーブル切替＋機能するページャ（全N件・50/100/200・前後送り）を追加。フィルタを漏斗 Popover（レベル 未/0–4・保存先・状態・再生可のみ・「判定済みを薄くする」＋有効数バッジ）に畳み、並び替えを2段 Popover（項目＝レベル/作成日/視聴日数/タイトル/判定日、方向＝降順/昇順）に変更。レベル選択を 未/0/1/2/3/4 の6択（未＝未判定へ戻す）にし「判定」ラベルを削除。`useTier1MockCardState.setLevel` は -1（未判定）で判定日を null に戻す。
+- Tier1 ランダム（§3-1）: 主ボタンを「シャッフル」、引き数 5/10/15/20 で N 本提示に変更（運命の1本は単一のまま）。
+- ランキング/検索（§1-B）: Tier1（未判定/Lv0〜Lv4）・Tier2（未選別/Lv0〜Lv4）列を行内 Select 化。`useVariantKRowStates` に `setTier1Level`/`setTier2Level` を追加。行の所属・並びはフィルタ/ソート変更時のみ再計算（id で固定）し、値編集では行を即時除去・並べ替えしない。
+- AVP（§1-C/§2-1/§2-2/§2-6/§3-2）: 主要ボタンの Tooltip を撤去（disabled 理由のみ残置）、「一括いいね」→「再生対象をまとめていいね」、候補タイトルを truncate＋全名 title、「AVPで再生」を主操作として強調。総合スコア/順位を mock 小数廃止し公式再計算（`_data/variantKScore`）へ統一（母集団=再生可能だけ/全動画で順位再計算・桁はランキング/検索と一致）。
+- 検索/ランキング（§1-D/§2-3/§2-7/§2-8）: 詳細フィルタを漏斗 Popover に畳み（有効数バッジ）、検索に「詳細列（保存先）」トグルと利用不可タイトル横バッジを追加、ランキング詳細フィルタも開閉式に統一。
+- 設定/シェル/あとで見る（§1-E/§2-4/§2-5）: 設定の手動バックアップボタンを撤去し履歴を自動取得中心に、サイドバーのブランドマークを自作 SVG（箱＋再生三角・`public/clipbox-mark.svg`）へ差し替え、あとで見るを PC幅5列基準に変更。
+- 除外: §3-4（サンプルDB接続前 API 束）は本体作業として今回対象外。検証: `npm run typecheck`/`npm run lint`/`npm run build` 全通過、Tier1/ランキング/AVP を Playwright スモーク（コンソールエラーなし）。`docs/nextjs-ui-renovation-feedback.md` は不変。
+
+---
+
 ## 2026-06-28 — docs(ui-lab): 統合 Variant K フィードバック反映の網羅監査を記録
 
 - `frontend/src/app/lab/variant-k/_review/STAGE7_FEEDBACK_AUDIT.md` を新規作成。`docs/nextjs-ui-renovation-feedback.md`（フィードバック正本）と `_review/INTEGRATED_VARIANT_K_PLAN.md`（実装計画）に対し、統合 Variant K（段階1〜6 マージ済み）の現行実装を画面別に突き合わせ、未反映・部分反映・要確認を ✅⚠️❌❓ で網羅記録した。

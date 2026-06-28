@@ -11,10 +11,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Inbox } from "lucide-react";
+import { Inbox, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { VARIANT_K_VIDEOS, type VariantKVideo } from "../_data/variantKMock";
 import { compositeScore } from "../_data/variantKScore";
 import { useVariantKRowStates } from "../_components/useVariantKRowStates";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
@@ -23,6 +24,7 @@ import { RankingTable } from "./RankingTable";
 import {
   applyRankingFilters,
   sortRanking,
+  activeRankingFilterCount,
   DEFAULT_RANKING_FILTERS,
   DEFAULT_RANKING_SORT,
   RANKING_MIN_LEVEL_OPTIONS,
@@ -31,6 +33,9 @@ import {
   type RankingFilters,
   type RankingSort,
 } from "./shared";
+
+const filterTriggerClass =
+  "inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-[12px] text-foreground transition-colors hover:bg-muted data-[state=open]:bg-muted";
 
 // セグメント切替（既存 Tier1 ツールバーの cn イディオムを踏襲・メモリのみ）。
 function Segmented<T extends string | number>({
@@ -66,10 +71,24 @@ export default function VariantKRankingPage() {
   const [filters, setFilters] = useState<RankingFilters>(DEFAULT_RANKING_FILTERS);
   const [sort, setSort] = useState<RankingSort>(DEFAULT_RANKING_SORT);
   const [showDetails, setShowDetails] = useState(false);
+  const filterCount = activeRankingFilterCount(filters);
+
+  // 行の所属・並び順はフィルタ/ソート変更時のみ再計算し（id 列で固定）、
+  // 値（いいね/Tier等）の編集では行を即時除去・並べ替えしない（§1-B）。
+  const videos = controller.videos;
+  const orderedIds = useMemo(
+    () => sortRanking(applyRankingFilters(videos, filters), sort).map((v) => v.id),
+    // videos は意図的に依存から除外（値編集で行を動かさない・並びはフィルタ/ソート変更時のみ更新）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters, sort],
+  );
 
   const rows = useMemo(
-    () => sortRanking(applyRankingFilters(controller.videos, filters), sort),
-    [controller.videos, filters, sort],
+    () =>
+      orderedIds
+        .map((id) => videos.find((v) => v.id === id))
+        .filter((v): v is VariantKVideo => Boolean(v)),
+    [orderedIds, videos],
   );
 
   const kpi = useMemo(() => {
@@ -118,28 +137,51 @@ export default function VariantKRankingPage() {
         ))}
       </div>
 
-      {/* 詳細フィルタ（すべてメモリ・永続しない） */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-3 py-2">
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          期間
-          <Segmented options={RANKING_PERIOD_OPTIONS} value={filters.period} onChange={(v) => setFilters((f) => ({ ...f, period: v }))} />
-        </label>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          最低レベル
-          <Segmented options={RANKING_MIN_LEVEL_OPTIONS} value={filters.minLevel} onChange={(v) => setFilters((f) => ({ ...f, minLevel: v }))} />
-        </label>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          保存先
-          <Segmented options={RANKING_STORAGE_OPTIONS} value={filters.storage} onChange={(v) => setFilters((f) => ({ ...f, storage: v }))} />
-        </label>
-        <label className="ml-auto inline-flex items-center gap-2 rounded-md border bg-card px-2.5 py-1 text-[12px]">
-          <span>再生可能だけ</span>
-          <Switch checked={filters.availableOnly} onCheckedChange={(v) => setFilters((f) => ({ ...f, availableOnly: Boolean(v) }))} />
-        </label>
-        <label className="inline-flex items-center gap-2 rounded-md border bg-card px-2.5 py-1 text-[12px]">
-          <span>詳細列（計算内訳）</span>
-          <Switch checked={showDetails} onCheckedChange={(v) => setShowDetails(Boolean(v))} />
-        </label>
+      {/* 詳細フィルタ（漏斗 → Popover に畳む・検索と見た目を揃える。すべてメモリ・永続しない） */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger className={cn(filterTriggerClass, filterCount > 0 && "border-primary text-primary")}>
+            <SlidersHorizontal className="size-3.5" />
+            詳細フィルタ
+            {filterCount > 0 && (
+              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground tabular-nums">
+                {filterCount}
+              </span>
+            )}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="flex w-72 flex-col gap-3 p-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">期間</span>
+              <Segmented options={RANKING_PERIOD_OPTIONS} value={filters.period} onChange={(v) => setFilters((f) => ({ ...f, period: v }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">最低レベル</span>
+              <Segmented options={RANKING_MIN_LEVEL_OPTIONS} value={filters.minLevel} onChange={(v) => setFilters((f) => ({ ...f, minLevel: v }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">保存先</span>
+              <Segmented options={RANKING_STORAGE_OPTIONS} value={filters.storage} onChange={(v) => setFilters((f) => ({ ...f, storage: v }))} />
+            </div>
+            <div className="border-t" />
+            <label className="flex items-center justify-between gap-2 text-[12px]">
+              <span>再生可能だけ</span>
+              <Switch checked={filters.availableOnly} onCheckedChange={(v) => setFilters((f) => ({ ...f, availableOnly: Boolean(v) }))} />
+            </label>
+            <label className="flex items-center justify-between gap-2 text-[12px]">
+              <span>詳細列（計算内訳）</span>
+              <Switch checked={showDetails} onCheckedChange={(v) => setShowDetails(Boolean(v))} />
+            </label>
+            {filterCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilters(DEFAULT_RANKING_FILTERS)}
+                className="self-start text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                詳細フィルタをクリア
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       <RankingTable

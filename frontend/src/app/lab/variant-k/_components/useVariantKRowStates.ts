@@ -11,13 +11,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { VariantKVideo } from "../_data/variantKMock";
+import type { Tier1Status, Tier2Status, VariantKVideo } from "../_data/variantKMock";
 
 type RowSnapshot = {
   liked: boolean;
   likeCount: number;
   watchLater: boolean; // DB相当（モック）
   avpCandidate: boolean; // localStorage相当（メモリのみ）
+  tier1Status: Tier1Status; // -1=未判定, 0..4
+  tier2Status: Tier2Status; // none / unselected / 0..4
 };
 
 export type VariantKRowState = {
@@ -28,6 +30,10 @@ export type VariantKRowState = {
   toggleWatchLater: () => void;
   avpCandidate: boolean;
   toggleAvpCandidate: () => void;
+  tier1Status: Tier1Status;
+  setTier1Level: (level: Tier1Status) => void;
+  tier2Status: Tier2Status;
+  setTier2Level: (level: Tier2Status) => void;
 };
 
 type RowStateById = Record<number, RowSnapshot>;
@@ -45,6 +51,8 @@ function snapshotFromVideo(video: VariantKVideo): RowSnapshot {
     likeCount: video.like_count,
     watchLater: video.watch_later,
     avpCandidate: false,
+    tier1Status: video.tier1_status,
+    tier2Status: video.tier2_status,
   };
 }
 
@@ -86,6 +94,13 @@ export function useVariantKRowStates(videos: VariantKVideo[]): VariantKRowStateC
         toggleAvpCandidate: () => {
           updateVideoState(video, (current) => ({ ...current, avpCandidate: !current.avpCandidate }));
         },
+        // Tier1/Tier2 のレベルを行内で変更（値だけ更新・行は呼び出し側で即時除去しない）。
+        setTier1Level: (level) => {
+          updateVideoState(video, (current) => ({ ...current, tier1Status: level }));
+        },
+        setTier2Level: (level) => {
+          updateVideoState(video, (current) => ({ ...current, tier2Status: level }));
+        },
       };
     },
     [stateById, updateVideoState],
@@ -100,6 +115,8 @@ export function useVariantKRowStates(videos: VariantKVideo[]): VariantKRowStateC
           liked: snapshot.liked,
           like_count: snapshot.likeCount,
           watch_later: snapshot.watchLater,
+          tier1_status: snapshot.tier1Status,
+          tier2_status: snapshot.tier2Status,
         };
       }),
     [stateById, videos],

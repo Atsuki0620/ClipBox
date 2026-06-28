@@ -16,8 +16,18 @@ import {
   type VariantKColumn,
 } from "../_components/VariantKActionTable";
 import { VariantKRowActions } from "../_components/VariantKRowActions";
+import { VariantKLevelSelect } from "../_components/VariantKLevelSelect";
+import { VariantKBadge } from "../_components/VariantKBadge";
 import type { VariantKRowStateController } from "../_components/useVariantKRowStates";
-import { tier1Label, tier2Label, type VariantKVideo } from "../_data/variantKMock";
+import {
+  TIER1_SELECT_OPTIONS,
+  TIER2_SELECT_OPTIONS,
+  tier1ToSelectValue,
+  tier2ToSelectValue,
+  selectValueToTier1,
+  selectValueToTier2,
+  type VariantKVideo,
+} from "../_data/variantKMock";
 import { compositeScore } from "../_data/variantKScore";
 import { nextSearchSort, type SearchSort, type SearchSortKey } from "./shared";
 
@@ -52,17 +62,22 @@ function SortHeader({
   );
 }
 
+const storageLabel = (storage: string) =>
+  storage === "C_DRIVE" ? "Cドライブ" : storage === "EXTERNAL_HDD" ? "外付けHDD" : storage;
+
 export function SearchResults({
   rows,
   controller,
   sort,
   onSortChange,
+  showDetailColumn,
   emptyState,
 }: {
   rows: VariantKVideo[];
   controller: VariantKRowStateController;
   sort: SearchSort;
   onSortChange: (sort: SearchSort) => void;
+  showDetailColumn: boolean;
   emptyState?: React.ReactNode;
 }) {
   const handleSort = (key: SortableKey) => onSortChange(nextSearchSort(sort, key));
@@ -71,7 +86,13 @@ export function SearchResults({
     {
       key: "title",
       header: "タイトル",
-      render: (row) => <span className="font-medium text-foreground">{row.title}</span>,
+      // 利用不可はタイトル横にバッジ（行全体の薄表示は dimRow 側で維持）。
+      render: (row) => (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="font-medium text-foreground">{row.title}</span>
+          {!row.available ? <VariantKBadge kind="unavailable" /> : null}
+        </span>
+      ),
     },
     {
       key: "score",
@@ -96,8 +117,50 @@ export function SearchResults({
         </span>
       ),
     },
-    { key: "tier1", header: "Tier1", align: "center", render: (row) => tier1Label(row.tier1_status) },
-    { key: "tier2", header: "Tier2", align: "center", render: (row) => tier2Label(row.tier2_status) },
+    {
+      key: "tier1",
+      header: "Tier1",
+      align: "center",
+      render: (row) => {
+        const state = controller.getRowState(row);
+        return (
+          <VariantKLevelSelect
+            ariaLabel="Tier1レベル"
+            value={tier1ToSelectValue(row.tier1_status)}
+            options={TIER1_SELECT_OPTIONS}
+            onChange={(v) => state.setTier1Level(selectValueToTier1(v))}
+          />
+        );
+      },
+    },
+    {
+      key: "tier2",
+      header: "Tier2",
+      align: "center",
+      render: (row) => {
+        if (row.tier2_status === "none") return <span className="text-muted-foreground">—</span>;
+        const state = controller.getRowState(row);
+        return (
+          <VariantKLevelSelect
+            ariaLabel="Tier2レベル"
+            value={tier2ToSelectValue(row.tier2_status)}
+            options={TIER2_SELECT_OPTIONS}
+            onChange={(v) => state.setTier2Level(selectValueToTier2(v))}
+          />
+        );
+      },
+    },
+    ...(showDetailColumn
+      ? ([
+          {
+            key: "storage",
+            header: "保存先",
+            align: "center",
+            // 匿名化分類（実パスは出さない）。
+            render: (row: VariantKVideo) => storageLabel(row.storage),
+          },
+        ] as VariantKColumn<VariantKVideo>[])
+      : []),
     {
       key: "actions",
       header: "操作",

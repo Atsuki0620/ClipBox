@@ -72,6 +72,19 @@ export const SEARCH_TIER2_OPTIONS: { value: SearchTier2; label: string }[] = [
   { value: 4, label: "Lv4" },
 ];
 
+// 有効な詳細フィルタ数（キーワード以外。漏斗バッジ用）。各項目が既定値から外れていれば 1。
+export function activeSearchFilterCount(filters: SearchFilters): number {
+  return (
+    (filters.storage !== "all" ? 1 : 0) +
+    (filters.availability !== "all" ? 1 : 0) +
+    (filters.tier1 !== "all" ? 1 : 0) +
+    (filters.tier2 !== "all" ? 1 : 0) +
+    (filters.watchLater !== "all" ? 1 : 0) +
+    (filters.liked !== "all" ? 1 : 0) +
+    (filters.minViewDays > 0 ? 1 : 0)
+  );
+}
+
 // フィルタ適用（キーワードはダミータイトルの部分一致・大文字小文字無視）。
 export function applySearchFilters(videos: VariantKVideo[], filters: SearchFilters): VariantKVideo[] {
   const keyword = filters.keyword.trim().toLowerCase();

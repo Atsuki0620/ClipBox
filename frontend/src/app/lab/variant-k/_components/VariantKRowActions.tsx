@@ -13,6 +13,12 @@ import { Play, Heart, Bookmark, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VariantKRowState } from "./useVariantKRowStates";
 
+// 操作セルが実際に使うフィールドのみを要求する（Tier1 のカード状態など他フックからも流用できるように）。
+type RowActionsState = Pick<
+  VariantKRowState,
+  "liked" | "likeCount" | "toggleLike" | "watchLater" | "toggleWatchLater" | "avpCandidate" | "toggleAvpCandidate"
+>;
+
 const iconBtn =
   "inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
 
@@ -22,7 +28,7 @@ export function VariantKRowActions({
   playing,
   onPlay,
 }: {
-  state: VariantKRowState;
+  state: RowActionsState;
   unavailable: boolean;
   playing: boolean;
   onPlay: () => void;

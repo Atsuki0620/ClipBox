@@ -31,6 +31,8 @@ export function VariantKVideoCard({
   showWatchLaterBadge = true,
   watchLater,
   playing = false,
+  // 判定済みを薄くする等、利用不可とは別理由での薄表示。
+  dimmed = false,
   // 状態メタ行：Tier1 では「判定」、Tier2 では「選別」を既定表示（"Tier" 表記は避ける）。
   // 明示指定で上書き可。既定は tierBadge から導出（後方互換）。
   statusLabel,
@@ -46,6 +48,7 @@ export function VariantKVideoCard({
   showWatchLaterBadge?: boolean;
   watchLater?: boolean;
   playing?: boolean;
+  dimmed?: boolean;
   statusLabel?: string;
   statusValue?: string;
   dateLabel?: string;
@@ -67,7 +70,7 @@ export function VariantKVideoCard({
     <article
       className={cn(
         "flex flex-col gap-2.5 rounded-lg border bg-card p-3 text-card-foreground shadow-sm",
-        dim && "opacity-50",
+        (dim || dimmed) && "opacity-50",
         playing && PLAYING_HIGHLIGHT_CLASS,
         className,
       )}

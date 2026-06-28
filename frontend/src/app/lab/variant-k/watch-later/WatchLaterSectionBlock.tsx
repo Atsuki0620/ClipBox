@@ -63,7 +63,7 @@ export function WatchLaterSectionBlock({
           description="該当するあとで見るはありません。"
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {videos.map((video) => (
             <WatchLaterCard
               key={video.id}

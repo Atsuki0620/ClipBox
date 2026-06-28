@@ -24,7 +24,7 @@ import { VariantKEmptyState } from "../_components/VariantKEmptyState";
 import { VariantKTooltipLabel } from "../_components/VariantKTooltipLabel";
 import { tier1Label, tier2Label, type VariantKVideo } from "../_data/variantKMock";
 import type { AvpMockController } from "./useAvpMockState";
-import { avpCandidateRows, formatScoreWithRank, MAX_AVP_PLAY_TARGET, type AvpRankScope } from "./shared";
+import { avpCandidateRows, avpRankMap, formatScoreWithRank, MAX_AVP_PLAY_TARGET, type AvpRankScope } from "./shared";
 
 export function AvpCandidateTable({ controller }: { controller: AvpMockController }) {
   const [scope, setScope] = useState<AvpRankScope>("available");
@@ -34,17 +34,25 @@ export function AvpCandidateTable({ controller }: { controller: AvpMockControlle
     [controller.videos, controller.candidateIds, scope],
   );
 
+  // 総合順位は scope 母集団で公式どおりに再計算（ランキング/検索と同じ式・桁）。
+  const rankMap = useMemo(() => avpRankMap(controller.videos, scope), [controller.videos, scope]);
+
   const columns: VariantKColumn<VariantKVideo>[] = [
     {
       key: "title",
       header: "タイトル",
-      render: (row) => <span className="font-medium text-foreground">{row.title}</span>,
+      className: "max-w-[14rem]",
+      render: (row) => (
+        <span className="block max-w-[14rem] truncate font-medium text-foreground" title={row.title}>
+          {row.title}
+        </span>
+      ),
     },
     {
       key: "score",
-      header: <VariantKTooltipLabel label="総合スコア" tooltip="総合スコアと総合順位（モック値）。本体の計算式・係数は変えていません。" />,
+      header: <VariantKTooltipLabel label="総合スコア" tooltip="総合スコアと総合順位は公式どおりに再計算（ランキング/検索と同じ式・桁）。順位は母集団（再生可能だけ/全動画）で切替わります。" />,
       align: "right",
-      render: (row) => <span className="text-foreground">{formatScoreWithRank(row)}</span>,
+      render: (row) => <span className="text-foreground">{formatScoreWithRank(row, rankMap)}</span>,
     },
     { key: "view_days", header: "視聴日数", align: "right", render: (row) => `${row.view_days}日` },
     {
@@ -115,7 +123,6 @@ export function AvpCandidateTable({ controller }: { controller: AvpMockControlle
             <button
               type="button"
               onClick={() => controller.removeCandidate(row.id)}
-              title="候補から外す"
               className="inline-flex h-7 items-center gap-1 rounded-md border bg-card px-2 text-[11px] whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <X className="size-3.5" />
@@ -147,7 +154,6 @@ export function AvpCandidateTable({ controller }: { controller: AvpMockControlle
               className="h-7 text-[11px]"
               onClick={controller.clearAllCandidates}
               disabled={controller.candidateIds.length === 0}
-              title="全候補をクリア（再生対象も空になる）"
             >
               <Trash2 className="size-3.5" />
               全候補をクリア
