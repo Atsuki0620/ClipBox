@@ -105,6 +105,7 @@ export function useSettingsMockState(): SettingsMockController {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -117,16 +118,16 @@ export function useSettingsMockState(): SettingsMockController {
   useEffect(() => {
     if (scanStatus !== "running") return;
     timerRef.current = setInterval(() => {
-      setScanProgress((prev) => {
-        const next = Math.min(100, prev + 4);
-        if (next >= 100) {
-          clearTimer();
-          setScanStatus("done");
-          setScanElapsedSec(MOCK_SCAN_RESULT.durationSec);
-          setScanResult(MOCK_SCAN_RESULT);
-        }
-        return next;
-      });
+      const next = Math.min(100, progressRef.current + 4);
+      progressRef.current = next;
+      setScanProgress(next);
+      if (next >= 100) {
+        clearTimer();
+        setScanStatus("done");
+        setScanElapsedSec(MOCK_SCAN_RESULT.durationSec);
+        setScanResult(MOCK_SCAN_RESULT);
+        return;
+      }
       setScanElapsedSec((prev) => prev + 5);
     }, 120);
     return clearTimer;
@@ -137,6 +138,7 @@ export function useSettingsMockState(): SettingsMockController {
 
   const startScan = useCallback(() => {
     clearTimer();
+    progressRef.current = 0;
     setScanProgress(0);
     setScanElapsedSec(0);
     setScanResult(null);
@@ -146,6 +148,7 @@ export function useSettingsMockState(): SettingsMockController {
 
   const resetScan = useCallback(() => {
     clearTimer();
+    progressRef.current = 0;
     setScanStatus("idle");
     setScanProgress(0);
     setScanElapsedSec(0);

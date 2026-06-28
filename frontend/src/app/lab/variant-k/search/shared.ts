@@ -8,7 +8,7 @@
 // 【依存関係】_data/variantKMock（VariantKVideo 型）, _data/variantKScore（compositeScore）。
 
 import type { VariantKVideo } from "../_data/variantKMock";
-import { compositeScore } from "../_data/variantKScore";
+import { compareOfficialRank, compositeScore } from "../_data/variantKScore";
 import { isTier2Target } from "../watch-later/shared";
 
 export type SearchStorage = "all" | "C_DRIVE" | "EXTERNAL_HDD";
@@ -102,9 +102,7 @@ export function sortSearch(videos: VariantKVideo[], sort: SearchSort): VariantKV
     return [...videos].sort((a, b) => {
       const groupDiff = Number(isTier2Target(a)) - Number(isTier2Target(b));
       if (groupDiff !== 0) return groupDiff;
-      const scoreDiff = compositeScore(b) - compositeScore(a);
-      if (scoreDiff !== 0) return scoreDiff;
-      return a.id - b.id;
+      return compareOfficialRank(a, b);
     });
   }
   const sign = sort.dir === "desc" ? 1 : -1;
@@ -116,7 +114,7 @@ export function sortSearch(videos: VariantKVideo[], sort: SearchSort): VariantKV
   return [...videos].sort((a, b) => {
     const diff = (valueOf(b) - valueOf(a)) * sign;
     if (diff !== 0) return diff;
-    return a.id - b.id;
+    return compareOfficialRank(a, b);
   });
 }
 

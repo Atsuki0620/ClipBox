@@ -8,7 +8,7 @@
 // 【依存関係】_data/variantKMock（VariantKVideo 型）, _data/variantKScore（compositeScore/rankVideos）。
 
 import type { VariantKVideo } from "../_data/variantKMock";
-import { compositeScore, rankVideos } from "../_data/variantKScore";
+import { compareOfficialRank, compositeScore, rankVideos } from "../_data/variantKScore";
 
 // モック基準日（currentDate=2026-06-28）。期間フィルタの相対計算に使う固定値。
 const TODAY_ISO = "2026-06-28";
@@ -94,7 +94,7 @@ export function sortRanking(videos: VariantKVideo[], sort: RankingSort): Variant
   return [...videos].sort((a, b) => {
     const diff = (valueOf(b) - valueOf(a)) * sign;
     if (diff !== 0) return diff;
-    return a.id - b.id;
+    return compareOfficialRank(a, b);
   });
 }
 

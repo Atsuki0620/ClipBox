@@ -52,6 +52,15 @@ export function compositeScore(video: VariantKVideo): number {
   return Math.round(baseScore(video) * bonusMultiplier(video) * 100);
 }
 
+// SPEC §9 の公式順位（score DESC → last_viewed_at DESC → id ASC）。
+export function compareOfficialRank(a: VariantKVideo, b: VariantKVideo): number {
+  const byScore = compositeScore(b) - compositeScore(a);
+  if (byScore !== 0) return byScore;
+  const byPlayed = (b.last_played_at ?? "").localeCompare(a.last_played_at ?? "");
+  if (byPlayed !== 0) return byPlayed;
+  return a.id - b.id;
+}
+
 // 表示用フォーマッタ（整数 pt・3桁区切り）。
 export function formatScore(video: VariantKVideo): string {
   return `${compositeScore(video).toLocaleString("en-US")} pt`;
@@ -73,11 +82,5 @@ export function formatBonus(bonus: number): string {
 export function rankVideos(videos: VariantKVideo[]): VariantKVideo[] {
   return videos
     .filter((video) => compositeScore(video) > 0)
-    .sort((a, b) => {
-      const byScore = compositeScore(b) - compositeScore(a);
-      if (byScore !== 0) return byScore;
-      const byPlayed = (b.last_played_at ?? "").localeCompare(a.last_played_at ?? "");
-      if (byPlayed !== 0) return byPlayed;
-      return a.id - b.id;
-    });
+    .sort(compareOfficialRank);
 }
