@@ -14,10 +14,10 @@ import { useMemo, useState } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
 import { Tier1KpiBar } from "./Tier1KpiBar";
 import { Tier1Card } from "./Tier1Card";
+import type { Tier1MockCardStateController } from "./useTier1MockCardState";
 import {
   applyTier1Filters,
   sortTier1,
@@ -27,13 +27,13 @@ import {
   type Tier1Filters,
 } from "./shared";
 
-export function Tier1Library() {
+export function Tier1Library({ state }: { state: Tier1MockCardStateController }) {
   const [filters, setFilters] = useState<Tier1Filters>(DEFAULT_TIER1_FILTERS);
   const [playingId, setPlayingId] = useState<number | null>(null);
 
   const visible = useMemo(
-    () => sortTier1(applyTier1Filters(VARIANT_K_VIDEOS, filters), filters.sort),
-    [filters],
+    () => sortTier1(applyTier1Filters(state.videos, filters), filters.sort),
+    [filters, state.videos],
   );
 
   return (
@@ -98,11 +98,12 @@ export function Tier1Library() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
             {visible.map((video) => (
               <Tier1Card
                 key={video.id}
                 video={video}
+                state={state.getCardState(video)}
                 playing={playingId === video.id}
                 onPlay={() => setPlayingId(video.id)}
               />

@@ -68,3 +68,43 @@ export function VariantKSidebar() {
     </aside>
   );
 }
+
+export function VariantKMobileNav() {
+  const pathname = usePathname();
+  const items = VARIANT_K_NAV.flatMap((group) => group.items);
+
+  return (
+    <nav className="border-b border-sidebar-border bg-sidebar/80 px-3 py-2 text-sidebar-foreground lg:hidden">
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {items.map(({ href, label, icon: Icon, note }) => {
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors",
+                isActive
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-sidebar-border bg-background/60 text-sidebar-foreground hover:bg-sidebar-accent",
+              )}
+            >
+              <Icon className="size-3.5 shrink-0" />
+              <span>{label}</span>
+              {note ? (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-[9px]",
+                    isActive ? "bg-background/20 text-background" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {note}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}

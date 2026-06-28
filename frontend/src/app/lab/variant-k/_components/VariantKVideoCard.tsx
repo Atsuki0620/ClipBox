@@ -29,6 +29,7 @@ export function VariantKVideoCard({
   // 該当Tierバッジ：tier1 画面では "tier1"、tier2 画面では "tier2" を渡す（既定は tier1）。
   tierBadge = "tier1",
   showWatchLaterBadge = true,
+  watchLater,
   playing = false,
   // 状態メタ行：Tier1 では「判定」、Tier2 では「選別」を既定表示（"Tier" 表記は避ける）。
   // 明示指定で上書き可。既定は tierBadge から導出（後方互換）。
@@ -43,6 +44,7 @@ export function VariantKVideoCard({
   video: VariantKVideo;
   tierBadge?: "tier1" | "tier2";
   showWatchLaterBadge?: boolean;
+  watchLater?: boolean;
   playing?: boolean;
   statusLabel?: string;
   statusValue?: string;
@@ -59,6 +61,7 @@ export function VariantKVideoCard({
   const resolvedDateLabel = dateLabel ?? (isTier1 ? "判定日" : "選別日");
   const resolvedDateValue =
     dateValue ?? formatVariantKDate(isTier1 ? video.judged_at : video.selected_at);
+  const resolvedWatchLater = watchLater ?? video.watch_later;
 
   return (
     <article
@@ -72,7 +75,7 @@ export function VariantKVideoCard({
       {/* バッジ列：該当Tier（初期ON）／あとで見る（初期ON）／利用不可（初期ON） */}
       <div className="flex flex-wrap items-center gap-1.5">
         <VariantKBadge kind={tierBadge} />
-        {showWatchLaterBadge && video.watch_later ? <VariantKBadge kind="watch_later" /> : null}
+        {showWatchLaterBadge && resolvedWatchLater ? <VariantKBadge kind="watch_later" /> : null}
         {!video.available ? <VariantKBadge kind="unavailable" /> : null}
       </div>
 

@@ -11,10 +11,20 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — fix(ui-lab): 統合 Variant K の実装済み範囲を補正
+
+- Tier1 のカード操作状態をカード単体ではなく video id 単位のページ内メモリ状態に変更。ライブラリ/ランダム/運命の1本で同じ動画の Lv・いいね・あとで見る・AVP候補が同期するようにした。
+- Tier1 の Lv0..Lv4 操作で、モック上でも判定日更新・判定済み化・あとで見る自動解除を表現。未判定フィルタ中の対象カードは一覧から外れる。
+- `VariantKVideoCard` に後方互換の `watchLater` prop を追加し、カード上部のあとで見るバッジをローカル状態と同期。操作ボタンに `aria-pressed` と状態に応じた `title` を追加。
+- `lg` 未満用の横スクロールナビを統合シェルに追加し、サイドバー非表示時も Variant K 内の各画面へ遷移できるようにした。表記は `運命の1本`、Tier1 レベルボタンは `Lv0`..`Lv4` に統一。
+- UI LAB モックのみ。本体画面・API・DB・migration・実データ・localStorage/sessionStorage 本体仕様は変更なし。Tier2/あとで見る/AVP/ランキング/検索/設定は引き続きプレースホルダー扱い。
+
+---
+
 ## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階3（Tier1）を実装
 
-- `frontend/src/app/lab/variant-k/tier1/` を作り込み、`/lab/variant-k/tier1` を ライブラリ／ランダム／運命の一本 の3タブを持つ UI LAB モックにした（段階2のプレースホルダーを置換）。新規: `page.tsx`（3タブ軽量セグメント）・`Tier1Library`/`Tier1Random`/`Tier1Fate`・`Tier1Card`/`Tier1CardActions`/`Tier1LevelButtons`/`Tier1KpiBar`・`shared.ts`（フィルタ/ソート/抽選ピックの純関数）・`useTier1MockCardState.ts`（メモリのみのカード状態）。
-- ライブラリ=軽量KPI＋フィルタ(すべて/未判定/判定済み・再生可能だけ)＋並び替え(視聴日数/作成日/判定日)＋5列カードグリッド、再生で再生中ハイライト(amber)。ランダム=「未判定かつ再生可能」固定・代表切替モック。運命の一本=履歴撤去・大型「引く」・保持は説明と見た目のみ（実 sessionStorage 非接触）。
+- `frontend/src/app/lab/variant-k/tier1/` を作り込み、`/lab/variant-k/tier1` を ライブラリ／ランダム／運命の1本 の3タブを持つ UI LAB モックにした（段階2のプレースホルダーを置換）。新規: `page.tsx`（3タブ軽量セグメント）・`Tier1Library`/`Tier1Random`/`Tier1Fate`・`Tier1Card`/`Tier1CardActions`/`Tier1LevelButtons`/`Tier1KpiBar`・`shared.ts`（フィルタ/ソート/抽選ピックの純関数）・`useTier1MockCardState.ts`（メモリのみのカード状態）。
+- ライブラリ=軽量KPI＋フィルタ(すべて/未判定/判定済み・再生可能だけ)＋並び替え(視聴日数/作成日/判定日)＋5列カードグリッド、再生で再生中ハイライト(amber)。ランダム=「未判定かつ再生可能」固定・代表切替モック。運命の1本=履歴撤去・大型「引く」・保持は説明と見た目のみ（実 sessionStorage 非接触）。
 - 共通部品 `VariantKVideoCard` に `statusLabel`/`statusValue`/`dateLabel`/`dateValue` を後方互換で追加し旧「Tier」メタ行を置換（Tier1=判定/判定日）。`_data/variantKMock.ts` に `VARIANT_K_TIER1_KPI`/`TIER1_TODAY_TREND` とダミー動画4件を追記。`_review/STAGE3_TIER1.md` 追加。
 - UI LAB モックのみ。本体画面・API・DB・migration・設定ファイル・実データ・localStorage/sessionStorage 本体仕様は変更なし。既存 Variant A〜K・共有 `LevelButtons`/`Modern*`/`LabFrame` は無改変（Tier1 のレベルボタンは未判定を含めないため `Tier1LevelButtons` を別実装）。視聴回数/更新日/登録日は出さず、作成日/判定日/視聴日数を表示。あとで見る(DB相当)と AVP候補(localStorage相当)を別状態として混同しない。AVP候補バッジは初期OFF・未判定へ戻す操作とセレクション操作は出さない。`displayContext` 3値固定・Runtime control 本体仕様は不変。Streamlit 表示は復活させない。
 

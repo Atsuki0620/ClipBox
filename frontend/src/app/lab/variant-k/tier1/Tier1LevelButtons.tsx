@@ -42,7 +42,7 @@ export function Tier1LevelButtons({
                 : "border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
           >
-            {lv}
+            {levelName(lv)}
           </button>
         );
       })}

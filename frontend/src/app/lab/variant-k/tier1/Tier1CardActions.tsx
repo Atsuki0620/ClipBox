@@ -50,7 +50,8 @@ export function Tier1CardActions({
         <button
           type="button"
           onClick={state.toggleLike}
-          title="いいね"
+          aria-pressed={state.liked}
+          title={state.liked ? "いいねを解除" : "いいねに追加"}
           className={cn(
             toggleBtn,
             state.liked
@@ -64,7 +65,8 @@ export function Tier1CardActions({
         <button
           type="button"
           onClick={state.toggleWatchLater}
-          title="あとで見る"
+          aria-pressed={state.watchLater}
+          title={state.watchLater ? "あとで見るから外す" : "あとで見るに追加"}
           className={cn(
             toggleBtn,
             state.watchLater
@@ -82,7 +84,12 @@ export function Tier1CardActions({
         type="button"
         onClick={state.toggleAvpCandidate}
         disabled={unavailable}
-        title="AVPで並列再生する候補に追加（あとで見るとは別）"
+        aria-pressed={state.avpCandidate}
+        title={
+          state.avpCandidate
+            ? "AVP候補から外す（あとで見るとは別）"
+            : "AVPで並列再生する候補に追加（あとで見るとは別）"
+        }
         className={cn(
           "inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2 text-[11px] transition-colors disabled:opacity-40",
           state.avpCandidate

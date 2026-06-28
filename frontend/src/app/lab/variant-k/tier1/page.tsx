@@ -1,5 +1,5 @@
 // 統合 Variant K Tier1 → /lab/variant-k/tier1
-// 【役割】Tier1 一次判定の3タブ（ライブラリ/ランダム/運命の一本）を軽量セグメントで切替えるモック画面。
+// 【役割】Tier1 一次判定の3タブ（ライブラリ/ランダム/運命の1本）を軽量セグメントで切替えるモック画面。
 // 【設計制約】
 //   - UI LAB モック。API/DB/localStorage/sessionStorage 本体仕様に触れない。
 //   - 見出しは「Tier1」のみ。displayContext="tier1" 前提。Tier1 はセレクション操作を出さない。
@@ -11,20 +11,23 @@
 import { useState } from "react";
 import { Library, Shuffle, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
 import { Tier1Library } from "./Tier1Library";
 import { Tier1Random } from "./Tier1Random";
 import { Tier1Fate } from "./Tier1Fate";
+import { useTier1MockCardStates } from "./useTier1MockCardState";
 
 type TabKey = "library" | "random" | "fate";
 
 const TABS: { key: TabKey; label: string; icon: typeof Library }[] = [
   { key: "library", label: "ライブラリ", icon: Library },
   { key: "random", label: "ランダム", icon: Shuffle },
-  { key: "fate", label: "運命の一本", icon: Dices },
+  { key: "fate", label: "運命の1本", icon: Dices },
 ];
 
 export default function VariantKTier1Page() {
   const [tab, setTab] = useState<TabKey>("library");
+  const tier1State = useTier1MockCardStates(VARIANT_K_VIDEOS);
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,7 +55,13 @@ export default function VariantKTier1Page() {
         </div>
       </div>
 
-      {tab === "library" ? <Tier1Library /> : tab === "random" ? <Tier1Random /> : <Tier1Fate />}
+      {tab === "library" ? (
+        <Tier1Library state={tier1State} />
+      ) : tab === "random" ? (
+        <Tier1Random state={tier1State} />
+      ) : (
+        <Tier1Fate state={tier1State} />
+      )}
     </div>
   );
 }

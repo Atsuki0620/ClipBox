@@ -12,14 +12,14 @@
 import { useState } from "react";
 import { Shuffle, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
 import { VariantKSectionHeader } from "../_components/VariantKSectionHeader";
 import { drawableCandidates } from "./shared";
 import { Tier1Card } from "./Tier1Card";
+import type { Tier1MockCardStateController } from "./useTier1MockCardState";
 
-export function Tier1Random() {
-  const candidates = drawableCandidates(VARIANT_K_VIDEOS);
+export function Tier1Random({ state }: { state: Tier1MockCardStateController }) {
+  const candidates = drawableCandidates(state.videos);
   const [index, setIndex] = useState(0);
 
   const draw = () => {
@@ -27,7 +27,7 @@ export function Tier1Random() {
     setIndex((i) => (i + 1) % candidates.length);
   };
 
-  const current = candidates[index];
+  const current = candidates[index % Math.max(candidates.length, 1)];
 
   return (
     <div className="flex flex-col gap-3">
@@ -53,7 +53,7 @@ export function Tier1Random() {
 
       {current ? (
         <div className="max-w-xs">
-          <Tier1Card video={current} />
+          <Tier1Card video={current} state={state.getCardState(current)} />
         </div>
       ) : (
         <VariantKEmptyState
