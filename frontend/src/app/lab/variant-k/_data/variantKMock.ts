@@ -43,6 +43,23 @@ export const VARIANT_K_VIDEOS: VariantKVideo[] = [
   { id: 6, title: "dummy_clip_aa9", storage: "EXTERNAL_HDD", file_created_at: "2026-02-08", tier1_status: 4, tier2_status: 4, view_days: 15, liked: true, like_count: 12, watch_later: true, available: true, score: 142.7, rank: 1, last_played_at: "2026-06-10", judged_at: "2026-02-12", selected_at: "2026-02-18" },
   { id: 7, title: "placeholder_reel_08", storage: "C_DRIVE", file_created_at: "2026-06-09", tier1_status: -1, tier2_status: "none", view_days: 0, liked: false, like_count: 0, watch_later: true, available: true, score: 0, rank: 8, last_played_at: null, judged_at: null, selected_at: null },
   { id: 8, title: "test_footage_c5", storage: "EXTERNAL_HDD", file_created_at: "2025-12-30", tier1_status: 2, tier2_status: "unselected", view_days: 5, liked: false, like_count: 3, watch_later: false, available: false, score: 58.9, rank: 4, last_played_at: "2026-04-01", judged_at: "2026-01-03", selected_at: null },
+  { id: 9, title: "mock_sample_013", storage: "C_DRIVE", file_created_at: "2026-06-15", tier1_status: -1, tier2_status: "none", view_days: 0, liked: false, like_count: 0, watch_later: true, available: true, score: 0, rank: 9, last_played_at: null, judged_at: null, selected_at: null },
+  { id: 10, title: "dummy_clip_bb3", storage: "EXTERNAL_HDD", file_created_at: "2026-02-25", tier1_status: 0, tier2_status: "none", view_days: 2, liked: false, like_count: 0, watch_later: false, available: true, score: 22.5, rank: 7, last_played_at: "2026-05-04", judged_at: "2026-03-01", selected_at: null },
+  { id: 11, title: "sample_clip_004", storage: "C_DRIVE", file_created_at: "2026-05-28", tier1_status: -1, tier2_status: "none", view_days: 1, liked: false, like_count: 0, watch_later: false, available: false, score: 0, rank: 9, last_played_at: "2026-06-02", judged_at: null, selected_at: null },
+  { id: 12, title: "demo_video_delta", storage: "EXTERNAL_HDD", file_created_at: "2026-03-19", tier1_status: 3, tier2_status: "none", view_days: 8, liked: true, like_count: 5, watch_later: true, available: true, score: 88.3, rank: 3, last_played_at: "2026-05-25", judged_at: "2026-03-24", selected_at: null },
+];
+
+// Tier1 KPI（モック固定値・見た目確認用。Recharts 等は使わず軽量表示に留める）。
+export const VARIANT_K_TIER1_KPI = {
+  unrated_count: 312,
+  judged_count: 1488,
+  judged_rate: 82.7,
+  today_target: 24, // 今日の処理目安
+};
+
+// 本日の判定（直近30日・軽量 SVG スパークライン用のモック）。末尾が「本日」。
+export const TIER1_TODAY_TREND: number[] = [
+  8, 11, 6, 9, 13, 7, 10, 5, 12, 9, 14, 11, 8, 16, 12, 10, 18, 13, 9, 15, 19, 14, 11, 17, 20, 16, 13, 21, 18, 24,
 ];
 
 // Runtime control のモック（FastAPI / Next.js のみ。Streamlit は表示しない）。

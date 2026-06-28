@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { FlaskConical } from "lucide-react";
 import { VARIANT_K_THEME } from "./theme";
-import { VariantKSidebar } from "./VariantKSidebar";
+import { VariantKMobileNav, VariantKSidebar } from "./VariantKSidebar";
 
 export function VariantKShell({ children }: { children: ReactNode }) {
   return (
@@ -43,7 +43,10 @@ export function VariantKShell({ children }: { children: ReactNode }) {
         className="flex min-h-[40rem] overflow-hidden rounded-xl border bg-background text-[13px] text-foreground shadow-sm"
       >
         <VariantKSidebar />
-        <main className="flex min-w-0 flex-1 flex-col gap-4 p-5">{children}</main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <VariantKMobileNav />
+          <main className="flex min-w-0 flex-1 flex-col gap-4 p-4 sm:p-5">{children}</main>
+        </div>
       </div>
     </div>
   );
