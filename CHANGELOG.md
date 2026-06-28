@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階5（あとで見る・AVP）を実装
+
+- `frontend/src/app/lab/variant-k/watch-later/` を作り込み、`/lab/variant-k/watch-later` を 未処理／確認・見直し／処理済み候補 の3セクション構成のあとで見る消化画面（UI LAB モック）にした。新規: `page.tsx`・`useWatchLaterMockState.ts`・`shared.ts`・`WatchLaterSectionBlock`・`WatchLaterCard`・`WatchLaterCardActions`。セクション分類は Tier2 対象は Tier2 状態・それ以外は Tier1 状態で判定し、処理済みは最終再生（`last_played_at` をモックの /stats/last-viewed 相当として使用）の有無で確認・見直し／処理済み候補に分ける。ステータス文言は `Tier1 未判定` / `Tier1 Lv3` / `Tier2 未選別` / `Tier2 Lv2` のように Tier1/Tier2 を混同しない。
+- `frontend/src/app/lab/variant-k/avp/` を作り込み、`/lab/variant-k/avp` を 上段＝AVP候補テーブル（`VariantKActionTable` 流用）／下段＝2×2再生セット（`VariantKVideoCard` 流用）の2段構成にした。新規: `page.tsx`・`useAvpMockState.ts`・`shared.ts`・`AvpCandidateTable`・`AvpPlaySet`。候補は上限なし、再生対象は最大4本、利用不可は再生対象に追加不可、AVPで再生は再生中ハイライトのみ（再生後クリアは想定文言）。候補テーブルは「再生可能だけ⇔全動画」順位母集団の軽量切替・総合スコア＋総合順位の表示・全候補をクリア／個別除外、2×2は外す・個別いいね・一括いいね（未いいねのみ）・再生対象をクリアを持つ。スロット番号（大きな 1/2/3/4）は出さない。
+- あとで見る（DB相当）と AVP候補（localStorage相当）を別状態として保持し、UI 上でも列・文言・Tooltip で区別。解除ルールはタイトル横 Tooltip に集約し、「通常再生・AVP候補追加・AVP再生のいずれでも あとで見るを自動解除しない」前提で見せる。
+- UI LAB モックのみ。状態はすべてページ内メモリで、本体画面・API・DB・migration・設定ファイル・実データ・localStorage/sessionStorage 本体仕様は変更なし。`displayContext` に第4値は足さず、既存 Variant A〜K・lab 共通部品・Tier1/Tier2 は無改変。`_data/variantKMock.ts` に3セクション/各状態確認用のダミー行（ids 13..17）を追加し、`_review/STAGE5_WATCH_LATER_AVP.md` を追加。視聴回数/更新日/登録日/サムネイルは出していない。外側 SidebarNav の 390px 幅制約・既存 Recharts 警告は段階5の範囲外（未対応リスクとして再掲）。
+
+---
+
 ## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階4（Tier2）を実装
 
 - `frontend/src/app/lab/variant-k/tier2/` を作り込み、`/lab/variant-k/tier2` を ライブラリ／ランダム／運命の1本 の3タブと `案1: Tier1流用案` / `案2: Tier2専用文言強め案` の文言比較トグルを持つ UI LAB モックにした。新規: `Tier2Library`/`Tier2Random`/`Tier2Fate`・`Tier2Card`/`Tier2CardActions`/`Tier2LevelButtons`/`Tier2KpiBar`・`shared.ts`・`useTier2MockCardState.ts`。

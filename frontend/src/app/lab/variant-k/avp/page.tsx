@@ -1,26 +1,46 @@
-// 統合 Variant K AVP プレースホルダー → /lab/variant-k/avp
-// 【役割】段階5で作り込む AVP（案D改：上段候補テーブル / 下段2×2再生セット）の設計メモ表示。
-// 【設計制約】段階2は土台のみ。詳細 UI は段階5。API/DB に触れない。
-//   候補上限なし・再生対象最大4本・欠落ID掃除・再生後クリアは不変。AVP候補=localStorage相当。
-// 【依存関係】VariantKPlaceholder。
+// 統合 Variant K AVP → /lab/variant-k/avp
+// 【役割】AVP候補と2×2再生セットを扱う画面。上段＝候補テーブル、下段＝再生セット（最大4本）のモック。
+// 【設計制約】
+//   - UI LAB モック。API/DB/localStorage/sessionStorage 本体仕様に触れない（状態はページ内メモリ）。
+//   - 候補は上限なし、再生対象は最大4本、利用不可は再生対象に追加不可、再生後クリアは想定文言で表現。
+//   - AVP候補（localStorage相当）と あとで見る（DB相当）を混同しない。AVP再生であとで見るを自動解除しない。
+//   - displayContext は avp（第4値を足さない）。
+// 【依存関係】_data/variantKMock, _components/VariantKTooltipLabel, ./useAvpMockState, ./AvpCandidateTable, ./AvpPlaySet。
 
-import { VariantKPlaceholder } from "../_components/VariantKPlaceholder";
+"use client";
+
+import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
+import { VariantKTooltipLabel } from "../_components/VariantKTooltipLabel";
+import { useAvpMockStates } from "./useAvpMockState";
+import { AvpCandidateTable } from "./AvpCandidateTable";
+import { AvpPlaySet } from "./AvpPlaySet";
 
 export default function VariantKAvpPage() {
+  const controller = useAvpMockStates(VARIANT_K_VIDEOS);
+
   return (
-    <VariantKPlaceholder
-      screen="AVP"
-      purpose="候補から最大4本を選び並列再生。上段=候補テーブル、下段=2×2再生セット。"
-      stage="段階5"
-      layout="カード＋テーブル"
-      hero={["総合スコア", "総合順位", "視聴日数", "いいね"]}
-      hidden={["視聴回数", "スロット番号"]}
-      nextSteps={[
-        "上段候補テーブルはランキング/検索とテーブル土台を共有（VariantKActionTable）",
-        "下段2×2はTier1ライブラリカードと整合（VariantKVideoCard）",
-        "再生可能だけ⇔全動画切替・個別いいね・一括いいね（未いいねのみ）",
-        "全候補クリア・再生対象クリア／説明はタイトル横Tooltip",
-      ]}
-    />
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <VariantKTooltipLabel
+          className="text-xl font-semibold tracking-tight"
+          label={<h1>AVP</h1>}
+          tooltip={
+            <div className="flex max-w-xs flex-col gap-1 text-[11px] leading-relaxed">
+              <p>AVP候補（localStorage相当）は一時的なプールで、上限はありません。</p>
+              <p>再生対象は最大4本です。利用不可の動画は再生対象に追加できません。</p>
+              <p>AVPで再生すると再生中ハイライトが付き、再生後は再生対象がクリアされる想定です。</p>
+              <p className="font-medium text-foreground">AVP再生でも、あとで見るは自動解除しません。</p>
+              <p>AVP候補と あとで見る（DB相当）は別物です。混同しません。</p>
+            </div>
+          }
+        />
+        <p className="text-[12px] text-muted-foreground">
+          上段の候補から最大4本を再生対象に選び、下段の2×2セットで並列再生（モック）します。
+        </p>
+      </div>
+
+      <AvpCandidateTable controller={controller} />
+      <AvpPlaySet controller={controller} />
+    </div>
   );
 }
