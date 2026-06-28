@@ -1,25 +1,58 @@
-// 統合 Variant K Tier1 プレースホルダー → /lab/variant-k/tier1
-// 【役割】段階3で作り込む Tier1（ライブラリ/ランダム/運命の1本）の設計メモ表示。
-// 【設計制約】段階2は土台のみ。詳細 UI は段階3。API/DB に触れない。displayContext="tier1" 前提。
-// 【依存関係】VariantKPlaceholder。
+// 統合 Variant K Tier1 → /lab/variant-k/tier1
+// 【役割】Tier1 一次判定の3タブ（ライブラリ/ランダム/運命の一本）を軽量セグメントで切替えるモック画面。
+// 【設計制約】
+//   - UI LAB モック。API/DB/localStorage/sessionStorage 本体仕様に触れない。
+//   - 見出しは「Tier1」のみ。displayContext="tier1" 前提。Tier1 はセレクション操作を出さない。
+//   - 旧 /lab/tier1-*/variant-k は作らない（本タブ内に3タブを実装）。
+// 【依存関係】lucide, lib/utils（cn）, ./Tier1Library, ./Tier1Random, ./Tier1Fate。
 
-import { VariantKPlaceholder } from "../_components/VariantKPlaceholder";
+"use client";
+
+import { useState } from "react";
+import { Library, Shuffle, Dices } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Tier1Library } from "./Tier1Library";
+import { Tier1Random } from "./Tier1Random";
+import { Tier1Fate } from "./Tier1Fate";
+
+type TabKey = "library" | "random" | "fate";
+
+const TABS: { key: TabKey; label: string; icon: typeof Library }[] = [
+  { key: "library", label: "ライブラリ", icon: Library },
+  { key: "random", label: "ランダム", icon: Shuffle },
+  { key: "fate", label: "運命の一本", icon: Dices },
+];
 
 export default function VariantKTier1Page() {
+  const [tab, setTab] = useState<TabKey>("library");
+
   return (
-    <VariantKPlaceholder
-      screen="Tier1"
-      purpose="未判定動画に初めてレベルを付ける一次判定。ライブラリ/ランダム/運命の1本の3タブ。"
-      stage="段階3"
-      layout="カード優先"
-      hero={["視聴日数", "作成日", "判定日", "該当Tier(Tier1)"]}
-      hidden={["視聴回数", "更新日", "登録日", "セレクション操作"]}
-      nextSteps={[
-        "2行タイトル・作成日/判定日表示のカード（VariantKVideoCard を流用）",
-        "ランダムは「未判定かつ再生可能」固定",
-        "運命の1本は履歴セクション撤去・大型「引く」ボタン中心",
-        "判定済み/利用不可は薄表示",
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-lg font-semibold tracking-tight">Tier1</h1>
+
+        {/* タブ（左寄せセグメント） */}
+        <div className="inline-flex w-fit rounded-lg border bg-muted/40 p-1">
+          {TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] transition-colors",
+                tab === key
+                  ? "bg-card font-medium text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "library" ? <Tier1Library /> : tab === "random" ? <Tier1Random /> : <Tier1Fate />}
+    </div>
   );
 }

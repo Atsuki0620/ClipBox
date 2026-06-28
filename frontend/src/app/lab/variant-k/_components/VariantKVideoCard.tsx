@@ -30,6 +30,13 @@ export function VariantKVideoCard({
   tierBadge = "tier1",
   showWatchLaterBadge = true,
   playing = false,
+  // 状態メタ行：Tier1 では「判定」、Tier2 では「選別」を既定表示（"Tier" 表記は避ける）。
+  // 明示指定で上書き可。既定は tierBadge から導出（後方互換）。
+  statusLabel,
+  statusValue,
+  // 日付メタ：判定日（Tier1）/選別日（Tier2）。既定は tierBadge から導出。
+  dateLabel,
+  dateValue,
   actions,
   className,
 }: {
@@ -37,10 +44,21 @@ export function VariantKVideoCard({
   tierBadge?: "tier1" | "tier2";
   showWatchLaterBadge?: boolean;
   playing?: boolean;
+  statusLabel?: string;
+  statusValue?: string;
+  dateLabel?: string;
+  dateValue?: string;
   actions?: ReactNode;
   className?: string;
 }) {
   const dim = !video.available;
+  const isTier1 = tierBadge === "tier1";
+  const resolvedStatusLabel = statusLabel ?? (isTier1 ? "判定" : "選別");
+  const resolvedStatusValue =
+    statusValue ?? (isTier1 ? tier1Label(video.tier1_status) : tier2Label(video.tier2_status));
+  const resolvedDateLabel = dateLabel ?? (isTier1 ? "判定日" : "選別日");
+  const resolvedDateValue =
+    dateValue ?? formatVariantKDate(isTier1 ? video.judged_at : video.selected_at);
 
   return (
     <article
@@ -63,7 +81,7 @@ export function VariantKVideoCard({
         {video.title}
       </h3>
 
-      {/* メタ：ストレージ / 視聴日数 / 作成日（視聴回数・更新日・登録日は出さない） */}
+      {/* メタ：ストレージ / 視聴日数 / 作成日 / 判定日（視聴回数・更新日・登録日は出さない） */}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <div className="flex justify-between gap-2">
           <dt>ストレージ</dt>
@@ -78,10 +96,12 @@ export function VariantKVideoCard({
           <dd className="text-foreground tabular-nums">{formatVariantKDate(video.file_created_at)}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt>Tier</dt>
-          <dd className="text-foreground tabular-nums">
-            {tierBadge === "tier1" ? tier1Label(video.tier1_status) : tier2Label(video.tier2_status)}
-          </dd>
+          <dt>{resolvedDateLabel}</dt>
+          <dd className="text-foreground tabular-nums">{resolvedDateValue}</dd>
+        </div>
+        <div className="col-span-2 flex justify-between gap-2">
+          <dt>{resolvedStatusLabel}</dt>
+          <dd className="text-foreground tabular-nums">{resolvedStatusValue}</dd>
         </div>
       </dl>
 

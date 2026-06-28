@@ -11,6 +11,15 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階3（Tier1）を実装
+
+- `frontend/src/app/lab/variant-k/tier1/` を作り込み、`/lab/variant-k/tier1` を ライブラリ／ランダム／運命の一本 の3タブを持つ UI LAB モックにした（段階2のプレースホルダーを置換）。新規: `page.tsx`（3タブ軽量セグメント）・`Tier1Library`/`Tier1Random`/`Tier1Fate`・`Tier1Card`/`Tier1CardActions`/`Tier1LevelButtons`/`Tier1KpiBar`・`shared.ts`（フィルタ/ソート/抽選ピックの純関数）・`useTier1MockCardState.ts`（メモリのみのカード状態）。
+- ライブラリ=軽量KPI＋フィルタ(すべて/未判定/判定済み・再生可能だけ)＋並び替え(視聴日数/作成日/判定日)＋5列カードグリッド、再生で再生中ハイライト(amber)。ランダム=「未判定かつ再生可能」固定・代表切替モック。運命の一本=履歴撤去・大型「引く」・保持は説明と見た目のみ（実 sessionStorage 非接触）。
+- 共通部品 `VariantKVideoCard` に `statusLabel`/`statusValue`/`dateLabel`/`dateValue` を後方互換で追加し旧「Tier」メタ行を置換（Tier1=判定/判定日）。`_data/variantKMock.ts` に `VARIANT_K_TIER1_KPI`/`TIER1_TODAY_TREND` とダミー動画4件を追記。`_review/STAGE3_TIER1.md` 追加。
+- UI LAB モックのみ。本体画面・API・DB・migration・設定ファイル・実データ・localStorage/sessionStorage 本体仕様は変更なし。既存 Variant A〜K・共有 `LevelButtons`/`Modern*`/`LabFrame` は無改変（Tier1 のレベルボタンは未判定を含めないため `Tier1LevelButtons` を別実装）。視聴回数/更新日/登録日は出さず、作成日/判定日/視聴日数を表示。あとで見る(DB相当)と AVP候補(localStorage相当)を別状態として混同しない。AVP候補バッジは初期OFF・未判定へ戻す操作とセレクション操作は出さない。`displayContext` 3値固定・Runtime control 本体仕様は不変。Streamlit 表示は復活させない。
+
+---
+
 ## 2026-06-28 — feat(ui-lab): 統合 Variant K 段階2（統合シェル・共通部品の土台）を実装
 
 - `frontend/src/app/lab/variant-k/` に統合 Variant K の土台を新設（案B: マルチルート＋`layout.tsx` 統合シェル）。`layout.tsx`（server）＋ランディング `page.tsx` ＋ 8画面プレースホルダー（`tier1`/`tier2`/`watch-later`/`avp`/`ranking`/`search`/`settings`/`analysis`）。各画面は段階3以降で作り込む設計メモ表示のみ。
