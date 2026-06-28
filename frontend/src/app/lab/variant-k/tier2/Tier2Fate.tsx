@@ -28,7 +28,11 @@ export function Tier2Fate({ state, copy }: { state: Tier2MockCardStateController
 
   const draw = () => {
     if (pool.length === 0) return;
-    setDrawn(true);
+    // 初回は先頭候補（pool[0]）を表示し、2回目以降で次候補へ進める。
+    if (!drawn) {
+      setDrawn(true);
+      return;
+    }
     setIndex((i) => i + 1);
   };
 

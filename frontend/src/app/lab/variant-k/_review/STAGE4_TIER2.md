@@ -40,6 +40,8 @@
 
 履歴セクションは作っていない。大型の「運命の1本を引く」ボタン、現在カード、最近見てない優先トグル、保持仕様の短い説明だけを置いた。実 sessionStorage には触れていない。
 
+運命の1本の初回抽選が先頭候補から始まるよう確認・修正済み（2026-06-28）。`draw()` は初回押下では `drawn` を true にするだけで `index` は 0 のままとし、先頭候補（`pool[0]`）を表示する。2回目以降の押下で `index` を +1 して次候補へ進める。目視でも初回に未選別×再生可能の先頭候補 `demo_video_alpha` が表示されることを確認した。
+
 ## 7. 案1/案2の差分
 
 - 案1: Tier1 に近い短い文言。操作感の継続性を優先。
@@ -93,15 +95,26 @@
 - Runtime control
 - lg 未満横スクロール nav
 
-### スクショ取得状況（2026-06-28）
+### スクショ取得状況（2026-06-28 追記：取得完了）
 
-`/lab/variant-k/tier2` はローカル `http://127.0.0.1:3000/lab/variant-k/tier2` で HTTP 200 を確認した。
+当初 Codex 環境では in-app Browser の Node 実行ツールが `codex/sandbox-state-meta: missing field sandboxPolicy` で起動できず、Chrome/Edge headless の代替もファイル生成できなかったためスクショは未取得だった。
 
-スクショ保存は未完了。理由:
-- in-app Browser の Node 実行ツールが `codex/sandbox-state-meta: missing field sandboxPolicy` で起動できず、Browser Plugin 経由の Playwright を使えなかった。
-- 代替として Chrome/Edge headless の CDP remote debugging と `--screenshot` を試したが、CDP ポートは開かず、`--screenshot` も終了コード 0 のままファイルを生成しなかった。
+その後、Claude Code 環境の Playwright（MCP）で `frontend/src/app/lab/variant-k/_review/stage4/` に以下を取得済み:
 
-スクショ用ディレクトリ `frontend/src/app/lab/variant-k/_review/stage4/` は作成済みだが、画像は保存できていない。取得不可はツール/ブラウザ実行環境の問題で、`npm run build` は通過している。
+- `library-plan1.png` — ライブラリ案1（デスクトップ全体・KPI/フィルタ/カードグリッド・利用不可カード薄表示・サイドバー下部の Runtime control が見える）
+- `library-plan2.png` — ライブラリ案2（案1との差分が見出し補助文・説明文の文言レイヤーに限定されていることを確認）
+- `library-playing-highlight.png` — 先頭カードの「再生」押下で再生中ハイライト
+- `random.png` — ランダムタブ（固定条件チップ・代表1本・条件パネルなし）
+- `fate.png` — 運命の1本タブ（大型「引く」・履歴なし・保持説明・初回抽選で先頭候補 `demo_video_alpha` を表示）
+- `mobile-nav.png` — lg 未満（ビューポート幅 520px・ブラウザ最小幅クランプ）で内側サイドバーが隠れ、横スクロール nav が表示される状態
+
+補足:
+- 利用不可カード（`test_footage_b2` / `test_footage_c5`）は薄表示＋「利用不可」バッジで、再生・AVP候補追加が disabled、いいね・あとで見るは操作可能な見た目を維持していることを `library-plan1.png` と a11y スナップショットで確認した。
+- 案1/案2トグルは `aria-pressed` で切り替わり、差分は見出し補助文・ライブラリ説明文・保持説明などの文言に限定されることを a11y スナップショットの paragraph 差分で確認した。
+- 横スクロール nav は Tier1/Tier2/あとで見る/AVP/ランキング/検索/analysis/設定の8リンクを持ち、各 Variant K 画面へ遷移できることを確認した。
+- Runtime control はコンパクトな disabled モック（FastAPI/Next.js 個別表示・「アプリを停止」disabled）のままで、デスクトップ幅のサイドバー下部に常時表示される（`library-plan1.png` 参照）。lg 未満ではサイドバー自体が隠れるため Runtime control も非表示になる（既存仕様どおり）。
+- スクショ撮影時のコンソールエラーは FastAPI（:8000）未起動による `/api/runtime` の `ERR_CONNECTION_REFUSED` のみで、これはルートレイアウトの実 SidebarNav のポーラー由来。Tier2 モックとは無関係。
+- `npm run typecheck` / `npm run lint` / `npm run build` はいずれも通過。
 
 ## 12. 未対応リスク・段階5前の確認事項
 
