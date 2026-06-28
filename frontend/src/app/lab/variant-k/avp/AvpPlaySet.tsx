@@ -9,11 +9,11 @@
 
 "use client";
 
-import { Play, Heart, X, Trash2, ThumbsUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Play, X, Trash2, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VariantKSectionHeader } from "../_components/VariantKSectionHeader";
 import { VariantKVideoCard } from "../_components/VariantKVideoCard";
+import { VariantKCardActions } from "../_components/VariantKCardActions";
 import { tier1Label, tier2Label, type VariantKVideo } from "../_data/variantKMock";
 import type { AvpMockController } from "./useAvpMockState";
 import { MAX_AVP_PLAY_TARGET } from "./shared";
@@ -41,10 +41,9 @@ export function AvpPlaySet({ controller }: { controller: AvpMockController }) {
               className="h-7 text-[11px]"
               onClick={controller.likeAllInPlaySet}
               disabled={targets.length === 0}
-              title="再生セットを一括いいね（未いいねのみON）"
             >
               <ThumbsUp className="size-3.5" />
-              一括いいね
+              再生対象をまとめていいね
             </Button>
             <Button
               variant="outline"
@@ -52,19 +51,18 @@ export function AvpPlaySet({ controller }: { controller: AvpMockController }) {
               className="h-7 text-[11px]"
               onClick={controller.clearPlayTarget}
               disabled={targets.length === 0}
-              title="再生対象をクリア"
             >
               <Trash2 className="size-3.5" />
               再生対象をクリア
             </Button>
+            {/* 主操作として強調（大きめ・primary） */}
             <Button
-              size="sm"
-              className="h-7 text-[11px]"
+              size="default"
+              className="h-9 gap-1.5 px-4 text-[13px] font-semibold shadow-sm"
               onClick={controller.playAvp}
               disabled={targets.length === 0}
-              title="AVPで再生（モック：再生中ハイライトを付ける）"
             >
-              <Play className="size-3.5" />
+              <Play className="size-4" />
               AVPで再生
             </Button>
           </div>
@@ -83,32 +81,23 @@ export function AvpPlaySet({ controller }: { controller: AvpMockController }) {
               statusLabel="ステータス"
               statusValue={tier2 ? `Tier2 ${tier2Label(video.tier2_status)}` : `Tier1 ${tier1Label(video.tier1_status)}`}
               actions={
-                <div className="flex w-full items-stretch gap-1">
-                  <button
-                    type="button"
-                    onClick={() => controller.toggleLike(video.id)}
-                    aria-pressed={video.liked}
-                    title={video.liked ? "いいねを解除" : "いいねに追加"}
-                    className={cn(
-                      "inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border px-1 text-[11px] transition-colors",
-                      video.liked
-                        ? "border-rose-300 bg-rose-50 text-rose-600"
-                        : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                    )}
-                  >
-                    <Heart className={cn("size-3.5", video.liked && "fill-current")} />
-                    <span className="tabular-nums">{video.like_count}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => controller.removeFromPlayTarget(video.id)}
-                    title="再生対象から外す"
-                    className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border bg-card px-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <X className="size-3.5" />
-                    外す
-                  </button>
-                </div>
+                <VariantKCardActions
+                  liked={video.liked}
+                  likeCount={video.like_count}
+                  onToggleLike={() => controller.toggleLike(video.id)}
+                  extra={
+                    <button
+                      type="button"
+                      onClick={() => controller.removeFromPlayTarget(video.id)}
+                      aria-label="再生対象から外す"
+                      title="再生対象から外す"
+                      className="inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card px-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <X className="size-3.5" />
+                      外す
+                    </button>
+                  }
+                />
               }
             />
           );

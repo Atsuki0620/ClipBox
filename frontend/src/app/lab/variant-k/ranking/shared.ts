@@ -59,6 +59,16 @@ export const RANKING_MIN_LEVEL_OPTIONS: { value: RankingMinLevel; label: string 
   { value: 4, label: "Lv4" },
 ];
 
+// 有効な詳細フィルタ数（漏斗バッジ用）。既定（period=all/minLevel=all/storage=all/再生可能だけ ON）から外れていれば 1。
+export function activeRankingFilterCount(f: RankingFilters): number {
+  return (
+    (f.period !== "all" ? 1 : 0) +
+    (f.minLevel !== "all" ? 1 : 0) +
+    (f.storage !== "all" ? 1 : 0) +
+    (!f.availableOnly ? 1 : 0)
+  );
+}
+
 // 期間の下限 ISO 日付（"all" は null）。文字列比較で判定するため ISO 日付を返す。
 function periodCutoff(period: RankingPeriod): string | null {
   if (period === "all") return null;

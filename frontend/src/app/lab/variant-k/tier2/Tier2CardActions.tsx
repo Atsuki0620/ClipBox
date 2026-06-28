@@ -1,21 +1,28 @@
 // 統合 Variant K Tier2 カードの操作行。
-// 【役割】カード下部に選別状態（未選別/Lv0..4）と操作（再生/いいね/あとで見る/AVP候補に追加）を並べる。
+// 【役割】カード下部に選別状態（未選別/0..4）と共通の1段アイコン操作（再生/いいね/あとで見る/AVP候補）を並べる。
+//   VariantKVideoCard の actions スロットに差し込む。
 // 【設計制約】
 //   - すべて見た目だけのモック（実 API/DB/localStorage に触れない）。
-//   - AVP候補は状態バッジを出さず、ボタンの見た目（未追加/追加済み）で表す。あとで見るとは別状態。
-//   - 利用不可では 再生 と AVP候補追加 を disabled にする。
-// 【依存関係】lucide-react, lib/utils（cn）, shadcn button, ./Tier2LevelButtons, ./useTier2MockCardState。
-
+//   - 選別状態は 未選別/0..4。「選別」ラベルは出さない（カード共通方針）。
+//   - 操作は共通部品 VariantKCardActions に委譲。利用不可では 再生 と AVP候補 を disabled。
+// 【依存関係】lib/levels（levelName）, _components（VariantKCardActions/VariantKLevelButtons）, ./shared, ./useTier2MockCardState。
 "use client";
 
-import { Bookmark, Check, Heart, Play, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Tier2LevelButtons } from "./Tier2LevelButtons";
+import { levelName } from "@/lib/levels";
+import { VariantKCardActions } from "../_components/VariantKCardActions";
+import {
+  VariantKLevelButtons,
+  type VariantKLevelOption,
+} from "../_components/VariantKLevelButtons";
+import { TIER2_LEVELS, type Tier2SelectionValue } from "./shared";
 import type { Tier2MockCardState } from "./useTier2MockCardState";
 
-const toggleBtn =
-  "inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden rounded-md border px-1 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
+// 未選別/0..4 の選別肢。
+const TIER2_LEVEL_OPTIONS: VariantKLevelOption<Tier2SelectionValue>[] = TIER2_LEVELS.map((v) => ({
+  value: v,
+  label: v === "unselected" ? "未選別" : String(v),
+  title: v === "unselected" ? "未選別" : levelName(v),
+}));
 
 export function Tier2CardActions({
   state,
@@ -28,73 +35,28 @@ export function Tier2CardActions({
 }) {
   return (
     <div className="flex w-full flex-col gap-1.5">
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-muted-foreground">選別</span>
-        <Tier2LevelButtons
-          value={state.selection}
-          onChange={state.setSelection}
-          disabled={unavailable}
-          className="flex-1"
-        />
-      </div>
-
-      <div className="flex items-stretch gap-1">
-        <Button size="sm" className="h-7 flex-[1.6] px-1" disabled={unavailable} onClick={onPlay}>
-          <Play className="size-3.5" />
-          再生
-        </Button>
-        <button
-          type="button"
-          onClick={state.toggleLike}
-          aria-pressed={state.liked}
-          title={state.liked ? "いいねを解除" : "いいねに追加"}
-          className={cn(
-            toggleBtn,
-            state.liked
-              ? "border-rose-300 bg-rose-50 text-rose-600"
-              : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-          )}
-        >
-          <Heart className={cn("size-3.5", state.liked && "fill-current")} />
-          <span className="tabular-nums">{state.likeCount}</span>
-        </button>
-        <button
-          type="button"
-          onClick={state.toggleWatchLater}
-          aria-pressed={state.watchLater}
-          title={state.watchLater ? "あとで見るから外す" : "あとで見るに追加"}
-          className={cn(
-            toggleBtn,
-            state.watchLater
-              ? "border-primary bg-primary text-primary-foreground"
-              : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-          )}
-        >
-          <Bookmark className="size-3.5" />
-          あとで見る
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={state.toggleAvpCandidate}
+      {/* 選別（未選別/0..4・現在値を強調・「選別」ラベルなし） */}
+      <VariantKLevelButtons
+        ariaLabel="選別状態"
+        value={state.selection}
+        onChange={state.setSelection}
+        options={TIER2_LEVEL_OPTIONS}
         disabled={unavailable}
-        aria-pressed={state.avpCandidate}
-        title={
-          state.avpCandidate
-            ? "AVP候補から外す（あとで見るとは別）"
-            : "AVPで並列再生する候補に追加（あとで見るとは別）"
-        }
-        className={cn(
-          "inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2 text-[11px] transition-colors disabled:opacity-40",
-          state.avpCandidate
-            ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-            : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-        )}
-      >
-        {state.avpCandidate ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
-        {state.avpCandidate ? "AVP候補に追加済み" : "AVP候補に追加"}
-      </button>
+        className="w-full"
+      />
+
+      {/* 操作（再生／いいね／あとで見る／AVP候補）を横1段に */}
+      <VariantKCardActions
+        unavailable={unavailable}
+        onPlay={onPlay}
+        liked={state.liked}
+        likeCount={state.likeCount}
+        onToggleLike={state.toggleLike}
+        watchLater={state.watchLater}
+        onToggleWatchLater={state.toggleWatchLater}
+        avpCandidate={state.avpCandidate}
+        onToggleAvpCandidate={state.toggleAvpCandidate}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchX, Inbox } from "lucide-react";
-import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
+import { VARIANT_K_VIDEOS, type VariantKVideo } from "../_data/variantKMock";
 import { useVariantKRowStates } from "../_components/useVariantKRowStates";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
 import { VariantKTooltipLabel } from "../_components/VariantKTooltipLabel";
@@ -31,12 +31,27 @@ export default function VariantKSearchPage() {
   const controller = useVariantKRowStates(VARIANT_K_VIDEOS);
   const [filters, setFilters] = useState<SearchFiltersType>(DEFAULT_SEARCH_FILTERS);
   const [sort, setSort] = useState<SearchSort>(DEFAULT_SEARCH_SORT);
+  const [showDetailColumn, setShowDetailColumn] = useState(false);
 
   const hasKeyword = filters.keyword.trim().length > 0;
 
+  // 行の所属・並び順はフィルタ/ソート変更時のみ再計算し（id 列で固定）、
+  // 値（いいね/Tier等）の編集では行を即時除去・並べ替えしない（§1-B）。
+  const videos = controller.videos;
+  const orderedIds = useMemo(
+    () =>
+      hasKeyword ? sortSearch(applySearchFilters(videos, filters), sort).map((v) => v.id) : [],
+    // videos は意図的に依存から除外（値編集で行を動かさない・並びはフィルタ/ソート/キーワード変更時のみ更新）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters, sort, hasKeyword],
+  );
+
   const rows = useMemo(
-    () => (hasKeyword ? sortSearch(applySearchFilters(controller.videos, filters), sort) : []),
-    [controller.videos, filters, sort, hasKeyword],
+    () =>
+      orderedIds
+        .map((id) => videos.find((v) => v.id === id))
+        .filter((v): v is VariantKVideo => Boolean(v)),
+    [orderedIds, videos],
   );
 
   return (
@@ -60,7 +75,12 @@ export default function VariantKSearchPage() {
         </p>
       </div>
 
-      <SearchFilters filters={filters} onChange={setFilters} />
+      <SearchFilters
+        filters={filters}
+        onChange={setFilters}
+        showDetailColumn={showDetailColumn}
+        onShowDetailColumn={setShowDetailColumn}
+      />
 
       {!hasKeyword ? (
         <VariantKEmptyState
@@ -75,6 +95,7 @@ export default function VariantKSearchPage() {
             controller={controller}
             sort={sort}
             onSortChange={setSort}
+            showDetailColumn={showDetailColumn}
             emptyState={
               <VariantKEmptyState
                 icon={<Inbox className="size-5" />}

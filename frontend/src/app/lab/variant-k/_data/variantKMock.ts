@@ -104,3 +104,39 @@ export function tier2Label(status: Tier2Status): string {
   if (status === "unselected") return "未選別";
   return `Lv${status}`;
 }
+
+// 行内レベル選択（ランキング/検索の Tier 列プルダウン）の選択肢と文字列⇔値の変換。
+// 値は Select 用に文字列で扱う（未判定=-1, 未選別=unselected, 0..4）。
+export const TIER1_SELECT_OPTIONS: { value: string; label: string }[] = [
+  { value: "-1", label: "未判定" },
+  { value: "0", label: "Lv0" },
+  { value: "1", label: "Lv1" },
+  { value: "2", label: "Lv2" },
+  { value: "3", label: "Lv3" },
+  { value: "4", label: "Lv4" },
+];
+
+export const TIER2_SELECT_OPTIONS: { value: string; label: string }[] = [
+  { value: "unselected", label: "未選別" },
+  { value: "0", label: "Lv0" },
+  { value: "1", label: "Lv1" },
+  { value: "2", label: "Lv2" },
+  { value: "3", label: "Lv3" },
+  { value: "4", label: "Lv4" },
+];
+
+export function tier1ToSelectValue(status: Tier1Status): string {
+  return String(status);
+}
+
+export function selectValueToTier1(value: string): Tier1Status {
+  return Number(value);
+}
+
+export function tier2ToSelectValue(status: Tier2Status): string {
+  return status === "unselected" ? "unselected" : String(status);
+}
+
+export function selectValueToTier2(value: string): Tier2Status {
+  return value === "unselected" ? "unselected" : Number(value);
+}

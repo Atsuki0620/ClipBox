@@ -1,6 +1,7 @@
 // 統合 Variant K の左サイドバー（遷移する）。
 // 【役割】統合シェルのナビ。8画面を next/link で遷移可能にし、usePathname で現在画面を強調する。
-//   ブランドマーク＋サブタイトルなし（variant-k 仕様）。下部に Runtime control モックを差す。
+//   ブランドマークは自作 SVG（箱＋再生三角・public/clipbox-mark.svg と同図形）。サブタイトルなし（variant-k 仕様）。
+//   下部に Runtime control モックを差す。
 // 【設計制約】
 //   - 既存の共有 ModernSidebar（視覚専用・非遷移）は変更せず、variant-k 専用にフォークした実装。
 //   - 遷移先はすべて /lab/variant-k 配下のモックルート。本体ルートには遷移しない。
@@ -11,10 +12,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VARIANT_K_NAV } from "./navItems";
 import { VariantKRuntimeControl } from "./VariantKRuntimeControl";
+
+// 自作ブランドマーク（箱＋再生三角）。色はトークン継承（fill-primary / fill-primary-foreground）。
+function ClipBoxMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect x="2" y="4" width="20" height="16" rx="4" className="fill-primary" />
+      <path d="M10 8.5 16 12l-6 3.5z" className="fill-primary-foreground" />
+    </svg>
+  );
+}
 
 export function VariantKSidebar() {
   const pathname = usePathname();
@@ -22,9 +32,7 @@ export function VariantKSidebar() {
   return (
     <aside className="hidden w-56 shrink-0 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 text-sidebar-foreground lg:flex">
       <div className="flex items-center gap-2 px-2 pt-1">
-        <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <FlaskConical className="size-3.5" />
-        </span>
+        <ClipBoxMark className="size-6" />
         <span className="text-base font-semibold tracking-tight">ClipBox</span>
       </div>
 
