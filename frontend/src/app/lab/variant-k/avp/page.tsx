@@ -21,19 +21,20 @@ export default function VariantKAvpPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <VariantKTooltipLabel
-          className="text-xl font-semibold tracking-tight"
-          label={<h1>AVP</h1>}
-          tooltip={
-            <div className="flex max-w-xs flex-col gap-1 text-[11px] leading-relaxed">
-              <p>AVP候補（localStorage相当）は一時的なプールで、上限はありません。</p>
-              <p>再生対象は最大4本です。利用不可の動画は再生対象に追加できません。</p>
-              <p>AVPで再生すると再生中ハイライトが付き、再生後は再生対象がクリアされる想定です。</p>
-              <p className="font-medium text-foreground">AVP再生でも、あとで見るは自動解除しません。</p>
-              <p>AVP候補と あとで見る（DB相当）は別物です。混同しません。</p>
-            </div>
-          }
-        />
+        <h1 className="text-xl font-semibold tracking-tight">
+          <VariantKTooltipLabel
+            label="AVP"
+            tooltip={
+              <div className="flex max-w-xs flex-col gap-1 text-[11px] leading-relaxed">
+                <p>AVP候補（localStorage相当）は一時的なプールで、上限はありません。</p>
+                <p>再生対象は最大4本です。利用不可の動画は再生対象に追加できません。</p>
+                <p>AVPで再生すると再生中ハイライトが付き、再生後は再生対象がクリアされる想定です。</p>
+                <p className="font-medium text-foreground">AVP再生でも、あとで見るは自動解除しません。</p>
+                <p>AVP候補と あとで見る（DB相当）は別物です。混同しません。</p>
+              </div>
+            }
+          />
+        </h1>
         <p className="text-[12px] text-muted-foreground">
           上段の候補から最大4本を再生対象に選び、下段の2×2セットで並列再生（モック）します。
         </p>

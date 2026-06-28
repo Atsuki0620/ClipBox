@@ -26,19 +26,20 @@ export default function VariantKWatchLaterPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <VariantKTooltipLabel
-          className="text-xl font-semibold tracking-tight"
-          label={<h1>あとで見る</h1>}
-          tooltip={
-            <div className="flex max-w-xs flex-col gap-1 text-[11px] leading-relaxed">
-              <p>未処理のあとで見るは、判定／選別を済ませると自動解除される想定です。</p>
-              <p>処理済みのあとで見るは、いいねやレベル変更などで解除候補になる想定です。</p>
-              <p>通常再生だけでは自動解除しません。AVP候補追加でも自動解除しません。</p>
-              <p className="font-medium text-foreground">AVP再生でも、あとで見るは自動解除しません。</p>
-              <p>あとで見る（DB相当）と AVP候補（localStorage相当）は別物です。</p>
-            </div>
-          }
-        />
+        <h1 className="text-xl font-semibold tracking-tight">
+          <VariantKTooltipLabel
+            label="あとで見る"
+            tooltip={
+              <div className="flex max-w-xs flex-col gap-1 text-[11px] leading-relaxed">
+                <p>未処理のあとで見るは、判定／選別を済ませると自動解除される想定です。</p>
+                <p>処理済みのあとで見るは、いいねやレベル変更などで解除候補になる想定です。</p>
+                <p>通常再生だけでは自動解除しません。AVP候補追加でも自動解除しません。</p>
+                <p className="font-medium text-foreground">AVP再生でも、あとで見るは自動解除しません。</p>
+                <p>あとで見る（DB相当）と AVP候補（localStorage相当）は別物です。</p>
+              </div>
+            }
+          />
+        </h1>
         <p className="text-[12px] text-muted-foreground">
           全 {total} 件（モック）。判定／選別を後回しにした動画を、状態別の3セクションで消化します。
         </p>
