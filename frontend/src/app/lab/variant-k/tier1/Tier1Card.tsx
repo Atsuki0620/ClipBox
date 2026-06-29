@@ -16,6 +16,7 @@ export function Tier1Card({
   state,
   playing = false,
   dimmed = false,
+  layout = "vertical",
   onPlay,
   className,
 }: {
@@ -23,6 +24,7 @@ export function Tier1Card({
   state: Tier1MockCardState;
   playing?: boolean;
   dimmed?: boolean;
+  layout?: "vertical" | "wide";
   onPlay?: () => void;
   className?: string;
 }) {
@@ -34,13 +36,21 @@ export function Tier1Card({
       tierBadge="tier1"
       playing={playing}
       dimmed={dimmed}
+      layout={layout}
       watchLater={state.watchLater}
       statusLabel="判定"
       statusValue={tier1Label(state.level)}
       dateLabel="判定日"
       dateValue={formatVariantKDate(state.judgedAt)}
       className={className}
-      actions={<Tier1CardActions state={state} unavailable={unavailable} onPlay={onPlay} />}
+      actions={
+        <Tier1CardActions
+          state={state}
+          unavailable={unavailable}
+          onPlay={onPlay}
+          orientation={layout === "wide" ? "horizontal" : "vertical"}
+        />
+      }
     />
   );
 }

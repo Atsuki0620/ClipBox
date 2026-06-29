@@ -14,8 +14,11 @@ import type { ReactNode } from "react";
 import { Play, Heart, Bookmark, BookmarkX, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const cell =
+// 通常＝各ボタンが等幅で1段を埋める（flex-1）。compact＝自然幅で詰める（ワイドカードの横一列用）。
+const cellFill =
   "inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border px-1 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
+const cellCompact =
+  "inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
 const neutral = "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground";
 
 export function VariantKCardActions({
@@ -30,6 +33,8 @@ export function VariantKCardActions({
   watchLaterVariant = "toggle",
   avpCandidate,
   onToggleAvpCandidate,
+  // compact=自然幅・左詰め（横一列のワイドカード用）。既定は等幅で1段を埋める。
+  compact = false,
   extra,
   className,
 }: {
@@ -45,11 +50,13 @@ export function VariantKCardActions({
   watchLaterVariant?: "toggle" | "remove";
   avpCandidate?: boolean;
   onToggleAvpCandidate?: () => void;
+  compact?: boolean;
   extra?: ReactNode;
   className?: string;
 }) {
+  const cell = compact ? cellCompact : cellFill;
   return (
-    <div className={cn("flex w-full items-stretch gap-1", className)}>
+    <div className={cn("flex items-center gap-1", compact ? "w-auto" : "w-full items-stretch", className)}>
       {onPlay ? (
         <button
           type="button"

@@ -11,6 +11,18 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-06-29 — feat(ui-lab): 統合 Variant K Tier1 フィードバック反映（KPI/ツールバー/ページャ/列数/ワイドカード）
+
+- Tier1 の3タブ（ライブラリ/ランダム/運命の1本）への UI フィードバックを実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定ファイル/localStorage/sessionStorage 仕様・内部 config キーは変更なし（状態はメモリ相当）。
+- KPI パネル（`tier1/Tier1KpiBar.tsx`）: 各 KPI を「名前→数値→（バー/折れ線）」の横一列に再設計し、`tier1/page.tsx` で見出し「Tier1」の右側・タブ上に1回だけ描画（3タブ共通で整合）。
+- カード列数の共有 context を新設（`_components/VariantKDisplayPrefs.tsx`・メモリのみ）。`VariantKShell` で配下に Provider を張り、設定 表示タブ（`settings/SettingsDisplayTab.tsx`）の「カード列数」（3〜6・既定5）が Tier1（ライブラリ/ランダム/運命の1本）のカードグリッドに即時反映する（フルリロードで既定に戻る）。
+- ライブラリ（`tier1/Tier1Library.tsx`）: ツールバーの囲い枠を撤去し素のインライン配置に、フィルタを漏斗アイコン（`Filter`）化。ページャを `tier1/Tier1Pager.tsx` に切り出しカード/テーブル領域の直上・直下の両方に配置（既定100件）。カードは設定連動の5列グリッド。テーブルは操作を 再生/いいね/あとで見る/AVP候補 の4列に分割し、列幅をマウスドラッグで調整可能にした（`_components/VariantKActionTable.tsx` に後方互換の `resizable`＋列 `width` を追加。ランキング/検索/AVP は既定 OFF で無影響）。`_components/VariantKRowActions.tsx` から個別ボタン（Play/Like/WatchLater/Avp）を export（集約版は維持）。
+- ランダム（`tier1/Tier1Random.tsx`）: 見出し/説明/候補件数テキストを撤去。引き数を 10/20/30（既定10）に変更。カードは設定連動の5列。
+- 運命の1本（`tier1/Tier1Fate.tsx`）: 見出し/補足テキスト/囲い枠を撤去し、「運命の1本を引く」ボタンと「最近見てない優先」トグルを横一列に。引いた1本を全幅ワイドカード（メタ一段・操作一段）で表示。`_components/VariantKVideoCard.tsx` に `layout="wide"`、`tier1/Tier1CardActions.tsx` に `orientation`、`_components/VariantKCardActions.tsx` に `compact` を追加（表示項目・ボタンはライブラリと共通）。
+- 検証: `npm run lint`/`npm run typecheck` 全通過、Playwright で Tier1 3タブ・テーブル列分割・設定列数連動（3列反映）をスモーク（コンソールエラーなし）。`docs/nextjs-ui-renovation-feedback.md` は不変。
+
+---
+
 ## 2026-06-29 — feat(ui-lab): 統合 Variant K フィードバック反映（監査§1/§2/§7）を実装
 
 - `STAGE7_FEEDBACK_AUDIT.md` の §1（注力未反映）・§2（細部）・§7（Tier1/カード共通部品）を一括実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定/localStorage/sessionStorage 仕様・総合スコアの係数/タイブレークは変更なし（状態はページ内メモリ相当）。

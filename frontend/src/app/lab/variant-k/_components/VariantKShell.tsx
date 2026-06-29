@@ -5,7 +5,8 @@
 //   - globals.css は変更しない。テーマは root div の CSS 変数上書きのみ（lab 流儀）。
 //   - 本体画面ではないこと（モック・サンプルDB接続前）が分かる表示を必ず置く。
 //   - TooltipProvider は root の app/providers で全体に入っているため再ラップしない。
-// 【依存関係】lib/utils（cn）, theme（VARIANT_K_THEME）, VariantKSidebar, lucide。
+//   - 表示プリファレンス（カード列数）は VariantKDisplayPrefsProvider（メモリのみ）で配下に共有する。
+// 【依存関係】lib/utils（cn）, theme（VARIANT_K_THEME）, VariantKSidebar, VariantKDisplayPrefs, lucide。
 
 "use client";
 
@@ -14,9 +15,11 @@ import Link from "next/link";
 import { FlaskConical } from "lucide-react";
 import { VARIANT_K_THEME } from "./theme";
 import { VariantKMobileNav, VariantKSidebar } from "./VariantKSidebar";
+import { VariantKDisplayPrefsProvider } from "./VariantKDisplayPrefs";
 
 export function VariantKShell({ children }: { children: ReactNode }) {
   return (
+    <VariantKDisplayPrefsProvider>
     <div className="flex flex-col gap-3">
       {/* ラボ用クローム：本体ではなくモックである事を枠で明示 */}
       <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 px-4 py-3 backdrop-blur">
@@ -49,5 +52,6 @@ export function VariantKShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     </div>
+    </VariantKDisplayPrefsProvider>
   );
 }
