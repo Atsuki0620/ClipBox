@@ -15,6 +15,7 @@ import { VARIANT_K_VIDEOS } from "../_data/variantKMock";
 import { Tier1Library } from "./Tier1Library";
 import { Tier1Random } from "./Tier1Random";
 import { Tier1Fate } from "./Tier1Fate";
+import { Tier1KpiBar } from "./Tier1KpiBar";
 import { useTier1MockCardStates } from "./useTier1MockCardState";
 
 type TabKey = "library" | "random" | "fate";
@@ -32,7 +33,11 @@ export default function VariantKTier1Page() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">Tier1</h1>
+        {/* 見出し「Tier1」直下に KPI パネル（3タブ共通でタブ上に1回だけ描画） */}
+        <div className="flex flex-col gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">Tier1</h1>
+          <Tier1KpiBar />
+        </div>
 
         {/* タブ（左寄せセグメント） */}
         <div className="inline-flex w-fit rounded-lg border bg-muted/40 p-1">

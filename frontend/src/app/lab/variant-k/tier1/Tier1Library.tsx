@@ -1,26 +1,21 @@
 // 統合 Variant K Tier1 ライブラリタブ。
-// 【役割】判定対象を一覧で操作するカード優先のモック。KPI＋ツールバー（フィルタ Popover／並び替え2段 Popover／
-//   カード⇄テーブル切替）＋カードグリッド or 操作付きテーブル＋ページャ＋空状態。
+// 【役割】判定対象を一覧で操作するカード優先のモック。ツールバー（フィルタ漏斗 Popover／並び替え2段 Popover／
+//   カード⇄テーブル切替）＋上下ページャ＋カードグリッド or 操作付きテーブル＋空状態。
 //   再生クリックで該当を「再生中ハイライト」にする（amber・バッジより優先）。
 // 【設計制約】
 //   - フィルタ/ソート/表示モード/ページはメモリ相当（永続しない）。API/DB/localStorage に触れない。
 //   - 視聴日数を主役。視聴回数/更新日/登録日は出さない。作成日/判定日は出す。サムネなし。
-//   - フィルタは漏斗 Popover に畳む（全表示しない）。並び替えは2段 Popover（項目＋昇降）。
+//   - フィルタは漏斗 Popover に畳む（全表示しない・囲い枠は置かない）。並び替えは2段 Popover（項目＋昇降）。
+//   - カード列数は設定 表示タブと共有（VariantKDisplayPrefs・メモリ）。既定5列。
+//   - テーブルは列幅をドラッグ調整可・操作は 再生/いいね/あとで見る/AVP候補 を列分割。
 //   - レベルは 未/0..4。「判定済みを薄くする」は薄表示と連動。利用不可は薄表示＋再生/AVP disabled。
+//   - 1ページ件数は上部ツールバーに一本化。件数ステータス/ページ移動はカード・テーブル領域の上下に置く。
 // 【依存関係】lucide, shadcn(switch/popover), lib(levels/utils), _data(variantKMock),
-//   _components(EmptyState/ActionTable/RowActions/LevelButtons), ./shared, ./Tier1KpiBar, ./Tier1Card, ./Tier1CardActions。
+//   _components(EmptyState/ActionTable/RowActions個別/LevelButtons/DisplayPrefs), ./shared, ./Tier1Card, ./Tier1CardActions, ./Tier1Pager。
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Inbox,
-  SlidersHorizontal,
-  ArrowDownUp,
-  LayoutGrid,
-  Rows3,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Inbox, Filter, ArrowDownUp, LayoutGrid, Rows3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelName, storageLabel } from "@/lib/levels";
 import { Switch } from "@/components/ui/switch";
@@ -30,11 +25,17 @@ import {
   VariantKActionTable,
   type VariantKColumn,
 } from "../_components/VariantKActionTable";
-import { VariantKRowActions } from "../_components/VariantKRowActions";
+import {
+  VariantKPlayButton,
+  VariantKLikeButton,
+  VariantKWatchLaterButton,
+  VariantKAvpButton,
+} from "../_components/VariantKRowActions";
 import { VariantKLevelButtons } from "../_components/VariantKLevelButtons";
+import { useVariantKDisplayPrefs } from "../_components/VariantKDisplayPrefs";
 import { formatVariantKDate, type VariantKVideo } from "../_data/variantKMock";
-import { Tier1KpiBar } from "./Tier1KpiBar";
 import { Tier1Card } from "./Tier1Card";
+import { Tier1Pager } from "./Tier1Pager";
 import { TIER1_LEVEL_OPTIONS } from "./Tier1CardActions";
 import type { Tier1MockCardStateController } from "./useTier1MockCardState";
 import {
@@ -46,10 +47,10 @@ import {
   activeTier1FilterCount,
   DEFAULT_TIER1_FILTERS,
   DEFAULT_TIER1_SORT,
+  TIER1_PAGE_SIZES,
   TIER1_STATUS_OPTIONS,
   TIER1_SORT_OPTIONS,
   TIER1_LEVEL_VALUES,
-  TIER1_PAGE_SIZES,
   type Tier1Filters,
   type Tier1Sort,
   type Tier1SortDir,
@@ -58,6 +59,9 @@ import {
 } from "./shared";
 
 const STORAGE_VALUES = ["C_DRIVE", "EXTERNAL_HDD"] as const;
+
+// 既定の1ページ件数（フィードバック: 既定100件）。
+const DEFAULT_PAGE_SIZE = 100;
 
 const triggerClass =
   "inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-[12px] text-foreground transition-colors hover:bg-muted data-[state=open]:bg-muted";
@@ -131,12 +135,36 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
+function PageSizeControl({ value, onChange }: { value: number; onChange: (size: number) => void }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+      <span>1ページ</span>
+      <span className="inline-flex rounded-md border bg-muted/50 p-0.5">
+        {TIER1_PAGE_SIZES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={cn(
+              "rounded-[5px] px-2 py-0.5 font-medium tabular-nums transition-colors",
+              value === n ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </span>
+      <span>件</span>
+    </div>
+  );
+}
+
 export function Tier1Library({ state }: { state: Tier1MockCardStateController }) {
+  const { cardColumns } = useVariantKDisplayPrefs();
   const [filters, setFilters] = useState<Tier1Filters>(DEFAULT_TIER1_FILTERS);
   const [sort, setSort] = useState<Tier1Sort>(DEFAULT_TIER1_SORT);
   const [viewMode, setViewMode] = useState<Tier1ViewMode>("card");
-  const [dimJudged, setDimJudged] = useState(true);
-  const [pageSize, setPageSize] = useState<number>(TIER1_PAGE_SIZES[0]);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
   const [playingId, setPlayingId] = useState<number | null>(null);
 
@@ -174,26 +202,39 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
         : [...filters.storages, s],
     });
 
-  // テーブル列（カード優先画面のテーブル表示モード）。
+  // テーブル列（カード優先画面のテーブル表示モード）。操作は列ごとに分割し、各列は幅調整可能。
   const columns: VariantKColumn<VariantKVideo>[] = [
-    { key: "title", header: "タイトル", render: (row) => <span className="font-medium text-foreground">{row.title}</span> },
-    { key: "view_days", header: "視聴日数", align: "right", render: (row) => `${row.view_days}日` },
+    {
+      key: "title",
+      header: "タイトル",
+      width: 280,
+      render: (row) => (
+        <span className="block truncate font-medium text-foreground" title={row.title}>
+          {row.title}
+        </span>
+      ),
+    },
+    { key: "view_days", header: "視聴日数", align: "right", width: 90, render: (row) => `${row.view_days}日` },
     {
       key: "created",
       header: "作成日",
       align: "right",
+      width: 110,
       render: (row) => <span className="tabular-nums">{formatVariantKDate(row.file_created_at)}</span>,
     },
     {
       key: "judged",
       header: "判定日",
       align: "right",
+      width: 110,
       render: (row) => <span className="tabular-nums">{formatVariantKDate(row.judged_at)}</span>,
     },
     {
       key: "level",
       header: "レベル",
       align: "center",
+      className: "px-2",
+      width: 208,
       render: (row) => {
         const cardState = state.getCardState(row);
         return (
@@ -203,39 +244,90 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
             onChange={cardState.setLevel}
             options={TIER1_LEVEL_OPTIONS}
             disabled={!row.available}
-            className="w-[8.5rem]"
+            className="w-[12rem]"
           />
         );
       },
     },
     {
-      key: "actions",
-      header: "操作",
-      align: "right",
-      render: (row) => {
-        const cardState = state.getCardState(row);
-        return (
-          <VariantKRowActions
-            state={cardState}
+      key: "play",
+      header: "再生",
+      align: "center",
+      className: "px-2",
+      width: 64,
+      render: (row) => (
+        <div className="flex justify-center">
+          <VariantKPlayButton
             unavailable={!row.available}
             playing={playingId === row.id}
             onPlay={() => setPlayingId(row.id)}
+            className="w-12"
           />
-        );
-      },
+        </div>
+      ),
+    },
+    {
+      key: "like",
+      header: "いいね",
+      align: "center",
+      className: "px-2",
+      width: 64,
+      render: (row) => (
+        <div className="flex justify-center">
+          <VariantKLikeButton state={state.getCardState(row)} mode="increment" className="w-12" />
+        </div>
+      ),
+    },
+    {
+      key: "watch_later",
+      header: "あとで見る",
+      align: "center",
+      className: "px-2",
+      width: 64,
+      render: (row) => (
+        <div className="flex justify-center">
+          <VariantKWatchLaterButton state={state.getCardState(row)} className="w-12" />
+        </div>
+      ),
+    },
+    {
+      key: "avp",
+      header: "AVP候補",
+      align: "center",
+      className: "px-2",
+      width: 64,
+      render: (row) => (
+        <div className="flex justify-center">
+          <VariantKAvpButton
+            state={state.getCardState(row)}
+            unavailable={!row.available}
+            iconVariant="monitor"
+            className="w-12"
+          />
+        </div>
+      ),
     },
   ];
 
+  const pager = (
+    <Tier1Pager
+      total={total}
+      pageSize={pageSize}
+      currentPage={currentPage}
+      pages={pages}
+      onPrev={() => setPage((p) => Math.max(1, p - 1))}
+      onNext={() => setPage((p) => Math.min(pages, p + 1))}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-3">
-      <Tier1KpiBar />
-
-      {/* ツールバー（フィルタ Popover / 並び替え2段 Popover / カード・テーブル切替。すべてメモリ） */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-card px-2 py-2">
+      {/* ツールバー（囲い枠なし・素のインライン配置） */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {/* フィルタ（漏斗 → Popover） */}
         <Popover>
           <PopoverTrigger className={cn(triggerClass, filterCount > 0 && "border-primary text-primary")}>
-            <SlidersHorizontal className="size-3.5" />
+            <Filter className="size-3.5" />
             フィルタ
             {filterCount > 0 && (
               <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground tabular-nums">
@@ -275,13 +367,6 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
                 checked={filters.availableOnly}
                 onCheckedChange={(v) => updateFilters({ ...filters, availableOnly: Boolean(v) })}
               />
-            </label>
-
-            <div className="border-t" />
-
-            <label className="flex items-center justify-between gap-2 text-[12px]">
-              <span>判定済みを薄くする</span>
-              <Switch checked={dimJudged} onCheckedChange={(v) => setDimJudged(Boolean(v))} />
             </label>
 
             {filterCount > 0 && (
@@ -338,8 +423,16 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
           </PopoverContent>
         </Popover>
 
-        {/* 表示モード（カード / テーブル） */}
-        <div className="ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
+          <PageSizeControl
+            value={pageSize}
+            onChange={(size) => {
+              setPageSize(size);
+              resetPage();
+            }}
+          />
+
+          {/* 表示モード（カード / テーブル） */}
           <Segmented<Tier1ViewMode>
             value={viewMode}
             onChange={setViewMode}
@@ -357,72 +450,41 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
           title="条件に一致する動画がありません"
           description="フィルタを見直してください。フィルタ条件は保存されません。"
         />
-      ) : viewMode === "card" ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
-          {visible.map((video) => (
-            <Tier1Card
-              key={video.id}
-              video={video}
-              state={state.getCardState(video)}
-              playing={playingId === video.id}
-              dimmed={dimJudged && !isUnrated(video) && video.available}
-              onPlay={() => setPlayingId(video.id)}
-            />
-          ))}
-        </div>
       ) : (
-        <VariantKActionTable<VariantKVideo>
-          columns={columns}
-          rows={visible}
-          rowKey={(row) => row.id}
-          dimRow={(row) => !row.available || (dimJudged && !isUnrated(row) && row.available)}
-          playingRow={(row) => playingId === row.id}
-        />
-      )}
+        <>
+          {/* 上ページャ */}
+          {pager}
 
-      {/* ページャ（カード/テーブル共用） */}
-      {total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span>全 {total} 件（モック）</span>
-            <span className="inline-flex items-center gap-1">
-              1ページ
-              <Segmented<string>
-                value={String(pageSize)}
-                onChange={(v) => {
-                  setPageSize(Number(v));
-                  resetPage();
-                }}
-                size="sm"
-                options={TIER1_PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))}
-              />
-              件
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-              className="inline-flex size-7 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent disabled:opacity-40"
-              aria-label="前のページ"
+          {viewMode === "card" ? (
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))` }}
             >
-              <ChevronLeft className="size-3.5" />
-            </button>
-            <span className="tabular-nums">
-              {currentPage} / {pages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(pages, p + 1))}
-              disabled={currentPage >= pages}
-              className="inline-flex size-7 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent disabled:opacity-40"
-              aria-label="次のページ"
-            >
-              <ChevronRight className="size-3.5" />
-            </button>
-          </div>
-        </div>
+              {visible.map((video) => (
+                <Tier1Card
+                  key={video.id}
+                  video={video}
+                  state={state.getCardState(video)}
+                  playing={playingId === video.id}
+                  onPlay={() => setPlayingId(video.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <VariantKActionTable<VariantKVideo>
+              columns={columns}
+              rows={visible}
+              rowKey={(row) => row.id}
+              resizable
+              dimRow={(row) => !row.available}
+              accentRow={(row) => isUnrated(row)}
+              playingRow={(row) => playingId === row.id}
+            />
+          )}
+
+          {/* 下ページャ */}
+          {pager}
+        </>
       )}
     </div>
   );

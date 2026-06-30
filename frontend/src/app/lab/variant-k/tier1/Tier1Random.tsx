@@ -1,11 +1,11 @@
 // 統合 Variant K Tier1 ランダムタブ。
-// 【役割】「未判定かつ再生可能」から N 本（5/10/15/20）をシャッフルして提示するモック。
-//   主ボタン＝シャッフル（引き直し）。引き数セグメントで本数を変える。
+// 【役割】N 本（10/20/30）をシャッフルして提示するモック。既定は「未判定のみ」。
+//   主ボタン＝シャッフル（引き直し）。引き数セグメントで本数を変える。見出し/説明/候補件数テキストは置かない。
 // 【設計制約】
-//   - 候補は固定条件（未判定×再生可能・判定済み/利用不可は含めない）。複雑なフィルタは作らない。
+//   - 候補は再生可能な動画。未判定のみトグルで判定済みを含めるか切り替える。
 //   - 抽選はモック（合成データのシャッフル）。実 API/localStorage に触れない。
-//   - カード優先・視聴日数主役・サムネなし。カード操作は共通（Tier1Card）。
-// 【依存関係】lucide, lib/utils(cn), _data/variantKMock, _components(EmptyState/SectionHeader),
+//   - カード優先・視聴日数主役・サムネなし。カード操作・列数はライブラリと共有（Tier1Card / DisplayPrefs）。既定5列。
+// 【依存関係】lucide, lib/utils(cn), _data/variantKMock, _components(EmptyState/DisplayPrefs),
 //   ./shared（drawableCandidates / drawN）, ./Tier1Card。
 "use client";
 
@@ -13,42 +13,48 @@ import { useState } from "react";
 import { Shuffle, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
-import { VariantKSectionHeader } from "../_components/VariantKSectionHeader";
+import { useVariantKDisplayPrefs } from "../_components/VariantKDisplayPrefs";
 import { drawableCandidates, drawN } from "./shared";
 import { Tier1Card } from "./Tier1Card";
 import type { VariantKVideo } from "../_data/variantKMock";
 import type { Tier1MockCardStateController } from "./useTier1MockCardState";
 
-const DRAW_COUNTS = [5, 10, 15, 20];
+const DRAW_COUNTS = [10, 20, 30];
+const DEFAULT_DRAW = 10;
 
 export function Tier1Random({ state }: { state: Tier1MockCardStateController }) {
-  const candidates = drawableCandidates(state.videos);
-  const [count, setCount] = useState(5);
+  const { cardColumns } = useVariantKDisplayPrefs();
+  const [unratedOnly, setUnratedOnly] = useState(true);
+  const candidates = drawableCandidates(state.videos, { unratedOnly });
+  const [count, setCount] = useState(DEFAULT_DRAW);
   const [playingId, setPlayingId] = useState<number | null>(null);
   // 抽選結果はメモではなく state に保持（カードの live 状態は getCardState で都度読むため凍結で問題ない）。
-  const [drawn, setDrawn] = useState<VariantKVideo[]>(() => drawN(state.videos, 5));
+  const [drawn, setDrawn] = useState<VariantKVideo[]>(() =>
+    drawN(state.videos, DEFAULT_DRAW, { unratedOnly: true }),
+  );
 
-  const reshuffle = (n: number) => setDrawn(drawN(state.videos, n));
+  const reshuffle = (n: number, nextUnratedOnly = unratedOnly) =>
+    setDrawn(drawN(state.videos, n, { unratedOnly: nextUnratedOnly }));
   const handleCount = (n: number) => {
     setCount(n);
     reshuffle(n);
   };
+  const handleUnratedOnly = (next: boolean) => {
+    setUnratedOnly(next);
+    reshuffle(count, next);
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <VariantKSectionHeader
-        title="ランダム"
-        description="未判定かつ再生可能な動画から、指定本数をシャッフルして提示します。"
-        actions={
-          <span className="rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-            対象: 未判定かつ再生可能（固定）
-          </span>
-        }
-      />
-
       <div className="flex flex-wrap items-center gap-2">
-        {/* 引く本数（5/10/15/20） */}
+        <label className="inline-flex h-8 items-center gap-2 rounded-md bg-muted/50 px-2.5 text-[12px] text-foreground">
+          <span>未判定のみ</span>
+          <Switch checked={unratedOnly} onCheckedChange={(v) => handleUnratedOnly(Boolean(v))} />
+        </label>
+
+        {/* 引く本数（10/20/30） */}
         <div className="inline-flex rounded-md border bg-muted/50 p-0.5">
           {DRAW_COUNTS.map((n) => (
             <button
@@ -70,14 +76,10 @@ export function Tier1Random({ state }: { state: Tier1MockCardStateController }) 
           <Shuffle className="size-3.5" />
           シャッフル
         </Button>
-
-        <span className="text-[11px] text-muted-foreground">
-          候補 {candidates.length} 件（モック・判定済み/利用不可は含めません）
-        </span>
       </div>
 
       {drawn.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))` }}>
           {drawn.map((video) => (
             <Tier1Card
               key={video.id}
@@ -92,7 +94,7 @@ export function Tier1Random({ state }: { state: Tier1MockCardStateController }) 
         <VariantKEmptyState
           icon={<Inbox className="size-6" />}
           title="対象の動画がありません"
-          description="未判定かつ再生可能な動画がない状態です。"
+          description={unratedOnly ? "未判定かつ再生可能な動画がない状態です。" : "再生可能な動画がない状態です。"}
         />
       )}
     </div>

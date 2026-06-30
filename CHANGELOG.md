@@ -11,6 +11,59 @@ AIへの引き継ぎノート。主要な変更を遡及記録。
 
 ---
 
+## 2026-07-01 — feat(ui-lab): 統合 Variant K Tier2 を Tier1 流用案で全面リデザイン
+
+- Tier2（`/lab/variant-k/tier2`）を Tier1 と同じ構造・サイズ感に作り替え（Tier1流用案を正式採用）。語彙だけ Tier2（選別／未選別／選別日／tier2_status）。すべて UI LAB モックで本体 API/DB/localStorage 仕様は不変（状態はメモリ相当）。
+- 画面上の説明文を撤去: 案1/案2の文言比較トグルと `TIER2_COPY`（pageDescription/libraryDescription/候補件数テキスト/保持説明 等）を全削除（`tier2/page.tsx`・`tier2/shared.ts`）。
+- KPI（`tier2/Tier2KpiBar.tsx`）: 見出し「Tier2」直下に移動し、Tier1KpiBar と同じ大型表示（ラベル文字・数値拡大）。未選別/選別済み/選別率/本日の選別数をページ内状態から算出。
+- ライブラリ（`tier2/Tier2Library.tsx`）: Tier1 と同じツールバー（フィルタ漏斗 Popover＝選別レベル/保存先/状態/再生可・並び替え2段 Popover＝選別レベル/作成日/視聴日数/タイトル/選別日×昇降・カード⇔テーブル切替）＋1ページ件数50/100/200＋上下ページャ（`tier2/Tier2Pager.tsx` 新規）＋設定「カード列数」連動の列グリッド（既定5）。テーブルは操作4列分割＋列幅ドラッグ。
+- カード（`tier2/Tier2Card.tsx`/`Tier2CardActions.tsx`）: 状態識別＝利用不可グレーアウト／未選別は左アクセントバー／選別済みは無印。メタ1行（視聴◯日／作成日／選別日、ストレージと「選別 Lv●」は削除）。いいねはインクリメント式（`useTier2MockCardState.ts`）。
+- ランダム（`tier2/Tier2Random.tsx`）: 「未選別のみ」トグル＋引き数10/20/30＋シャッフルで複数枚提示（5列）。
+- 運命の1本（`tier2/Tier2Fate.tsx`）: 当選1本を id で固定（選別してもカードは切り替わらず「引く」押下時のみ更新）＋約1秒の抽選アニメーション（ちらつき＋減速＋当たりハイライト・「抽選中…」）＋未選別のみ/最近見てない優先トグル＋全幅ワイドカード。
+- 選別レベルボタンのラベルを「未選別」→「未」に変更し 未/0/1/2/3/4 表記に統一（ツールチップは「未選別」を保持）。`tier2/Tier2CardActions.tsx`/`Tier2Library.tsx`。
+- スクリーンショットレビュー（`_review/VARIANT_K_SCREENSHOT_REPORT.md`）の Tier2 節を最新化し、新規スクショ6点（`_review/variant-k-tier2-final-20260701/`：ライブラリ カード/テーブル・ランダム・運命の1本の抽選/当選/選別固定）を掲載。旧 案1/案2 の記載は置換。
+- 検証: `npm run typecheck`/`npm run lint` 全通過。`/lab/variant-k/tier2` を起動確認（Tier1 と同等の見た目・状態識別・抽選挙動）。
+
+---
+
+## 2026-06-30 — feat(ui-lab): 統合 Variant K Tier1 KPI拡大・いいねインクリメント化・カード状態識別
+
+- Tier1 の3タブ（ライブラリ/ランダム/運命の1本）への UI フィードバックを実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定ファイル/localStorage/sessionStorage 仕様は変更なし（状態はメモリ相当）。
+- KPI（`tier1/Tier1KpiBar.tsx`）: カード枠・バー/折れ線の寸法は据え置きのまま、ラベル `text-[11px]→text-[13px]`・数値 `text-2xl→text-3xl` に拡大して視認性を上げた。
+- いいねをインクリメント式に変更（`tier1/useTier1MockCardState.ts`）: 押すたびに +1（解除なし、ハートは1回押すと塗り）。共有ボタン `_components/VariantKCardActions.tsx`（`likeMode`）と `_components/VariantKRowActions.tsx` の `VariantKLikeButton`（`mode`）に増加モードを追加（既定はトグルのまま＝ランキング/検索など他画面は無影響）。Tier1 はカード/テーブルとも `increment` を指定。
+- カードの状態識別（`_components/VariantKVideoCard.tsx` に `accent` prop / `tier1/Tier1Card.tsx`）: 利用不可＝グレーアウト（現状維持）、未判定（レベル -1）＝左端にテーマカラー（`--primary`）のアクセントバー、判定済み＝どちらも無し。ランダム/運命の1本にも `Tier1Card` 経由で自動反映。
+- テーブル表示モードでもカードと同じ状態識別に統一（`_components/VariantKActionTable.tsx` に `accentRow` prop を追加）: 利用不可＝行グレーアウト、未判定＝先頭セル左端にアクセントバー、判定済み＝どちらも無し。`tier1/Tier1Library.tsx` で `accentRow={(row) => isUnrated(row)}` を指定（他画面は `accentRow` 未指定で無影響）。
+- これに伴いライブラリ（`tier1/Tier1Library.tsx`）の「判定済みを薄くする」トグルを撤去し、テーブルの薄表示も利用不可のみに変更（判定済みは薄くしない）。
+- Tier1 カードのメタ情報をシンプル化（`tier1/Tier1Card.tsx` / `_components/VariantKVideoCard.tsx` に `metaItems` 上書き prop と `VariantKMetaItem` 型を追加）: ストレージ表記と最下行「判定 Lv●」を削除、「視聴日数 ○○日」→「視聴○○日」に短縮し、メタを1行（flex-wrap）にまとめた。`metaItems` は Tier1 のみ指定で、Tier2/AVP/あとで見るカードは既定メタ（2列）のまま無影響。
+- 運命の1本（`tier1/Tier1Fate.tsx`）の抽選挙動を変更: 当選した1本を id で固定し、判定（レベル選択）してもカードは切り替わらず、「運命の1本を引く」を押したときだけ次の1本に入れ替わるようにした（従来は判定すると候補から外れて勝手に次へ進んでいた）。引いた直後は約1秒のインターバルで候補をスロット風にちらつかせ、減速して1本に当たるアニメーション（カードのちらつき＋減速＋当たりハイライト、ボタンは「抽選中…」表示・操作中はトグル無効）を追加。
+- スクリーンショットレビュー（`_review/VARIANT_K_SCREENSHOT_REPORT.md`）の Tier1 節を最新フィードバック反映で全面更新し、新規スクショ6点（`_review/variant-k-tier1-final-20260630/`：ライブラリ カード/テーブル・ランダム・運命の1本の抽選/当選/判定固定）を掲載。旧 Tier1 追補の記載は置換。
+- 検証: `npm run typecheck`/`npm run lint` 全通過。
+
+---
+
+## 2026-06-29 — feat(ui-lab): 統合 Variant K Tier1 フィードバック反映（KPI/ツールバー/ページャ/列数/ワイドカード）
+
+- Tier1 の3タブ（ライブラリ/ランダム/運命の1本）への UI フィードバックを実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定ファイル/localStorage/sessionStorage 仕様・内部 config キーは変更なし（状態はメモリ相当）。
+- KPI パネル（`tier1/Tier1KpiBar.tsx`）: 各 KPI を「名前→数値→（バー/折れ線）」の横一列に再設計し、`tier1/page.tsx` で見出し「Tier1」の右側・タブ上に1回だけ描画（3タブ共通で整合）。
+- カード列数の共有 context を新設（`_components/VariantKDisplayPrefs.tsx`・メモリのみ）。`VariantKShell` で配下に Provider を張り、設定 表示タブ（`settings/SettingsDisplayTab.tsx`）の「カード列数」（3〜6・既定5）が Tier1（ライブラリ/ランダム/運命の1本）のカードグリッドに即時反映する（フルリロードで既定に戻る）。
+- ライブラリ（`tier1/Tier1Library.tsx`）: ツールバーの囲い枠を撤去し素のインライン配置に、フィルタを漏斗アイコン（`Filter`）化。ページャを `tier1/Tier1Pager.tsx` に切り出しカード/テーブル領域の直上・直下の両方に配置（既定100件）。カードは設定連動の5列グリッド。テーブルは操作を 再生/いいね/あとで見る/AVP候補 の4列に分割し、列幅をマウスドラッグで調整可能にした（`_components/VariantKActionTable.tsx` に後方互換の `resizable`＋列 `width` を追加。ランキング/検索/AVP は既定 OFF で無影響）。`_components/VariantKRowActions.tsx` から個別ボタン（Play/Like/WatchLater/Avp）を export（集約版は維持）。
+- ランダム（`tier1/Tier1Random.tsx`）: 見出し/説明/候補件数テキストを撤去。引き数を 10/20/30（既定10）に変更。カードは設定連動の5列。
+- 運命の1本（`tier1/Tier1Fate.tsx`）: 見出し/補足テキスト/囲い枠を撤去し、「運命の1本を引く」ボタンと「最近見てない優先」トグルを横一列に。引いた1本を全幅ワイドカード（メタ一段・操作一段）で表示。`_components/VariantKVideoCard.tsx` に `layout="wide"`、`tier1/Tier1CardActions.tsx` に `orientation`、`_components/VariantKCardActions.tsx` に `compact` を追加（表示項目・ボタンはライブラリと共通）。
+- 検証: `npm run lint`/`npm run typecheck` 全通過、Playwright で Tier1 3タブ・テーブル列分割・設定列数連動（3列反映）をスモーク（コンソールエラーなし）。`docs/nextjs-ui-renovation-feedback.md` は不変。
+
+---
+
+## 2026-06-30 — fix(ui-lab): Variant K Tier1 全画面フィードバックを追加反映
+
+- `/lab/variant-k/tier1` の UI LAB モックで、KPI を `Tier1` 見出し直下の大型サマリーパネルへ移動し、ライブラリ／ランダム／運命の1本で同じ位置・見え方に揃えた。
+- ライブラリの操作ツールバーを整理し、フィルタ・並び替え・カード/テーブル切替・ページ内件数切替を上部に集約。対象件数は `17件中 1–17件を表示` 形式のステータスとして分離し、下側ページャからページ内件数切替を削除した。
+- ランダムに `未判定のみ` トグルを追加し、運命の1本には `未判定のみ` / `最近見てない優先` を横並びで配置。どちらも UI LAB 合成データ内のメモリ状態のみで動作し、既定はオン。
+- 運命の1本ワイドカードを、バッジ段 → タイトル → メタ情報 → ボタン群の順に整理し、レベルボタンと操作ボタンの幅・アイコンをライブラリカードに寄せた。テーブル表示の AVP候補アイコンもカード表示と同じ `MonitorPlay` に統一。
+- 本体 API / DB / migration / 設定 / 実データ / localStorage / sessionStorage / Runtime control / watch_later / AVP / ranking / settings / analysis の仕様変更はなし。`VARIANT_K_SCREENSHOT_REPORT.md` に追補スクリーンショットを追加。
+- 追補: KPIパネルを1枚カードと短い縦仕切りへ圧縮し、Tier1テーブルのレベル列/操作列幅と運命の1本ワイドカードの再生ボタン位置・操作ボタン等幅を調整。
+
+---
+
 ## 2026-06-29 — feat(ui-lab): 統合 Variant K フィードバック反映（監査§1/§2/§7）を実装
 
 - `STAGE7_FEEDBACK_AUDIT.md` の §1（注力未反映）・§2（細部）・§7（Tier1/カード共通部品）を一括実装。すべて `/lab/variant-k/*` の UI LAB モックで、本体 API/DB/設定/localStorage/sessionStorage 仕様・総合スコアの係数/タイブレークは変更なし（状態はページ内メモリ相当）。

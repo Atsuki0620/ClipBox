@@ -1,6 +1,10 @@
 // 統合 Variant K Tier2 KPI バー（軽量・見た目確認用）。
-// 【役割】未選別 / 選別済み / 選別率 / 本日の選別数を1段で表示する。
-// 【設計制約】Recharts 等は使わない。API/DB に触れない。合成データとページ内状態だけを見る。
+// 【役割】未選別 / 選別済み / 選別率 / 本日の選別数 を「KPI名→数値→（バー/折れ線）」の横一列で表示。
+//   Tier1KpiBar と同じ見た目（カード枠サイズ据え置きでラベル文字・数値を大きく）。値はページ内状態から算出。
+// 【設計制約】
+//   - Recharts 等は使わず、合成データ＋ページ内状態だけで軽く表示する。
+//   - 各 KPI は名前の右に数値、バー/折れ線を含む KPI は数値の右にバー/折れ線を置く（横一列）。
+//   - API/DB に触れない。
 // 【依存関係】lib/utils（cn）, _data/variantKMock（VariantKVideo 型）, ./shared。
 
 "use client";
@@ -21,18 +25,26 @@ function Cell({
   label,
   value,
   accent,
+  withDivider = false,
   children,
 }: {
   label: string;
   value: string | number;
   accent?: boolean;
+  withDivider?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1 px-3">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className={cn("text-xl font-semibold leading-none tabular-nums", accent && "text-primary")}>
+    <div
+      className={cn(
+        "relative flex min-h-[3.75rem] items-center justify-between gap-3 px-3 py-2.5",
+        withDivider &&
+          "lg:before:absolute lg:before:bottom-3 lg:before:left-0 lg:before:top-3 lg:before:w-px lg:before:bg-border lg:before:content-['']",
+      )}
+    >
+      <span className="min-w-0 text-[13px] font-medium text-muted-foreground">{label}</span>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className={cn("text-3xl font-semibold leading-none tabular-nums", accent && "text-primary")}>
           {value}
         </span>
         {children}
@@ -42,8 +54,8 @@ function Cell({
 }
 
 function Sparkline({ data }: { data: number[] }) {
-  const w = 72;
-  const h = 22;
+  const w = 96;
+  const h = 28;
   const max = Math.max(...data);
   const min = Math.min(...data);
   const span = max - min || 1;
@@ -57,7 +69,7 @@ function Sparkline({ data }: { data: number[] }) {
         points={points}
         fill="none"
         stroke="var(--primary)"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -76,18 +88,18 @@ export function Tier2KpiBar({ videos, className }: { videos: VariantKVideo[]; cl
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-y-2 divide-border rounded-lg border bg-card py-2 sm:divide-x md:grid-cols-4",
+        "grid w-full overflow-hidden rounded-lg border bg-card p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-4",
         className,
       )}
     >
       <Cell label="未選別" value={unselected} accent />
-      <Cell label="選別済み" value={completed} />
-      <Cell label="選別率" value={`${rate.toFixed(1)}%`}>
-        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted" aria-hidden>
+      <Cell label="選別済み" value={completed.toLocaleString()} withDivider />
+      <Cell label="選別率" value={`${rate.toFixed(1)}%`} withDivider>
+        <div className="h-2.5 w-20 overflow-hidden rounded-full bg-muted" aria-hidden>
           <div className="h-full rounded-full bg-primary" style={{ width: `${rate}%` }} />
         </div>
       </Cell>
-      <Cell label="本日の選別数" value={todaySelected}>
+      <Cell label="本日の選別数" value={todaySelected} withDivider>
         <Sparkline data={TIER2_TODAY_TREND} />
       </Cell>
     </div>

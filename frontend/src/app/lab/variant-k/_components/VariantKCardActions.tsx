@@ -14,9 +14,47 @@ import type { ReactNode } from "react";
 import { Play, Heart, Bookmark, BookmarkX, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const cell =
-  "inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border px-1 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
+// 通常＝各ボタンが等幅で1段を埋める（flex-1）。compact＝自然幅で詰める（ワイドカードの横一列用）。
+const cellFill =
+  "inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border px-1.5 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
+const cellCompact =
+  "inline-flex h-8 w-12 items-center justify-center gap-1 rounded-md border px-2 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40";
 const neutral = "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground";
+
+export function VariantKCardPlayButton({
+  unavailable = false,
+  playing = false,
+  onPlay,
+  compact = false,
+  className,
+}: {
+  unavailable?: boolean;
+  playing?: boolean;
+  onPlay: () => void;
+  compact?: boolean;
+  className?: string;
+}) {
+  const cell = compact ? cellCompact : cellFill;
+  return (
+    <button
+      type="button"
+      onClick={onPlay}
+      disabled={unavailable}
+      aria-pressed={playing}
+      aria-label="再生"
+      title={unavailable ? "利用不可の動画は再生できません" : playing ? "再生中（モック）" : undefined}
+      className={cn(
+        cell,
+        playing
+          ? "border-amber-300 bg-amber-50 text-amber-700"
+          : "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
+        className,
+      )}
+    >
+      <Play className="size-3.5" />
+    </button>
+  );
+}
 
 export function VariantKCardActions({
   unavailable = false,
@@ -25,11 +63,15 @@ export function VariantKCardActions({
   liked,
   likeCount,
   onToggleLike,
+  // "toggle"=いいね On/Off（既定）, "increment"=押すたびに +1（Tier1）
+  likeMode = "toggle",
   watchLater,
   onToggleWatchLater,
   watchLaterVariant = "toggle",
   avpCandidate,
   onToggleAvpCandidate,
+  // compact=自然幅・左詰め（横一列のワイドカード用）。既定は等幅で1段を埋める。
+  compact = false,
   extra,
   className,
 }: {
@@ -39,17 +81,20 @@ export function VariantKCardActions({
   liked?: boolean;
   likeCount?: number;
   onToggleLike?: () => void;
+  likeMode?: "toggle" | "increment";
   watchLater?: boolean;
   onToggleWatchLater?: () => void;
   // "toggle"=追加/解除（Tier1/Tier2）, "remove"=解除専用（あとで見る画面）
   watchLaterVariant?: "toggle" | "remove";
   avpCandidate?: boolean;
   onToggleAvpCandidate?: () => void;
+  compact?: boolean;
   extra?: ReactNode;
   className?: string;
 }) {
+  const cell = compact ? cellCompact : cellFill;
   return (
-    <div className={cn("flex w-full items-stretch gap-1", className)}>
+    <div className={cn("flex items-center gap-1", compact ? "w-auto" : "w-full items-stretch", className)}>
       {onPlay ? (
         <button
           type="button"
@@ -70,16 +115,29 @@ export function VariantKCardActions({
       ) : null}
 
       {onToggleLike ? (
-        <button
-          type="button"
-          onClick={onToggleLike}
-          aria-pressed={liked}
-          title={liked ? "いいねを解除" : "いいねに追加"}
-          className={cn(cell, liked ? "border-rose-300 bg-rose-50 text-rose-600" : neutral)}
-        >
-          <Heart className={cn("size-3.5", liked && "fill-current")} />
-          <span className="tabular-nums">{likeCount}</span>
-        </button>
+        likeMode === "increment" ? (
+          <button
+            type="button"
+            onClick={onToggleLike}
+            aria-label="いいねを追加"
+            title="いいねを追加（+1）"
+            className={cn(cell, (likeCount ?? 0) > 0 ? "border-rose-300 bg-rose-50 text-rose-600" : neutral)}
+          >
+            <Heart className={cn("size-3.5", (likeCount ?? 0) > 0 && "fill-current")} />
+            <span className="tabular-nums">{likeCount}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggleLike}
+            aria-pressed={liked}
+            title={liked ? "いいねを解除" : "いいねに追加"}
+            className={cn(cell, liked ? "border-rose-300 bg-rose-50 text-rose-600" : neutral)}
+          >
+            <Heart className={cn("size-3.5", liked && "fill-current")} />
+            <span className="tabular-nums">{likeCount}</span>
+          </button>
+        )
       ) : null}
 
       {onToggleWatchLater ? (
