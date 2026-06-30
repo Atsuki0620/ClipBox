@@ -48,7 +48,7 @@ export function VariantKLevelButtons<T extends string | number>({
             title={opt.title ?? opt.label}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "h-6 rounded text-[10.5px] font-medium tabular-nums transition-colors disabled:opacity-40",
+              "h-7 min-w-7 rounded text-[11px] font-medium tabular-nums transition-colors disabled:opacity-40",
               active
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",

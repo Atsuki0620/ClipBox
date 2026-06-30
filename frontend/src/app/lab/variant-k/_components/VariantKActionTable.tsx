@@ -4,6 +4,7 @@
 //   resizable=true のとき各列幅をマウスドラッグで調整できる（既定 false・他画面は無影響）。
 // 【設計制約】
 //   - テーブルはバッジを避け、利用不可は行を薄く表示する（dimRow で判定）。再生中は行ハイライト。
+//   - 状態識別はカードと揃える：未判定は先頭セル左端にテーマカラーのアクセントバー（accentRow で判定）。
 //   - 表示のみ。API/DB に触れない。列幅はメモリのみ（永続しない）。
 // 【依存関係】react, lib/utils（cn）, theme（PLAYING_HIGHLIGHT_CLASS）。
 
@@ -30,6 +31,7 @@ export function VariantKActionTable<T>({
   rows,
   rowKey,
   dimRow,
+  accentRow,
   playingRow,
   emptyState,
   resizable = false,
@@ -39,6 +41,7 @@ export function VariantKActionTable<T>({
   rows: T[];
   rowKey: (row: T) => string | number;
   dimRow?: (row: T) => boolean;
+  accentRow?: (row: T) => boolean;
   playingRow?: (row: T) => boolean;
   emptyState?: ReactNode;
   resizable?: boolean;
@@ -118,30 +121,37 @@ export function VariantKActionTable<T>({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              className={cn(
-                "border-b last:border-0 transition-colors hover:bg-muted/20",
-                dimRow?.(row) && "opacity-50",
-                playingRow?.(row) && PLAYING_HIGHLIGHT_CLASS,
-              )}
-            >
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className={cn(
-                    "px-3 py-2 tabular-nums",
-                    resizable && "overflow-hidden",
-                    alignClass(col.align),
-                    col.className,
-                  )}
-                >
-                  {col.render(row)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const accent = accentRow?.(row);
+            return (
+              <tr
+                key={rowKey(row)}
+                className={cn(
+                  "border-b last:border-0 transition-colors hover:bg-muted/20",
+                  dimRow?.(row) && "opacity-50",
+                  playingRow?.(row) && PLAYING_HIGHLIGHT_CLASS,
+                )}
+              >
+                {columns.map((col, i) => (
+                  <td
+                    key={col.key}
+                    className={cn(
+                      "px-3 py-2 tabular-nums",
+                      resizable && "overflow-hidden",
+                      // 未判定の識別：先頭セル左端にテーマカラーのアクセントバー（カードと整合）。
+                      accent &&
+                        i === 0 &&
+                        "relative before:absolute before:bottom-1 before:left-0 before:top-1 before:w-1 before:rounded-full before:bg-primary before:content-['']",
+                      alignClass(col.align),
+                      col.className,
+                    )}
+                  >
+                    {col.render(row)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

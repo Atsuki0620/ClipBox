@@ -10,7 +10,7 @@
 
 "use client";
 
-import { Play, Heart, Bookmark, Plus, Check } from "lucide-react";
+import { Play, Heart, Bookmark, Plus, Check, MonitorPlay } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VariantKRowState } from "./useVariantKRowStates";
 
@@ -29,10 +29,12 @@ export function VariantKPlayButton({
   unavailable,
   playing,
   onPlay,
+  className,
 }: {
   unavailable: boolean;
   playing: boolean;
   onPlay: () => void;
+  className?: string;
 }) {
   return (
     <button
@@ -41,24 +43,34 @@ export function VariantKPlayButton({
       disabled={unavailable}
       aria-pressed={playing}
       title={unavailable ? "利用不可は再生できません" : playing ? "再生中（モック）" : "再生（再生中ハイライト）"}
-      className={cn(iconBtn, playing ? "border-amber-300 bg-amber-50 text-amber-700" : neutral)}
+      className={cn(iconBtn, playing ? "border-amber-300 bg-amber-50 text-amber-700" : neutral, className)}
     >
       <Play className="size-3.5" />
     </button>
   );
 }
 
-// いいね（列分割用・数値併記）。
-export function VariantKLikeButton({ state }: { state: Pick<RowActionsState, "liked" | "likeCount" | "toggleLike"> }) {
+// いいね（列分割用・数値併記）。mode="increment" は押すたびに +1（Tier1）。
+export function VariantKLikeButton({
+  state,
+  mode = "toggle",
+  className,
+}: {
+  state: Pick<RowActionsState, "liked" | "likeCount" | "toggleLike">;
+  mode?: "toggle" | "increment";
+  className?: string;
+}) {
+  const filled = mode === "increment" ? state.likeCount > 0 : state.liked;
   return (
     <button
       type="button"
       onClick={state.toggleLike}
-      aria-pressed={state.liked}
-      title={state.liked ? "いいねを解除" : "いいねに追加"}
-      className={cn(iconBtn, state.liked ? "border-rose-300 bg-rose-50 text-rose-600" : neutral)}
+      aria-pressed={mode === "increment" ? undefined : state.liked}
+      aria-label={mode === "increment" ? "いいねを追加" : undefined}
+      title={mode === "increment" ? "いいねを追加（+1）" : state.liked ? "いいねを解除" : "いいねに追加"}
+      className={cn(iconBtn, filled ? "border-rose-300 bg-rose-50 text-rose-600" : neutral, className)}
     >
-      <Heart className={cn("size-3.5", state.liked && "fill-current")} />
+      <Heart className={cn("size-3.5", filled && "fill-current")} />
       <span className="tabular-nums">{state.likeCount}</span>
     </button>
   );
@@ -67,8 +79,10 @@ export function VariantKLikeButton({ state }: { state: Pick<RowActionsState, "li
 // あとで見る（列分割用）。
 export function VariantKWatchLaterButton({
   state,
+  className,
 }: {
   state: Pick<RowActionsState, "watchLater" | "toggleWatchLater">;
+  className?: string;
 }) {
   return (
     <button
@@ -76,7 +90,7 @@ export function VariantKWatchLaterButton({
       onClick={state.toggleWatchLater}
       aria-pressed={state.watchLater}
       title={state.watchLater ? "あとで見るから外す" : "あとで見るに追加"}
-      className={cn(iconBtn, state.watchLater ? "border-primary/40 bg-primary/10 text-primary" : neutral)}
+      className={cn(iconBtn, state.watchLater ? "border-primary/40 bg-primary/10 text-primary" : neutral, className)}
     >
       <Bookmark className={cn("size-3.5", state.watchLater && "fill-current")} />
     </button>
@@ -87,9 +101,13 @@ export function VariantKWatchLaterButton({
 export function VariantKAvpButton({
   state,
   unavailable,
+  iconVariant = "plus",
+  className,
 }: {
   state: Pick<RowActionsState, "avpCandidate" | "toggleAvpCandidate">;
   unavailable: boolean;
+  iconVariant?: "plus" | "monitor";
+  className?: string;
 }) {
   return (
     <button
@@ -104,9 +122,15 @@ export function VariantKAvpButton({
             ? "AVP候補から外す（あとで見るとは別）"
             : "AVP候補に追加（あとで見るとは別）"
       }
-      className={cn(iconBtn, state.avpCandidate ? "border-indigo-300 bg-indigo-50 text-indigo-700" : neutral)}
+      className={cn(iconBtn, state.avpCandidate ? "border-indigo-300 bg-indigo-50 text-indigo-700" : neutral, className)}
     >
-      {state.avpCandidate ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+      {iconVariant === "monitor" ? (
+        <MonitorPlay className="size-3.5" />
+      ) : state.avpCandidate ? (
+        <Check className="size-3.5" />
+      ) : (
+        <Plus className="size-3.5" />
+      )}
     </button>
   );
 }

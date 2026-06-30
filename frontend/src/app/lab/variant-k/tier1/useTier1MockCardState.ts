@@ -91,11 +91,13 @@ export function useTier1MockCardStates(videos: VariantKVideo[]): Tier1MockCardSt
                 { ...current, level, judgedAt: todayIsoDate(), watchLater: false },
           );
         },
+        // インクリメント式：押すたびに +1（解除はしない）。liked は一度押したら true 固定（ハート塗り用）。
+        // フィールド名 toggleLike は共有ボタンの Pick 互換のため維持（挙動はインクリメント）。
         toggleLike: () => {
           updateVideoState(video, (current) => ({
             ...current,
-            liked: !current.liked,
-            likeCount: Math.max(0, current.likeCount + (current.liked ? -1 : 1)),
+            liked: true,
+            likeCount: current.likeCount + 1,
           }));
         },
         toggleWatchLater: () => {

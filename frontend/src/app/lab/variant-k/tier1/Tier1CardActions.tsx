@@ -11,7 +11,10 @@
 
 import { cn } from "@/lib/utils";
 import { levelName } from "@/lib/levels";
-import { VariantKCardActions } from "../_components/VariantKCardActions";
+import {
+  VariantKCardActions,
+  VariantKCardPlayButton,
+} from "../_components/VariantKCardActions";
 import {
   VariantKLevelButtons,
   type VariantKLevelOption,
@@ -29,11 +32,13 @@ export const TIER1_LEVEL_OPTIONS: VariantKLevelOption<number>[] = TIER1_LEVEL_VA
 export function Tier1CardActions({
   state,
   unavailable,
+  playing = false,
   onPlay,
   orientation = "vertical",
 }: {
   state: Tier1MockCardState;
   unavailable: boolean;
+  playing?: boolean;
   onPlay?: () => void;
   orientation?: "vertical" | "horizontal";
 }) {
@@ -42,9 +47,18 @@ export function Tier1CardActions({
     <div
       className={cn(
         "flex w-full gap-1.5",
-        horizontal ? "flex-row flex-wrap items-center" : "flex-col",
+        horizontal ? "flex-wrap items-center" : "flex-col",
       )}
     >
+      {horizontal && onPlay ? (
+        <VariantKCardPlayButton
+          compact
+          unavailable={unavailable}
+          playing={playing}
+          onPlay={onPlay}
+        />
+      ) : null}
+
       {/* レベル（未/0..4・現在値を強調・「判定」ラベルなし） */}
       <VariantKLevelButtons
         ariaLabel="判定レベル"
@@ -52,21 +66,24 @@ export function Tier1CardActions({
         onChange={state.setLevel}
         options={TIER1_LEVEL_OPTIONS}
         disabled={unavailable}
-        className={horizontal ? "w-auto shrink-0" : "w-full"}
+        className={horizontal ? "w-full sm:w-[17rem] sm:shrink-0" : "w-full"}
       />
 
       {/* 操作（再生／いいね／あとで見る／AVP候補）を横1段に */}
       <VariantKCardActions
         compact={horizontal}
         unavailable={unavailable}
-        onPlay={onPlay}
+        playing={playing}
+        onPlay={horizontal ? undefined : onPlay}
         liked={state.liked}
         likeCount={state.likeCount}
         onToggleLike={state.toggleLike}
+        likeMode="increment"
         watchLater={state.watchLater}
         onToggleWatchLater={state.toggleWatchLater}
         avpCandidate={state.avpCandidate}
         onToggleAvpCandidate={state.toggleAvpCandidate}
+        className={horizontal ? "w-full sm:w-auto sm:shrink-0" : undefined}
       />
     </div>
   );

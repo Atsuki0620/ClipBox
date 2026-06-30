@@ -1,16 +1,20 @@
-// 統合 Variant K Tier2 共有: 型・文言・フィルタ/ソート・抽選ピック（純関数）。
-// 【役割】Tier2 の3タブが共有する型、案1/案2の文言、合成データ向けの副作用なし処理を持つ。
-// 【設計制約】API/DB/localStorage/sessionStorage に触れない。Tier1 hook との共通化はしない。
-// 【依存関係】_data/variantKMock（VariantKVideo 型）のみ。
+// 統合 Variant K Tier2 共有: 型・フィルタ/ソート/ページャ・抽選ピック（純関数）。
+// 【役割】Tier2 の3タブ（ライブラリ/ランダム/運命の1本）が共有する型と副作用なしの純関数。
+//   Tier1（tier1/shared.ts）と同じ作りで、語彙だけ Tier2（選別/未選別/選別日）にしたもの。
+//   フィルタ（選別レベル/保存先/状態/再生可）・並び替え（5項目×昇降）・ページャ・抽選を合成データに対して行う。永続化しない（メモリ相当）。
+// 【設計制約】API/DB/localStorage/sessionStorage に触れない。純関数・定数のみ。
+//   抽選はモック（実ランダム仕様は作らない）。並び替え項目は 選別レベル/作成日/視聴日数/タイトル/選別日 の5つ。
+//   選別値は 未選別(unselected)/0..4 の6値（none=Tier2対象外はライブラリに出さない）。
+// 【依存関係】_data/variantKMock（VariantKVideo / Tier2Status 型）のみ。
 
-import type { VariantKVideo } from "../_data/variantKMock";
+import type { Tier2Status, VariantKVideo } from "../_data/variantKMock";
 
+// 選別値（未選別=unselected, Lv0..Lv4）。選別ボタン・選別レベルフィルタ chip で共有。
 export type Tier2SelectionValue = "unselected" | 0 | 1 | 2 | 3 | 4;
-export type Tier2StatusFilter = "all" | "unselected" | "completed";
-export type Tier2Sort = "view_days" | "creation_date" | "selected_at";
-export type Tier2CopyVariant = "reuse" | "selection";
-
 export const TIER2_LEVELS: readonly Tier2SelectionValue[] = ["unselected", 0, 1, 2, 3, 4];
+
+export type Tier2StatusFilter = "all" | "unselected" | "completed";
+export type Tier2ViewMode = "card" | "table";
 
 export const TIER2_STATUS_OPTIONS: { value: Tier2StatusFilter; label: string }[] = [
   { value: "all", label: "すべて" },
@@ -18,134 +22,144 @@ export const TIER2_STATUS_OPTIONS: { value: Tier2StatusFilter; label: string }[]
   { value: "completed", label: "選別済み" },
 ];
 
-export const TIER2_SORT_OPTIONS: { value: Tier2Sort; label: string }[] = [
-  { value: "view_days", label: "視聴日数順" },
-  { value: "creation_date", label: "作成日順" },
-  { value: "selected_at", label: "選別日順" },
-];
-
 export interface Tier2Filters {
+  levels: Tier2SelectionValue[]; // 未選別/0..4（空＝指定なし）
+  storages: string[]; // "C_DRIVE" | "EXTERNAL_HDD"（空＝指定なし）
   status: Tier2StatusFilter;
   availableOnly: boolean;
-  sort: Tier2Sort;
 }
 
 export const DEFAULT_TIER2_FILTERS: Tier2Filters = {
+  levels: [],
+  storages: [],
   status: "all",
   availableOnly: false,
-  sort: "view_days",
 };
 
-export const TIER2_COPY: Record<
-  Tier2CopyVariant,
-  {
-    pageDescription: string;
-    libraryDescription: string;
-    randomDescription: string;
-    fateDescription: string;
-    fixedConditionLabel: string;
-    emptyTitle: string;
-    emptyDescription: string;
-    noCandidateTitle: string;
-    noCandidateDescription: string;
-    fateIdleText: string;
-    holdDescription: string;
-  }
-> = {
-  reuse: {
-    pageDescription:
-      "Tier1 と近い操作感で、セレクション対象をカードから選別します。操作とカード構造は共通です。",
-    libraryDescription: "Tier2対象を一覧で確認し、未選別/Lv0..Lv4・いいね・あとで見る・AVP候補を操作します。",
-    randomDescription: "Tier2対象から1本を代表表示します。",
-    fateDescription: "ボタンを押すと運命の1本を1本だけ引きます。",
-    fixedConditionLabel: "対象: Tier2対象・再生可能・未選別優先（固定）",
-    emptyTitle: "条件に一致する動画がありません",
-    emptyDescription: "フィルタを見直してください。フィルタ条件は保存されません。",
-    noCandidateTitle: "対象の動画がありません",
-    noCandidateDescription: "Tier2対象かつ再生可能な動画がない状態です。",
-    fateIdleText: "まだ引いていません。「運命の1本を引く」を押してください。",
-    holdDescription:
-      "引いた1本はこのタブのセッション中だけ保持されます（タブを閉じると消えます）。履歴は残しません。",
-  },
-  selection: {
-    pageDescription:
-      "一次評価済みのセレクションを、二次選別として見直すための画面です。文言だけを Tier2 寄りにしています。",
-    libraryDescription:
-      "セレクション対象だけを並べ、未選別のまま残すか Lv0..Lv4 で選別済みにするかを決めます。",
-    randomDescription: "未選別を優先しながら、セレクション対象から確認用の1本を表示します。",
-    fateDescription: "二次選別で迷ったときに、今見る1本だけを引きます。",
-    fixedConditionLabel: "固定条件: セレクション対象・再生可能・未選別を優先",
-    emptyTitle: "二次選別の対象がありません",
-    emptyDescription: "状態フィルタか再生可否の条件を見直してください。この条件は保存されません。",
-    noCandidateTitle: "引けるセレクション対象がありません",
-    noCandidateDescription: "再生可能な Tier2対象がない状態です。未選別がなければ選別済みから代表表示します。",
-    fateIdleText: "まだ引いていません。二次選別する1本を引いてください。",
-    holdDescription:
-      "引いた1本はこのタブを開いている間だけ保持する想定です。実 sessionStorage には触れていません。",
-  },
-};
-
-export type Tier2Copy = (typeof TIER2_COPY)[Tier2CopyVariant];
-
-export function isTier2Target(video: VariantKVideo): boolean {
-  return video.tier2_status !== "none";
+// 有効なフィルタ数（漏斗バッジ用）。状態は all 以外、再生可は ON のとき各1。
+export function activeTier2FilterCount(f: Tier2Filters): number {
+  return (
+    (f.levels.length > 0 ? 1 : 0) +
+    (f.storages.length > 0 ? 1 : 0) +
+    (f.status !== "all" ? 1 : 0) +
+    (f.availableOnly ? 1 : 0)
+  );
 }
 
-export function isTier2Unselected(video: VariantKVideo): boolean {
-  return video.tier2_status === "unselected";
+// Tier2対象 = tier2_status が "none" 以外。未選別 = "unselected"。選別済み = 数値(0..4)。
+export function isTier2Target(v: VariantKVideo): boolean {
+  return v.tier2_status !== "none";
+}
+export function isTier2Unselected(v: VariantKVideo): boolean {
+  return v.tier2_status === "unselected";
+}
+export function isTier2Completed(v: VariantKVideo): boolean {
+  return typeof v.tier2_status === "number";
 }
 
-export function isTier2Completed(video: VariantKVideo): boolean {
-  return typeof video.tier2_status === "number";
-}
-
-export function applyTier2Filters(videos: VariantKVideo[], filters: Tier2Filters): VariantKVideo[] {
-  return videos.filter((video) => {
-    if (!isTier2Target(video)) return false;
-    if (filters.status === "unselected" && !isTier2Unselected(video)) return false;
-    if (filters.status === "completed" && !isTier2Completed(video)) return false;
-    if (filters.availableOnly && !video.available) return false;
+export function applyTier2Filters(videos: VariantKVideo[], f: Tier2Filters): VariantKVideo[] {
+  return videos.filter((v) => {
+    if (!isTier2Target(v)) return false; // 対象外はライブラリに出さない
+    if (f.status === "unselected" && !isTier2Unselected(v)) return false;
+    if (f.status === "completed" && !isTier2Completed(v)) return false;
+    if (f.availableOnly && !v.available) return false;
+    if (f.levels.length > 0 && !f.levels.includes(v.tier2_status as Tier2SelectionValue)) return false;
+    if (f.storages.length > 0 && !f.storages.includes(v.storage)) return false;
     return true;
   });
 }
 
-function sortKey(video: VariantKVideo, sort: Tier2Sort): number | string {
-  switch (sort) {
-    case "view_days":
-      return video.view_days;
+// 並び替え（2段：項目＋方向）。項目は 選別レベル/作成日/視聴日数/タイトル/選別日 の5つ。
+export type Tier2SortKey = "level" | "creation_date" | "view_days" | "title" | "selected_at";
+export type Tier2SortDir = "desc" | "asc";
+export type Tier2Sort = { key: Tier2SortKey; dir: Tier2SortDir };
+
+export const DEFAULT_TIER2_SORT: Tier2Sort = { key: "view_days", dir: "desc" };
+
+export const TIER2_SORT_OPTIONS: { value: Tier2SortKey; label: string }[] = [
+  { value: "level", label: "選別レベル" },
+  { value: "creation_date", label: "作成日" },
+  { value: "view_days", label: "視聴日数" },
+  { value: "title", label: "タイトル" },
+  { value: "selected_at", label: "選別日" },
+];
+
+// 未選別/対象外は -1 として扱う（数値レベルより前に並ぶ）。
+function selectionRank(status: Tier2Status): number {
+  return typeof status === "number" ? status : -1;
+}
+
+function sortValue(v: VariantKVideo, key: Tier2SortKey): number | string {
+  switch (key) {
+    case "level":
+      return selectionRank(v.tier2_status);
     case "creation_date":
-      return video.file_created_at ?? "";
+      return v.file_created_at ?? "";
+    case "view_days":
+      return v.view_days;
+    case "title":
+      return v.title;
     case "selected_at":
-      return video.selected_at ?? "";
+      return v.selected_at ?? "";
   }
 }
 
 export function sortTier2(videos: VariantKVideo[], sort: Tier2Sort): VariantKVideo[] {
   return [...videos].sort((a, b) => {
-    const av = sortKey(a, sort);
-    const bv = sortKey(b, sort);
-    if (av < bv) return 1;
-    if (av > bv) return -1;
-    return a.id - b.id;
+    const av = sortValue(a, sort.key);
+    const bv = sortValue(b, sort.key);
+    let cmp = 0;
+    if (typeof av === "string" || typeof bv === "string") {
+      cmp = String(av).localeCompare(String(bv), "ja");
+    } else {
+      cmp = av - bv;
+    }
+    if (cmp !== 0) return sort.dir === "desc" ? -cmp : cmp;
+    return a.id - b.id; // タイブレークは id 昇順で安定
   });
 }
 
-export function drawableTier2Candidates(videos: VariantKVideo[]): VariantKVideo[] {
-  return [...videos]
-    .filter((video) => isTier2Target(video) && video.available)
-    .sort((a, b) => {
-      if (isTier2Unselected(a) !== isTier2Unselected(b)) return isTier2Unselected(a) ? -1 : 1;
-      if (a.view_days !== b.view_days) return b.view_days - a.view_days;
-      return a.id - b.id;
-    });
+// ページャ（カード/テーブル両モード共用）。
+export const TIER2_PAGE_SIZES = [50, 100, 200] as const;
+
+export function pageCount(total: number, size: number): number {
+  return Math.max(1, Math.ceil(total / size));
 }
 
+export function paginate<T>(items: T[], page: number, size: number): T[] {
+  const start = (page - 1) * size;
+  return items.slice(start, start + size);
+}
+
+// ランダム/運命の抽選候補。既定は未選別かつ再生可能、トグルOFF時は選別済みも含める（いずれも Tier2 対象のみ）。
+export function drawableCandidates(
+  videos: VariantKVideo[],
+  options: { unselectedOnly?: boolean } = {},
+): VariantKVideo[] {
+  const { unselectedOnly = true } = options;
+  return videos.filter((v) => {
+    if (!isTier2Target(v)) return false;
+    if (!v.available) return false;
+    if (unselectedOnly && !isTier2Unselected(v)) return false;
+    return true;
+  });
+}
+
+// N 本を抽選（モックのシャッフル）。候補が N 未満ならある分だけ返す。
+export function drawN(
+  videos: VariantKVideo[],
+  n: number,
+  options: { unselectedOnly?: boolean } = {},
+): VariantKVideo[] {
+  const pool = [...drawableCandidates(videos, options)];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, n);
+}
+
+// 「最近見てない優先」見た目用：last_played_at が古い/無いものを前に並べた候補（モック）。
 export function recentlyUnwatchedFirst(videos: VariantKVideo[]): VariantKVideo[] {
-  return [...videos].sort((a, b) => {
-    const av = a.last_played_at ?? "";
-    const bv = b.last_played_at ?? "";
-    if (av < bv) return -1;
-    if (av > bv) return 1;
-    return a.id - b.id;
-  });
+  return [...videos].sort((a, b) => ((a.last_played_at ?? "") < (b.last_played_at ?? "") ? -1 : 1));
 }

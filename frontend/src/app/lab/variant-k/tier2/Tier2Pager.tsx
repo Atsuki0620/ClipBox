@@ -1,5 +1,5 @@
-// 統合 Variant K Tier1 ページャ（カード/テーブル領域の直上・直下で共用）。
-// 【役割】該当件数ステータスと前後ページ移動を1行で表示する小コンポーネント。
+// 統合 Variant K Tier2 ページャ（カード/テーブル領域の直上・直下で共用）。
+// 【役割】該当件数ステータスと前後ページ移動を1行で表示する小コンポーネント（Tier1Pager と同じ作り）。
 //   1ページ件数切替は上部ツールバー側に一本化し、下側ページャでは重複させない。
 // 【設計制約】表示と委譲のみ。API/DB/localStorage に触れない（ページ状態は親のメモリ）。
 // 【依存関係】lucide-react, lib/utils（cn）。
@@ -9,7 +9,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function Tier1Pager({
+export function Tier2Pager({
   total,
   pageSize,
   currentPage,

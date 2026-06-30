@@ -1,69 +1,100 @@
 // 統合 Variant K Tier2 ランダムタブ。
-// 【役割】条件パネルを作らず「Tier2対象・再生可能・未選別優先」固定で1本を提示するモック。
+// 【役割】N 本（10/20/30）をシャッフルして提示するモック（Tier1Random と同じ作り）。既定は「未選別のみ」。
+//   主ボタン＝シャッフル（引き直し）。引き数セグメントで本数を変える。見出し/説明/候補件数テキストは置かない。
 // 【設計制約】
-//   - 複雑な条件パネルや実ランダム処理は作らない。候補配列の代表を切り替えるだけ。
-//   - 実 API/localStorage に触れない。カード優先・視聴日数主役・サムネなし。
-// 【依存関係】lucide, shadcn(button), _components(EmptyState/SectionHeader), ./shared, ./Tier2Card。
-
+//   - 候補は Tier2対象かつ再生可能。未選別のみトグルで選別済みを含めるか切り替える。
+//   - 抽選はモック（合成データのシャッフル）。実 API/localStorage に触れない。
+//   - カード優先・視聴日数主役・サムネなし。カード操作・列数はライブラリと共有（Tier2Card / DisplayPrefs）。既定5列。
+// 【依存関係】lucide, lib/utils(cn), shadcn(button/switch), _components(EmptyState/DisplayPrefs),
+//   ./shared（drawableCandidates / drawN）, ./Tier2Card。
 "use client";
 
 import { useState } from "react";
-import { Inbox, Shuffle } from "lucide-react";
+import { Shuffle, Inbox } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { VariantKEmptyState } from "../_components/VariantKEmptyState";
-import { VariantKSectionHeader } from "../_components/VariantKSectionHeader";
-import { drawableTier2Candidates, type Tier2Copy } from "./shared";
+import { useVariantKDisplayPrefs } from "../_components/VariantKDisplayPrefs";
+import { drawableCandidates, drawN } from "./shared";
 import { Tier2Card } from "./Tier2Card";
+import type { VariantKVideo } from "../_data/variantKMock";
 import type { Tier2MockCardStateController } from "./useTier2MockCardState";
 
-export function Tier2Random({ state, copy }: { state: Tier2MockCardStateController; copy: Tier2Copy }) {
-  const candidates = drawableTier2Candidates(state.videos);
-  const [index, setIndex] = useState(0);
+const DRAW_COUNTS = [10, 20, 30];
+const DEFAULT_DRAW = 10;
+
+export function Tier2Random({ state }: { state: Tier2MockCardStateController }) {
+  const { cardColumns } = useVariantKDisplayPrefs();
+  const [unselectedOnly, setUnselectedOnly] = useState(true);
+  const candidates = drawableCandidates(state.videos, { unselectedOnly });
+  const [count, setCount] = useState(DEFAULT_DRAW);
   const [playingId, setPlayingId] = useState<number | null>(null);
+  // 抽選結果はメモではなく state に保持（カードの live 状態は getCardState で都度読むため凍結で問題ない）。
+  const [drawn, setDrawn] = useState<VariantKVideo[]>(() =>
+    drawN(state.videos, DEFAULT_DRAW, { unselectedOnly: true }),
+  );
 
-  const draw = () => {
-    if (candidates.length === 0) return;
-    setIndex((i) => (i + 1) % candidates.length);
+  const reshuffle = (n: number, nextUnselectedOnly = unselectedOnly) =>
+    setDrawn(drawN(state.videos, n, { unselectedOnly: nextUnselectedOnly }));
+  const handleCount = (n: number) => {
+    setCount(n);
+    reshuffle(n);
   };
-
-  const current = candidates[index % Math.max(candidates.length, 1)];
+  const handleUnselectedOnly = (next: boolean) => {
+    setUnselectedOnly(next);
+    reshuffle(count, next);
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <VariantKSectionHeader
-        title="ランダム"
-        description={copy.randomDescription}
-        actions={
-          <span className="rounded-full border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground">
-            {copy.fixedConditionLabel}
-          </span>
-        }
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex h-8 items-center gap-2 rounded-md bg-muted/50 px-2.5 text-[12px] text-foreground">
+          <span>未選別のみ</span>
+          <Switch checked={unselectedOnly} onCheckedChange={(v) => handleUnselectedOnly(Boolean(v))} />
+        </label>
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" className="h-8 px-3" onClick={draw} disabled={candidates.length === 0}>
+        {/* 引く本数（10/20/30） */}
+        <div className="inline-flex rounded-md border bg-muted/50 p-0.5">
+          {DRAW_COUNTS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => handleCount(n)}
+              className={cn(
+                "rounded-[5px] px-2 py-0.5 text-[11px] font-medium tabular-nums transition-colors",
+                count === n ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+
+        {/* シャッフル（主操作＝引き直し） */}
+        <Button size="sm" className="h-8 px-3" onClick={() => reshuffle(count)} disabled={candidates.length === 0}>
           <Shuffle className="size-3.5" />
-          引き直す
+          シャッフル
         </Button>
-        <span className="text-[11px] text-muted-foreground">
-          候補 {candidates.length} 件（モック・未選別を先に表示）
-        </span>
       </div>
 
-      {current ? (
-        <div className="max-w-xs">
-          <Tier2Card
-            video={current}
-            state={state.getCardState(current)}
-            playing={playingId === current.id}
-            onPlay={() => setPlayingId(current.id)}
-          />
+      {drawn.length > 0 ? (
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))` }}>
+          {drawn.map((video) => (
+            <Tier2Card
+              key={video.id}
+              video={video}
+              state={state.getCardState(video)}
+              playing={playingId === video.id}
+              onPlay={() => setPlayingId(video.id)}
+            />
+          ))}
         </div>
       ) : (
         <VariantKEmptyState
           icon={<Inbox className="size-6" />}
-          title={copy.noCandidateTitle}
-          description={copy.noCandidateDescription}
+          title="対象の動画がありません"
+          description={unselectedOnly ? "未選別かつ再生可能な Tier2対象がない状態です。" : "再生可能な Tier2対象がない状態です。"}
         />
       )}
     </div>

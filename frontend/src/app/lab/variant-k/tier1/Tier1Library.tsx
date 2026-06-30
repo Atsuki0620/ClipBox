@@ -9,7 +9,7 @@
 //   - カード列数は設定 表示タブと共有（VariantKDisplayPrefs・メモリ）。既定5列。
 //   - テーブルは列幅をドラッグ調整可・操作は 再生/いいね/あとで見る/AVP候補 を列分割。
 //   - レベルは 未/0..4。「判定済みを薄くする」は薄表示と連動。利用不可は薄表示＋再生/AVP disabled。
-//   - 件数/1ページ件数/ページ移動はカード・テーブル領域の直上と直下の両方に置く。既定100件。
+//   - 1ページ件数は上部ツールバーに一本化。件数ステータス/ページ移動はカード・テーブル領域の上下に置く。
 // 【依存関係】lucide, shadcn(switch/popover), lib(levels/utils), _data(variantKMock),
 //   _components(EmptyState/ActionTable/RowActions個別/LevelButtons/DisplayPrefs), ./shared, ./Tier1Card, ./Tier1CardActions, ./Tier1Pager。
 "use client";
@@ -47,6 +47,7 @@ import {
   activeTier1FilterCount,
   DEFAULT_TIER1_FILTERS,
   DEFAULT_TIER1_SORT,
+  TIER1_PAGE_SIZES,
   TIER1_STATUS_OPTIONS,
   TIER1_SORT_OPTIONS,
   TIER1_LEVEL_VALUES,
@@ -134,12 +135,35 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
+function PageSizeControl({ value, onChange }: { value: number; onChange: (size: number) => void }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+      <span>1ページ</span>
+      <span className="inline-flex rounded-md border bg-muted/50 p-0.5">
+        {TIER1_PAGE_SIZES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={cn(
+              "rounded-[5px] px-2 py-0.5 font-medium tabular-nums transition-colors",
+              value === n ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </span>
+      <span>件</span>
+    </div>
+  );
+}
+
 export function Tier1Library({ state }: { state: Tier1MockCardStateController }) {
   const { cardColumns } = useVariantKDisplayPrefs();
   const [filters, setFilters] = useState<Tier1Filters>(DEFAULT_TIER1_FILTERS);
   const [sort, setSort] = useState<Tier1Sort>(DEFAULT_TIER1_SORT);
   const [viewMode, setViewMode] = useState<Tier1ViewMode>("card");
-  const [dimJudged, setDimJudged] = useState(true);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
   const [playingId, setPlayingId] = useState<number | null>(null);
@@ -209,7 +233,8 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
       key: "level",
       header: "レベル",
       align: "center",
-      width: 156,
+      className: "px-2",
+      width: 208,
       render: (row) => {
         const cardState = state.getCardState(row);
         return (
@@ -219,7 +244,7 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
             onChange={cardState.setLevel}
             options={TIER1_LEVEL_OPTIONS}
             disabled={!row.available}
-            className="w-[8.5rem]"
+            className="w-[12rem]"
           />
         );
       },
@@ -228,13 +253,15 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
       key: "play",
       header: "再生",
       align: "center",
-      width: 72,
+      className: "px-2",
+      width: 64,
       render: (row) => (
         <div className="flex justify-center">
           <VariantKPlayButton
             unavailable={!row.available}
             playing={playingId === row.id}
             onPlay={() => setPlayingId(row.id)}
+            className="w-12"
           />
         </div>
       ),
@@ -243,10 +270,11 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
       key: "like",
       header: "いいね",
       align: "center",
-      width: 92,
+      className: "px-2",
+      width: 64,
       render: (row) => (
         <div className="flex justify-center">
-          <VariantKLikeButton state={state.getCardState(row)} />
+          <VariantKLikeButton state={state.getCardState(row)} mode="increment" className="w-12" />
         </div>
       ),
     },
@@ -254,10 +282,11 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
       key: "watch_later",
       header: "あとで見る",
       align: "center",
-      width: 104,
+      className: "px-2",
+      width: 64,
       render: (row) => (
         <div className="flex justify-center">
-          <VariantKWatchLaterButton state={state.getCardState(row)} />
+          <VariantKWatchLaterButton state={state.getCardState(row)} className="w-12" />
         </div>
       ),
     },
@@ -265,10 +294,16 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
       key: "avp",
       header: "AVP候補",
       align: "center",
-      width: 92,
+      className: "px-2",
+      width: 64,
       render: (row) => (
         <div className="flex justify-center">
-          <VariantKAvpButton state={state.getCardState(row)} unavailable={!row.available} />
+          <VariantKAvpButton
+            state={state.getCardState(row)}
+            unavailable={!row.available}
+            iconVariant="monitor"
+            className="w-12"
+          />
         </div>
       ),
     },
@@ -278,10 +313,6 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
     <Tier1Pager
       total={total}
       pageSize={pageSize}
-      onPageSize={(size) => {
-        setPageSize(size);
-        resetPage();
-      }}
       currentPage={currentPage}
       pages={pages}
       onPrev={() => setPage((p) => Math.max(1, p - 1))}
@@ -338,13 +369,6 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
               />
             </label>
 
-            <div className="border-t" />
-
-            <label className="flex items-center justify-between gap-2 text-[12px]">
-              <span>判定済みを薄くする</span>
-              <Switch checked={dimJudged} onCheckedChange={(v) => setDimJudged(Boolean(v))} />
-            </label>
-
             {filterCount > 0 && (
               <button
                 type="button"
@@ -399,8 +423,16 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
           </PopoverContent>
         </Popover>
 
-        {/* 表示モード（カード / テーブル） */}
-        <div className="ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
+          <PageSizeControl
+            value={pageSize}
+            onChange={(size) => {
+              setPageSize(size);
+              resetPage();
+            }}
+          />
+
+          {/* 表示モード（カード / テーブル） */}
           <Segmented<Tier1ViewMode>
             value={viewMode}
             onChange={setViewMode}
@@ -434,7 +466,6 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
                   video={video}
                   state={state.getCardState(video)}
                   playing={playingId === video.id}
-                  dimmed={dimJudged && !isUnrated(video) && video.available}
                   onPlay={() => setPlayingId(video.id)}
                 />
               ))}
@@ -445,7 +476,8 @@ export function Tier1Library({ state }: { state: Tier1MockCardStateController })
               rows={visible}
               rowKey={(row) => row.id}
               resizable
-              dimRow={(row) => !row.available || (dimJudged && !isUnrated(row) && row.available)}
+              dimRow={(row) => !row.available}
+              accentRow={(row) => isUnrated(row)}
               playingRow={(row) => playingId === row.id}
             />
           )}

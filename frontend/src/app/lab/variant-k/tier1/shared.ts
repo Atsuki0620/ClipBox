@@ -117,14 +117,26 @@ export function paginate<T>(items: T[], page: number, size: number): T[] {
   return items.slice(start, start + size);
 }
 
-// ランダム/運命の抽選候補 = 未判定かつ再生可能（判定済み・利用不可は含めない）。
-export function drawableCandidates(videos: VariantKVideo[]): VariantKVideo[] {
-  return videos.filter((v) => isUnrated(v) && v.available);
+// ランダム/運命の抽選候補。既定は未判定かつ再生可能、トグルOFF時は判定済みも含める。
+export function drawableCandidates(
+  videos: VariantKVideo[],
+  options: { unratedOnly?: boolean } = {},
+): VariantKVideo[] {
+  const { unratedOnly = true } = options;
+  return videos.filter((v) => {
+    if (!v.available) return false;
+    if (unratedOnly && !isUnrated(v)) return false;
+    return true;
+  });
 }
 
 // N 本を抽選（モックのシャッフル）。候補が N 未満ならある分だけ返す。
-export function drawN(videos: VariantKVideo[], n: number): VariantKVideo[] {
-  const pool = [...drawableCandidates(videos)];
+export function drawN(
+  videos: VariantKVideo[],
+  n: number,
+  options: { unratedOnly?: boolean } = {},
+): VariantKVideo[] {
+  const pool = [...drawableCandidates(videos, options)];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];

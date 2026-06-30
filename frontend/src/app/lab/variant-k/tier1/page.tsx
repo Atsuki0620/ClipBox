@@ -33,10 +33,10 @@ export default function VariantKTier1Page() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
-        {/* 見出し「Tier1」＋右側に KPI パネル（3タブ共通でタブ上に1回だけ描画） */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* 見出し「Tier1」直下に KPI パネル（3タブ共通でタブ上に1回だけ描画） */}
+        <div className="flex flex-col gap-2">
           <h1 className="text-lg font-semibold tracking-tight">Tier1</h1>
-          <Tier1KpiBar className="min-w-0" />
+          <Tier1KpiBar />
         </div>
 
         {/* タブ（左寄せセグメント） */}
